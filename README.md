@@ -8,7 +8,7 @@ The project is a worked example of enterprise AI practice: fail-closed orchestra
 redacted but recoverable by authorized roles, an evaluation suite with a hard CI gate, and Responsible AI
 checks for prompt injection and counterfactual fairness. All data in the repository is synthetic.
 
-> **Status:** Phase 1 (intake MVP) feature-complete. See [Roadmap](#roadmap).
+> **Status:** Phase 1 (intake MVP) complete. Phase 2 (Magentic incident team) next. See [Roadmap](#roadmap).
 >
 > **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Architecture and agent orchestration](docs/architecture.md)
 
@@ -200,8 +200,8 @@ docs/            specification and architecture
 ## Roadmap
 
 1. **Intake MVP:** deterministic workflow for text, photo and voice; PII redaction with audited reveal; review
-   queue and work-order approvals; users and RBAC; agent monitoring; OpenTelemetry; eval set and CI gate *(done;
-   one open finding on classifier consistency, see [spec §10](docs/specification.md#10-evaluation-and-acceptance))*
+   queue and work-order approvals; users and RBAC; agent monitoring; OpenTelemetry; eval set and CI gates
+   *(done: every target met on two consecutive live runs, see [spec §10](docs/specification.md#10-evaluation-and-acceptance))*
 2. **Complex incidents:** a Magentic team (diagnostician over manuals with Azure AI Search, asset historian,
    safety and compliance, procurement, scheduler, communicator) with capped rounds and token budgets; approval workflow
 3. **Product:** tenant and manager web UI, `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md`, demo

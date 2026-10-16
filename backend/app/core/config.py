@@ -39,7 +39,12 @@ class Settings(BaseSettings):
     rate_limit_hmac_secret: str = "development-only-change-me"
     pii_mapping_encryption_key: str | None = None
     applicationinsights_connection_string: str | None = None
+    # Used only when confirmation is disabled (CLASSIFICATION_CONFIRMATIONS=0).
     minimum_classification_confidence: float = Field(default=0.75, ge=0, le=1)
+    # Borderline band: answers in [low, high) are re-classified and must agree to be automated.
+    classification_band_low: float = Field(default=0.70, ge=0, le=1)
+    classification_band_high: float = Field(default=0.80, ge=0, le=1)
+    classification_confirmations: int = Field(default=2, ge=0, le=4)
     approval_priority_threshold: int = Field(default=4, ge=1, le=5)
 
 

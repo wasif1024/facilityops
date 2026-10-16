@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Version** | 0.4 (draft) |
-| **Status** | Phase 1 feature-complete; one exit criterion open (§11) |
+| **Status** | Phase 1 complete (2026-10-17); Phase 2 next |
 | **Last updated** | 2026-10-17 |
 | **Related** | [Architecture](architecture.md) · [README](../README.md) |
 
@@ -70,7 +70,7 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-4 | Redact PII with Azure AI Language; store the reversible mapping encrypted and separately. | ✅ |
 | FR-5 | Check redacted text with Azure AI Content Safety (harm categories) and Prompt Shields (injection). | ✅ |
 | FR-6 | Classify category (`hvac`, `plumbing`, `electrical`, `security`, `structural`, `cleaning`, `other`) and priority 1–5 with a schema-validated model response. | ✅ |
-| FR-7 | Route to human review when the classifier is unsure (confidence < 0.75 or `requires_human_review`). | ✅ |
+| FR-7 | Route to human review when the classifier is unsure: `requires_human_review`, confidence below 0.70, or a borderline answer (0.70–0.80) that two re-classifications don't confirm. | ✅ |
 | FR-8 | Create a work order; mark it `pending_approval` when priority ≥ 4 (configurable). | ✅ |
 | FR-9 | Fail closed: if redaction, safety or classification is unavailable, route to human review. | ✅ |
 | FR-10 | Idempotency: repeating a `request_id` returns the original outcome and never creates a second work order. | ✅ |
@@ -140,6 +140,7 @@ Emergencies never enter the team, before or after the on-call handoff.
 | Output | `Classification` (category, priority, confidence, reason code, requires_human_review), enforced as a response schema |
 | Tools | None |
 | Instructions | [`maintenance_triage_classifier.md`](../backend/app/prompts/maintenance_triage_classifier.md), including a priority rubric |
+| Routing | [`ClassificationPolicy`](../backend/app/domain/classification_policy.py): confirmation by agreement in the 0.70–0.80 confidence band (§10) |
 | Storage | `store: false`: no server-side conversation retained |
 
 The classifier informs a decision; it never makes one. Routing, thresholds and approvals live in `IntakeCoordinator`.
@@ -222,42 +223,56 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 
 Golden set: [`evals/datasets/golden_v1.jsonl`](../evals/datasets/golden_v1.jsonl) (108 synthetic cases).
 
-| Metric | Phase 1 target | Gate | Current |
+| Metric | Phase 1 target | Gate | Current (two runs) |
 |---|---|---|---|
-| Emergency recall | 1.00 | **Hard: every PR** | 1.00 |
+| Emergency recall | 1.00 | **Hard: every PR** | 1.00, 1.00 |
 | Category accuracy | ≥ 0.85 | Live eval | 0.91, 0.91 |
 | Priority within ±1 | ≥ 0.90 | Report | 0.94, 0.94 |
-| Ambiguous → human review | 1.00 | Report | 1.00 |
-| Injection resistance | 1.00 | Report | 1.00 |
-| Counterfactual consistency | 1.00 | Report | **0.75**, 1.00 |
-| Counterfactual route consistency (modal, 5 samples) | 1.00 | Report | 1.00 |
-| Route self-agreement (5 samples) | — (tracked) | Report | 0.66 |
+| Ambiguous → human review | 1.00 | Report | 1.00, 1.00 |
+| Injection resistance | 1.00 | Report | 1.00, 1.00 |
+| **Counterfactual route consistency** (modal over 5 samples) | 1.00 | Live eval (`--min-route-fairness`) | 1.00, 1.00 |
+| Counterfactual label consistency (single sample) | tracked | Report | 0.75, 0.75 (F02, see below) |
+| Route self-agreement (5 samples) | tracked | Report | 0.83, 0.89 |
+| Automation rate · accuracy of automated cases | tracked | Report | 0.90 · 0.96, 0.91 · 0.94 |
+| Classifier calls per request | tracked | Report | 1.70, 1.73 |
 | Groundedness of incident plans | ≥ 0.90 | Phase 2 (Foundry evaluator) | — |
 | Tool-call accuracy | ≥ 0.90 | Phase 2 (Foundry evaluator) | — |
 
-"Current" is the two consecutive live runs on 2026-10-17 with the complete pipeline, PII redaction included
-(gpt-5.2, prompt `2f091038960e`). Other targets: emergency recall, ambiguous → human review and injection
-resistance were 1.00 in both.
+"Current" is two consecutive live runs on 2026-10-17 (`2b0f21ce`, `6c9edb7e`): complete pipeline with PII
+redaction, gpt-5.2, prompt `2f091038960e`, confirmation policy below, every case classified five times.
 
-**Finding: classifier non-determinism, measured.** In the first run, fairness group F02 split between priority
-2 and 3. After redaction two of its variants are *the identical text* (both names become `[PII_0001]`), so this
-was run-to-run variation, not name bias; `temperature: 0` and a fixed `seed` do not make gpt-5.2 deterministic.
-A follow-up run classified every case five times (`--samples 5`, run `54d3a843`):
+**Why fairness is judged on routes and modal answers.** gpt-5.2 is not deterministic, even with
+`temperature: 0` and a fixed `seed`, and redaction makes name variants *identical text* (every name becomes
+`[PII_0001]`). A single-sample comparison therefore mixes bias with chance. The route is what decides how a
+tenant is treated (automatic work order, manager approval or human review); priority within a route only orders
+the queue. The gate asks: does every variant of a request take the same route on its most common answer?
 
-- **No bias.** On each member's modal answer, every fairness group takes the same route (1.00). F02's modal
-  priority still differs (2 vs 3), but both route to an automatic work order.
-- **Labels are mostly stable** (84% of cases give the same category and priority all five times).
-- **Routes are not** (66%). 25 of the 28 route flips are the *confidence* crossing 0.75, not priority: the model
-  reports a few habitual values (0.86, 0.78, 0.74), and the threshold sits between 0.74 and 0.78.
-- **Confidence still carries signal.** Category accuracy is 86% at 0.70–0.74 against 93–95% at 0.75 and above,
-  so the threshold filters weaker answers; it is just noisy at the boundary.
-- **The unstable direction is the safe one:** flips go between "automatic" and "human review", never past an
-  emergency or approval check. The cost is reviewer workload and inconsistent turnaround, not risk.
+**The confirmation policy** ([`classification_policy.py`](../backend/app/domain/classification_policy.py)).
+Measuring five samples per case showed that route flips came almost entirely from *confidence*, not priority: the
+model reports a few habitual values (0.86, 0.78, 0.74), and a single threshold at 0.75 sat between 0.74 and 0.78,
+so identical requests went to a person or not by chance. Now answers at 0.80 or above are automated, below 0.70 go
+to a person, and in between the request is classified twice more and automated only if all three agree on
+category and priority (`classified_by_agreement`; otherwise `classification_unconfirmed`).
 
-A majority vote on priority would not have helped (priority causes 3 of the 28 flips). Options if route stability
-needs improving: re-sample only borderline answers (confidence 0.70–0.80) and use agreement as the confidence,
-or set the threshold from a calibration curve rather than a round number. Until then, `route_self_agreement` is
-tracked on every live run.
+| | Before (single threshold 0.75) | After (confirmation band 0.70–0.80) |
+|---|---|---|
+| Requests automated | 73–75% | 89% |
+| Accuracy of automated requests | 94.5% | 94.0% |
+| Same route on identical input | 63–66% | 83–89% |
+| Route fairness (modal) | 1.00, **0.75** | 1.00, 1.00 |
+| Classifier calls per request | 1.0 | 1.7 |
+
+Agreement turned out to be better evidence than the model's stated confidence: more requests are automated at the
+same accuracy, and fewer land on a reviewer by chance. The cost is about 70% more classifier calls. The band and
+the number of confirmations are settings (`CLASSIFICATION_BAND_LOW`, `CLASSIFICATION_BAND_HIGH`,
+`CLASSIFICATION_CONFIRMATIONS`; 0 restores the single threshold).
+
+**Known limitation: a language effect on priority.** In fairness group F02 (a running toilet) the French variant
+was priority 3 in every sample of every run, while the English variants were mostly 2. The difference is
+systematic, not chance, but it stays within one route (automatic work order), so tenants are treated the same
+way; only queue order differs. It is tracked by the label-consistency metric and will be disclosed in
+`RESPONSIBLE_AI.md`. A fix would need more multilingual cases than the golden set has today, rather than a prompt
+tweak fitted to one example.
 
 Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note).
 
@@ -265,7 +280,7 @@ Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note)
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **1. Intake MVP** | FR-1–15, golden set, CI gate | All Phase 1 FRs ✅ (met); targets in §10 met on two consecutive live runs (open: single-run counterfactual consistency, explained by sampling noise in §10; modal route consistency 1.00) |
+| **1. Intake MVP** ✅ | FR-1–15, golden set, CI gate | All Phase 1 FRs ✅; every target in §10 met on two consecutive live runs (2026-10-17) |
 | **2. Incident team** | FR-20–26, synthetic manuals in AI Search, approvals | Scenario tests (success, disagreement, tool failure, budget exhaustion, injection in retrieved content, human rejection) pass; groundedness ≥ 0.90 |
 | **3. Product** | FR-30–32, red-team report, transparency note, demo | Deployed with `azd up` from a clean subscription |
 

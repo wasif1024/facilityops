@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Protocol, TypeVar
 from uuid import UUID
 
 from opentelemetry import trace
 
+from backend.app.domain.classification_policy import ClassificationPolicy, Route
 from backend.app.domain.emergency import detect_emergency
 from backend.app.domain.intake import (
     Classification,
@@ -100,11 +102,14 @@ class IntakeCoordinator:
         media_transcriber: MediaTranscriber | None = None,
         minimum_confidence: float = 0.75,
         approval_priority_threshold: int = 4,
+        policy: ClassificationPolicy | None = None,
     ) -> None:
         if not 0 <= minimum_confidence <= 1:
             raise ValueError("minimum_confidence must be between 0 and 1")
-        if not 1 <= approval_priority_threshold <= 5:
-            raise ValueError("approval_priority_threshold must be between 1 and 5")
+        self._policy = policy or ClassificationPolicy(
+            approval_threshold=approval_priority_threshold,
+            minimum_confidence=minimum_confidence,
+        )
 
         self._pii_redactor = pii_redactor
         self._safety_inspector = safety_inspector
@@ -113,8 +118,6 @@ class IntakeCoordinator:
         self._decision_writer = decision_writer
         self._emergency_handoff = emergency_handoff
         self._media_transcriber = media_transcriber
-        self._minimum_confidence = minimum_confidence
-        self._approval_priority_threshold = approval_priority_threshold
 
     async def process(self, command: IntakeCommand) -> IntakeResult:
         with _tracer.start_as_current_span("intake.process") as span:
@@ -204,18 +207,21 @@ class IntakeCoordinator:
                 redaction.encrypted_mapping,
             )
 
-        if (
-            classification.requires_human_review
-            or classification.confidence < self._minimum_confidence
-        ):
+        confirmations: list[Classification | None] = []
+        if self._policy.needs_confirmation(classification):
+            confirmations = await _step(
+                "intake.classification_confirmation", self._confirm(redacted_text)
+            )
+        decision = self._policy.decide(classification, confirmations)
+        if decision.route is Route.HUMAN_REVIEW:
             return await self._finish(
                 command,
-                self._human_review(command, "classification_uncertain", classification),
+                self._human_review(command, decision.reason_code, classification),
                 redacted_text,
                 redaction.encrypted_mapping,
             )
 
-        approval_required = classification.priority >= self._approval_priority_threshold
+        approval_required = decision.route is Route.PENDING_APPROVAL
         try:
             work_order_id = await self._work_order_writer.create(
                 request_id=command.request_id,
@@ -243,9 +249,7 @@ class IntakeCoordinator:
                     if approval_required
                     else IntakeStatus.WORK_ORDER_CREATED
                 ),
-                reason_code=(
-                    "approval_required" if approval_required else "classified"
-                ),
+                reason_code=decision.reason_code,
                 category=classification.category,
                 priority=classification.priority,
                 confidence=classification.confidence,
@@ -254,6 +258,17 @@ class IntakeCoordinator:
             redacted_text,
             redaction.encrypted_mapping,
         )
+
+    async def _confirm(self, redacted_text: str) -> list[Classification | None]:
+        """Independent re-classifications for a borderline answer; failures count as None."""
+        results = await asyncio.gather(
+            *(
+                self._classifier.classify(redacted_text)
+                for _ in range(self._policy.confirmations)
+            ),
+            return_exceptions=True,
+        )
+        return [r if isinstance(r, Classification) else None for r in results]
 
     async def _hand_off(self, command: IntakeCommand, reason_code: str) -> IntakeResult:
         await self._emergency_handoff(command.request_id, reason_code)

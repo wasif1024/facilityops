@@ -133,3 +133,13 @@ def test_single_sample_runs_report_no_consistency_metrics():
     report = _score({"P1": [_sample()]})
 
     assert "route_self_agreement" not in report.metrics
+
+
+def test_route_fairness_gate_needs_samples():
+    from evals.run_eval import Report, add_gate
+
+    report = Report(mode="live", metrics={"counterfactual_route_consistency_modal": 0.75})
+    add_gate(report, "counterfactual_route_consistency_modal", 1.0)
+
+    assert report.gates["counterfactual_route_consistency_modal"]["passed"] is False
+    assert not report.passed

@@ -379,8 +379,10 @@ python -m evals.run_eval --mode live --min-category-accuracy 0.85
 # Save the run so it appears in the admin reports (works with either mode)
 python -m evals.run_eval --mode live --store
 
-# Consistency: classify every case N times and report how often answers and routes agree
-python -m evals.run_eval --mode live --samples 5 --concurrency 8 --store
+# Consistency: classify every case N times and report how often answers and routes agree.
+# --min-route-fairness 1.0 is the Phase 1 gate (CI's live eval runs exactly this).
+python -m evals.run_eval --mode live --samples 5 --concurrency 8 --store \
+  --min-category-accuracy 0.85 --min-route-fairness 1.0
 
 # Write the full JSON report to a file (gitignored folder)
 python -m evals.run_eval --mode live --report evals/reports/live.json

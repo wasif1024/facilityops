@@ -54,6 +54,9 @@ class Prediction:
     confidence: float | None = None
     requires_human_review: bool | None = None
     error: str | None = None
+    # The route the production policy chose, and why (including any confirmations).
+    route: str | None = None
+    reason_code: str | None = None
     # Every classification of this case when --samples > 1; the first one fills the
     # fields above so single-sample metrics stay comparable across runs.
     samples: list[dict[str, Any]] = field(default_factory=list)
@@ -117,6 +120,7 @@ async def classify_cases(
     recorder: Any = None,
     samples: int = 1,
 ) -> dict[str, Any]:
+    from backend.app.api.container import classification_policy
     from backend.app.core.config import get_settings
     from backend.app.services.azure_adapters import (
         AzureLanguagePiiRedactor,
@@ -124,22 +128,42 @@ async def classify_cases(
     )
 
     settings = get_settings()
+    policy = classification_policy(settings)
     classifier = FoundryMaintenanceClassifier(settings, recorder=recorder)
     redact = bool(settings.azure_language_endpoint and settings.pii_mapping_encryption_key)
     redactor = AzureLanguagePiiRedactor(settings) if redact else None
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def classify_once(text: str) -> dict[str, Any]:
+    async def classify(text: str):
         async with semaphore:
             try:
-                result = await classifier.classify(text)
+                return await classifier.classify(text)
             except Exception as error:  # noqa: BLE001 - recorded per sample, never fatal
-                return {"error": type(error).__name__}
+                return error
+
+    async def classify_once(text: str) -> dict[str, Any]:
+        """One production decision: a classification, plus confirmations in the band."""
+        first = await classify(text)
+        if isinstance(first, Exception):
+            return {
+                "error": type(first).__name__,
+                "route": "human_review",
+                "reason_code": "classification_unavailable",
+                "calls": 1,
+            }
+        confirmations = []
+        if policy.needs_confirmation(first):
+            results = await asyncio.gather(*(classify(text) for _ in range(policy.confirmations)))
+            confirmations = [None if isinstance(r, Exception) else r for r in results]
+        decision = policy.decide(first, confirmations)
         return {
-            "category": result.category.value,
-            "priority": result.priority,
-            "confidence": result.confidence,
-            "requires_human_review": result.requires_human_review,
+            "category": first.category.value,
+            "priority": first.priority,
+            "confidence": first.confidence,
+            "requires_human_review": first.requires_human_review,
+            "route": decision.route.value,
+            "reason_code": decision.reason_code,
+            "calls": 1 + len(confirmations),
         }
 
     async def run(case: Case) -> None:
@@ -160,6 +184,8 @@ async def classify_cases(
         prediction.priority = first.get("priority")
         prediction.confidence = first.get("confidence")
         prediction.requires_human_review = first.get("requires_human_review")
+        prediction.route = first.get("route")
+        prediction.reason_code = first.get("reason_code")
 
     # Emergencies never reach the classifier in production, so they are not scored here.
     await asyncio.gather(*(run(case) for case in cases if not case.emergency))
@@ -168,12 +194,16 @@ async def classify_cases(
         "pii_redaction": redact,
         "minimum_confidence": settings.minimum_classification_confidence,
         "approval_priority_threshold": settings.approval_priority_threshold,
+        "confirmation_band": f"{policy.band_low}-{policy.band_high}",
+        "confirmations": policy.confirmations,
         "samples": samples,
     }
 
 
 def route_of(sample: dict[str, Any], minimum_confidence: float, approval_threshold: int) -> str:
-    """The route the workflow would take for one classification, as in IntakeCoordinator."""
+    """The route for one sample: the policy's decision when recorded, else a single threshold."""
+    if sample.get("route"):
+        return sample["route"]
     if (
         sample.get("error")
         or sample.get("requires_human_review")
@@ -271,6 +301,8 @@ def score_classification(
     report.metrics["classifier_error_rate"] = _ratio(len(errored), len(scored))
 
     def routed_to_human(prediction: Prediction) -> bool:
+        if prediction.route:
+            return prediction.route == "human_review"
         return bool(
             prediction.error
             or prediction.requires_human_review
@@ -278,6 +310,16 @@ def score_classification(
         )
 
     labelled = [case for case in scored if not case.expected_review]
+
+    # What the policy automates, and how often that automation is right.
+    automated = [case for case in labelled if not routed_to_human(predictions[case.id])]
+    report.metrics["automation_rate"] = _ratio(len(automated), len(labelled))
+    report.metrics["automated_category_accuracy"] = _ratio(
+        sum(predictions[c.id].category == c.expected_category for c in automated), len(automated)
+    )
+    calls = [s.get("calls", 1) for c in scored for s in predictions[c.id].samples]
+    if calls:
+        report.metrics["classifier_calls_per_request"] = round(sum(calls) / len(calls), 3)
     wrong_category = [
         case.id for case in labelled if predictions[case.id].category != case.expected_category
     ]
@@ -447,6 +489,11 @@ async def evaluate(args: argparse.Namespace, recorder: Any = None) -> Report:
             report,
         )
         add_gate(report, "category_accuracy", args.min_category_accuracy)
+        # Only measurable with repeated samples; ignored for single-sample runs.
+        if args.samples > 1:
+            add_gate(
+                report, "counterfactual_route_consistency_modal", args.min_route_fairness
+            )
 
     report.predictions = {case_id: asdict(p) for case_id, p in predictions.items()}
     report.case_results = build_case_results(cases, predictions, report)
@@ -461,6 +508,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-emergency-recall", type=float, default=1.0)
     parser.add_argument("--min-category-accuracy", type=float, default=None)
     parser.add_argument("--concurrency", type=int, default=4)
+    parser.add_argument(
+        "--min-route-fairness",
+        type=float,
+        default=None,
+        help="Gate: fairness groups must share a route on their modal answer (needs --samples).",
+    )
     parser.add_argument(
         "--samples",
         type=int,

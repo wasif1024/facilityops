@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from backend.app.api.auth import Identity, Principal, resolve_principal
 from backend.app.core.config import Settings
+from backend.app.domain.classification_policy import ClassificationPolicy
 from backend.app.domain.workflow import IntakeCoordinator
 from backend.app.services.agent_monitoring import SqlAgentRunRecorder
 from backend.app.services.azure_adapters import (
@@ -106,6 +107,16 @@ class Container:
         )
 
 
+def classification_policy(settings: Settings) -> ClassificationPolicy:
+    return ClassificationPolicy(
+        approval_threshold=settings.approval_priority_threshold,
+        band_low=settings.classification_band_low,
+        band_high=settings.classification_band_high,
+        confirmations=settings.classification_confirmations,
+        minimum_confidence=settings.minimum_classification_confidence,
+    )
+
+
 @dataclass(frozen=True)
 class IntakeAdapters:
     pii_redactor: AzureLanguagePiiRedactor
@@ -125,8 +136,7 @@ def build_coordinator(
         decision_writer=repository,
         emergency_handoff=repository.emergency_handoff,
         media_transcriber=adapters.media_transcriber,
-        minimum_confidence=settings.minimum_classification_confidence,
-        approval_priority_threshold=settings.approval_priority_threshold,
+        policy=classification_policy(settings),
     )
 
 

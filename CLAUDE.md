@@ -5,7 +5,7 @@ enterprise AI practices, PII handling, evaluation and Responsible AI on Microsof
 Intended for the owner's public GitHub profile, so the README, diagrams and demo quality matter.
 
 ## Status
-Phase 1 feature-complete (exit criterion open: counterfactual consistency, see docs/specification.md §10). Done: Connect RPC API (protobuf in proto/, served from the FastAPI/ASGI host), deterministic coordinator, emergency screen,
+Phase 1 complete (2026-10-17; results in docs/specification.md §10). Done: Connect RPC API (protobuf in proto/, served from the FastAPI/ASGI host), deterministic coordinator, emergency screen,
 PII redaction adapter, Foundry classifier, Postgres/Alembic, golden set + eval runner + CI gate,
 user management + DB-backed RBAC (Entra authenticates, DB authorizes), security audit log,
 agent-run monitoring middleware, stored eval runs, admin report API. See docs/ for spec and architecture.

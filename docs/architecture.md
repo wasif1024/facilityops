@@ -218,7 +218,11 @@ sequenceDiagram
         C->>S: analyze text + shield prompt
         C->>A: classify(redacted text)
         A-->>C: Classification (schema-validated)
-        C->>C: apply confidence and approval thresholds
+        opt confidence 0.70-0.80 (borderline)
+            C->>A: classify twice more
+            A-->>C: automate only if all three agree
+        end
+        C->>C: ClassificationPolicy: route + approval threshold
         C->>R: work order or review case + audit
         C-->>T: status, category, priority
     end
@@ -609,4 +613,5 @@ being routed to on-call.
 | Entra ID everywhere, no keys | No secrets to leak or rotate in code | Local dev needs `az login` |
 | Entra authenticates, the database authorizes | Admins manage roles in-app with an audit trail; fine-grained permissions | App owns role data; first admin needs a CLI bootstrap |
 | Connect RPC over protobuf instead of REST | One typed contract generates server stubs and browser clients; gRPC-Web without a proxy; `buf breaking` protects clients | Not browsable like Swagger (use `buf curl`); Python Connect library is still Beta; native gRPC needs an HTTP/2 server |
+| Confirm borderline classifications by agreement | Model confidence clusters on a few values; a single threshold flipped identical requests between automation and review. Agreement automates more (89% vs 74%) at the same accuracy | About 1.7 classifier calls per request instead of 1 |
 | Agent monitoring as framework middleware in PostgreSQL | One hook covers every agent; reports join with eval runs and intake | Not a replacement for distributed tracing |
