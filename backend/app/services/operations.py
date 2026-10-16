@@ -359,6 +359,28 @@ class OperationsService:
         self._audit(work_order.request_id, "work_order_completed", "completed", actor_id)
         return await self._commit_view(work_order)
 
+    async def list_technicians(self) -> list[tuple[UserRecord, int]]:
+        """Active technicians and how many open work orders each has."""
+        open_load = (
+            select(func.count())
+            .select_from(WorkOrderRecord)
+            .where(
+                WorkOrderRecord.assigned_technician_id == UserRecord.id,
+                WorkOrderRecord.status == WorkOrderStatus.OPEN.value,
+            )
+            .scalar_subquery()
+        )
+        rows = await self._session.execute(
+            select(UserRecord, open_load)
+            .join(UserRoleRecord, UserRoleRecord.user_id == UserRecord.id)
+            .where(
+                UserRoleRecord.role_id == SystemRole.TECHNICIAN.value,
+                UserRecord.status == UserStatus.ACTIVE.value,
+            )
+            .order_by(UserRecord.display_name)
+        )
+        return [(user, int(count)) for user, count in rows]
+
     # --- Helpers -------------------------------------------------------------------
 
     async def _transition(self, work_order_id: UUID, action: str) -> WorkOrderRecord:

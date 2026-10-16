@@ -7,8 +7,9 @@ Every command needed to set up, run, test and evaluate FacilityOps AI locally.
 
 Contents: [First-time setup](#1-first-time-setup) · [Daily start](#2-daily-start) ·
 [Database and migrations](#3-database-and-migrations) · [Run the backend](#4-run-the-backend) ·
-[API contracts (protobuf)](#5-api-contracts-protobuf) · [Users and roles](#6-users-and-roles) ·
-[Tests](#7-tests) · [Evaluation](#8-evaluation) · [Troubleshooting](#9-troubleshooting)
+[Run the frontend](#41-run-the-frontend) · [API contracts (protobuf)](#5-api-contracts-protobuf) ·
+[Users and roles](#6-users-and-roles) · [Tests](#7-tests) · [Evaluation](#8-evaluation) ·
+[Troubleshooting](#9-troubleshooting)
 
 ## 1. First-time setup
 
@@ -302,6 +303,36 @@ buf curl --schema proto --protocol grpcweb --data '{"days": 7}' \
 Errors come back as `{"code": "permission_denied", "message": "..."}` with a matching HTTP status
 (`unauthenticated` 401, `permission_denied` 403, `not_found` 404, `invalid_argument` 400, `resource_exhausted` 429).
 
+### 4.1 Run the frontend
+
+The web app lives in [`frontend/`](../frontend) (React, TypeScript, Vite, Tailwind, shadcn/ui) and needs
+**Node 24**. With the backend running on port 8000:
+
+```bash
+cd frontend
+nvm install 24 && nvm use        # once; .nvmrc pins Node 24
+npm install
+cp .env.example .env.local       # defaults work locally
+npm run dev                      # http://localhost:5173
+```
+
+Pick who you are with the identity switcher in the header. Useful local identities (grant once):
+
+```bash
+python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+python -m backend.app.cli grant-role --provider development --external-id fm --role facility_manager --display-name "Fran Manager"
+python -m backend.app.cli grant-role --provider development --external-id tech --role technician --display-name "Taylor Tech"
+# any other name, e.g. "alice", starts as a tenant automatically
+```
+
+| Command (in `frontend/`) | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm run test` | Unit and component tests (in-memory Connect backend) |
+| `npm run lint` · `npm run typecheck` | oxlint · TypeScript |
+| `npm run build` | Production build into `frontend/dist` |
+| `npm run generate` | Regenerate the TypeScript client after a `.proto` change (run `buf generate` at the root for Python) |
+
 ## 5. API contracts (protobuf)
 
 The `.proto` files in `proto/facilityops/v1/` are the API. Python messages and service stubs are generated into
@@ -412,6 +443,9 @@ threshold), which is what fails CI. An admin can also start a run with the
 | `415 Unsupported Media Type` | Missing `content-type: application/json` | Add the header |
 | Native gRPC client (`--protocol grpc`, grpcurl) fails | gRPC needs HTTP/2; uvicorn serves HTTP/1.1 | Use the Connect or gRPC-Web protocol, as browsers do |
 | `buf: command not found` | Virtualenv not active | `source .venv/bin/activate` |
+| Frontend: "Something went wrong on our side" on load | Backend not running on 8000 | Start it, then click Try again |
+| Frontend: `npm install` or `npm run test` fails with an engine error | Node older than 24 | `nvm use` in `frontend/` |
+| Frontend shows "You don't have access" | Your identity lacks the permission | Switch identity, or grant the role with the CLI |
 | `docker compose up`: port is already allocated | Something else uses 8000 or 5433 | `API_PORT=8080 POSTGRES_PORT=5434 docker compose up -d` |
 | `docker-credential-desktop: executable file not found` | Docker Desktop's tools are not on `PATH` in this shell | Open a new terminal after starting Docker Desktop, or add `/Applications/Docker.app/Contents/Resources/bin` to `PATH` |
 | API container keeps restarting | Migration failed, or a bad setting in `.env.docker` | `docker compose logs migrate api` |

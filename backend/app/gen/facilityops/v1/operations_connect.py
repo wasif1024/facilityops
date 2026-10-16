@@ -16,7 +16,7 @@ from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, DE
 from protobuf import DescService
 
 from . import operations_pb
-from .operations_pb import ApproveWorkOrderRequest, ApproveWorkOrderResponse, AssignWorkOrderRequest, AssignWorkOrderResponse, CompleteWorkOrderRequest, CompleteWorkOrderResponse, GetWorkOrderRequest, GetWorkOrderResponse, ListReviewCasesRequest, ListReviewCasesResponse, ListWorkOrdersRequest, ListWorkOrdersResponse, RejectWorkOrderRequest, RejectWorkOrderResponse, ResolveReviewCaseRequest, ResolveReviewCaseResponse
+from .operations_pb import ApproveWorkOrderRequest, ApproveWorkOrderResponse, AssignWorkOrderRequest, AssignWorkOrderResponse, CompleteWorkOrderRequest, CompleteWorkOrderResponse, GetWorkOrderRequest, GetWorkOrderResponse, ListReviewCasesRequest, ListReviewCasesResponse, ListTechniciansRequest, ListTechniciansResponse, ListWorkOrdersRequest, ListWorkOrdersResponse, RejectWorkOrderRequest, RejectWorkOrderResponse, ResolveReviewCaseRequest, ResolveReviewCaseResponse
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Iterable, Mapping
@@ -305,6 +305,13 @@ class WorkOrderService(Protocol):
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
+    async def list_technicians(self, request: ListTechniciansRequest, ctx: RequestContext[ListTechniciansRequest, ListTechniciansResponse], /) -> ListTechniciansResponse:
+        """
+        Active technicians to assign work to, with their current open load.
+        Requires work_orders:assign.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
     @classmethod
     def desc(cls) -> DescService:
         """Returns the descriptor for this service."""
@@ -382,6 +389,16 @@ class WorkOrderServiceASGIApplication(ConnectASGIApplication[WorkOrderService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.complete_work_order,
+                ),
+                "/facilityops.v1.WorkOrderService/ListTechnicians": Endpoint.unary(
+                    method=MethodInfo(
+                        name="ListTechnicians",
+                        service_name="facilityops.v1.WorkOrderService",
+                        input=ListTechniciansRequest,
+                        output=ListTechniciansResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.list_technicians,
                 ),
             },
             interceptors=interceptors,
@@ -538,6 +555,30 @@ class WorkOrderServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def list_technicians(
+        self,
+        request: ListTechniciansRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> ListTechniciansResponse:
+        """
+        Active technicians to assign work to, with their current open load.
+        Requires work_orders:assign.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListTechnicians",
+                service_name="facilityops.v1.WorkOrderService",
+                input=ListTechniciansRequest,
+                output=ListTechniciansResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 class WorkOrderServiceSync(Protocol):
     """
     Work-order lifecycle: pending_approval -> open | rejected; open -> completed.
@@ -575,6 +616,13 @@ class WorkOrderServiceSync(Protocol):
     def complete_work_order(self, request: CompleteWorkOrderRequest, ctx: RequestContext[CompleteWorkOrderRequest, CompleteWorkOrderResponse], /) -> CompleteWorkOrderResponse:
         """
         open -> completed, by the assigned technician. Requires work_orders:update_assigned.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def list_technicians(self, request: ListTechniciansRequest, ctx: RequestContext[ListTechniciansRequest, ListTechniciansResponse], /) -> ListTechniciansResponse:
+        """
+        Active technicians to assign work to, with their current open load.
+        Requires work_orders:assign.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -653,6 +701,16 @@ class WorkOrderServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.complete_work_order,
+                ),
+                "/facilityops.v1.WorkOrderService/ListTechnicians": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="ListTechnicians",
+                        service_name="facilityops.v1.WorkOrderService",
+                        input=ListTechniciansRequest,
+                        output=ListTechniciansResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.list_technicians,
                 ),
             },
             interceptors=interceptors,
@@ -798,6 +856,29 @@ class WorkOrderServiceClientSync(ConnectClientSync):
                 service_name="facilityops.v1.WorkOrderService",
                 input=CompleteWorkOrderRequest,
                 output=CompleteWorkOrderResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def list_technicians(
+        self,
+        request: ListTechniciansRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> ListTechniciansResponse:
+        """
+        Active technicians to assign work to, with their current open load.
+        Requires work_orders:assign.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListTechnicians",
+                service_name="facilityops.v1.WorkOrderService",
+                input=ListTechniciansRequest,
+                output=ListTechniciansResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

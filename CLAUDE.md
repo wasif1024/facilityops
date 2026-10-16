@@ -11,6 +11,9 @@ user management + DB-backed RBAC (Entra authenticates, DB authorizes), security 
 agent-run monitoring middleware, stored eval runs, admin report API. See docs/ for spec and architecture.
 photo/voice intake (Vision caption+OCR, Speech), review queue, work-order lifecycle, audited PII reveal,
 OpenTelemetry to App Insights (no content). Next: Phase 2 (Magentic incident team).
+Frontend: `frontend/` (React 19 + TS + Vite + Tailwind 4 + shadcn/ui, Node 24 via .nvmrc), spec in
+docs/frontend-specification.md. UI shows actions by permission from GetMe; revealed PII only in component
+state; after a .proto change run `npm run generate` in frontend/ too.
 Run the server with `uvicorn backend.app.main:create_app --factory` (no module-level app), or the whole
 stack with `docker compose up --build -d` (Dockerfile = runtime deps only; Postgres on host port 5433;
 optional Azure settings in gitignored `.env.docker`).

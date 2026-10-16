@@ -10,7 +10,7 @@ checks for prompt injection and counterfactual fairness. All data in the reposit
 
 > **Status:** Phase 1 (intake MVP) complete. Phase 2 (Magentic incident team) next. See [Roadmap](#roadmap).
 >
-> **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Architecture and agent orchestration](docs/architecture.md)
+> **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Frontend specification](docs/frontend-specification.md) · [Architecture and agent orchestration](docs/architecture.md)
 
 ## How a request flows
 
@@ -84,6 +84,12 @@ docker compose exec api python -m backend.app.cli grant-role --provider developm
 Without Azure configured, everything except the AI steps works, and those fail closed to human review. To use
 your own Azure AI resources, copy `.env.docker.example` to `.env.docker`. Details in
 [Developer commands §1.1](docs/commands.md#11-quick-start-with-docker).
+
+**Web app** ([`frontend/`](frontend), React + TypeScript + Tailwind + shadcn/ui, Node 24): with the backend
+running, `cd frontend && npm install && npm run dev`, then open http://localhost:5173 and pick an identity in the
+header. Tenants report problems by text, photo or voice; facility managers work the review queue and approvals;
+technicians complete their work orders; admins manage users and watch monitoring and evaluations. See
+[Developer commands §4.1](docs/commands.md#41-run-the-frontend).
 
 **Native setup** (to develop and run the tests) requires Python 3.13+, PostgreSQL 16+ and the Azure CLI signed
 in with `az login`. Authentication to Azure uses Entra ID via `DefaultAzureCredential`, not API keys.
@@ -194,7 +200,8 @@ proto/           protobuf API contracts (facilityops.v1)
 backend/migrations/  Alembic schema and RBAC seed
 backend/tests/   unit/ (no services) and integration/ (PostgreSQL)
 evals/           golden set and eval runner
-docs/            specification and architecture
+frontend/        web app (React + Vite), Connect client generated from proto/
+docs/            specification, frontend specification and architecture
 ```
 
 ## Roadmap

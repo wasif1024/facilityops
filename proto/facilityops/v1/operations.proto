@@ -29,6 +29,9 @@ service WorkOrderService {
   rpc AssignWorkOrder(AssignWorkOrderRequest) returns (AssignWorkOrderResponse);
   // open -> completed, by the assigned technician. Requires work_orders:update_assigned.
   rpc CompleteWorkOrder(CompleteWorkOrderRequest) returns (CompleteWorkOrderResponse);
+  // Active technicians to assign work to, with their current open load.
+  // Requires work_orders:assign.
+  rpc ListTechnicians(ListTechniciansRequest) returns (ListTechniciansResponse);
 }
 
 enum ReviewCaseStatus {
@@ -192,4 +195,17 @@ message CompleteWorkOrderRequest {
 
 message CompleteWorkOrderResponse {
   WorkOrder work_order = 1;
+}
+
+message Technician {
+  string user_id = 1;
+  string display_name = 2;
+  // Open work orders currently assigned to this technician.
+  int32 open_work_orders = 3;
+}
+
+message ListTechniciansRequest {}
+
+message ListTechniciansResponse {
+  repeated Technician technicians = 1;
 }

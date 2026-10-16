@@ -1,0 +1,10 @@
+# Generates TypeScript messages and service descriptors from the shared contracts.
+# Run with `npm run generate`; output is committed (CI fails if it is stale).
+version: v2
+clean: true
+inputs:
+  - directory: ../proto
+plugins:
+  - local: protoc-gen-es
+    out: src/gen
+    opt: target=ts

@@ -179,6 +179,22 @@ class WorkOrderRpc:
                 )
         return pb.AssignWorkOrderResponse(work_order=to_proto_work_order(view))
 
+    async def list_technicians(
+        self, request: pb.ListTechniciansRequest, ctx: RequestContext
+    ) -> pb.ListTechniciansResponse:
+        async with self._c.session_factory() as session:
+            rows = await OperationsService(session).list_technicians()
+        return pb.ListTechniciansResponse(
+            technicians=[
+                pb.Technician(
+                    user_id=str(user.id),
+                    display_name=user.display_name or user.external_id,
+                    open_work_orders=load,
+                )
+                for user, load in rows
+            ]
+        )
+
     async def complete_work_order(
         self, request: pb.CompleteWorkOrderRequest, ctx: RequestContext
     ) -> pb.CompleteWorkOrderResponse:

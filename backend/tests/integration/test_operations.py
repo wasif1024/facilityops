@@ -184,6 +184,13 @@ async def test_work_order_lifecycle_and_technician_scope(client, session_factory
         client, "WorkOrderService/CompleteWorkOrder", body, user="other-tech"
     ).json()["code"] == "not_found"
 
+    [listed] = [
+        t for t in call(client, "WorkOrderService/ListTechnicians", user="fm").json()["technicians"]
+        if t["userId"] == tech_id
+    ]
+    assert listed["openWorkOrders"] == 1
+    assert call(client, "WorkOrderService/ListTechnicians", user="tech").status_code == 403
+
     done = call(client, "WorkOrderService/CompleteWorkOrder", body, user="tech").json()
     assert done["workOrder"]["status"] == "WORK_ORDER_STATUS_COMPLETED"
     assert done["workOrder"]["completedAt"]

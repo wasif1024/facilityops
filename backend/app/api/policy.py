@@ -50,6 +50,7 @@ RPC_PERMISSIONS: dict[str, frozenset[Permission]] = {
     _rpc("WorkOrderService", "CompleteWorkOrder"): frozenset(
         {Permission.WORK_ORDERS_UPDATE_ASSIGNED}
     ),
+    _rpc("WorkOrderService", "ListTechnicians"): frozenset({Permission.WORK_ORDERS_ASSIGN}),
     _rpc("UserAdminService", "ListUsers"): frozenset({Permission.USERS_READ}),
     _rpc("UserAdminService", "GetUser"): frozenset({Permission.USERS_READ}),
     _rpc("UserAdminService", "CreateUser"): frozenset({Permission.USERS_MANAGE}),
