@@ -5,8 +5,13 @@ enterprise AI practices, PII handling, evaluation and Responsible AI on Microsof
 Intended for the owner's public GitHub profile, so the README, diagrams and demo quality matter.
 
 ## Status
-Not started. Next step: Phase 1 scaffold. Before writing agent code, check the current
-Microsoft Agent Framework and Foundry SDK APIs (they change quickly); don't rely on memory.
+Phase 1 in progress. Done: FastAPI intake API, deterministic coordinator, emergency screen,
+PII redaction adapter, Foundry classifier, Postgres/Alembic, golden set + eval runner + CI gate.
+Remaining for Phase 1: photo/voice normalization, OpenTelemetry, role-based PII reveal endpoint.
+Before writing agent code, check the current Microsoft Agent Framework and Foundry SDK APIs
+(they change quickly); don't rely on memory.
+
+Commands: `python -m pytest -q`, `python -m evals.run_eval [--mode live]` (run from repo root).
 
 ## Azure environment
 - Use the existing Azure subscription and Foundry project; don't create new ones unless asked.
