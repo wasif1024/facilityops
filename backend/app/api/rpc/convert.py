@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
 from typing import TypeVar
@@ -62,3 +64,29 @@ def to_proto_enum(proto_enum: type[E], value: str | None) -> E:
 def from_proto_enum(member: Enum) -> str | None:
     """Proto member HUMAN_REVIEW -> "human_review"; UNSPECIFIED -> None."""
     return None if member.name == "UNSPECIFIED" else member.name.lower()
+
+
+def viewer():
+    """The caller as the operations service sees them: an id and permissions."""
+    from backend.app.api.auth import current_principal
+    from backend.app.services.operations import Viewer
+
+    principal = current_principal()
+    return Viewer(user_id=principal.user_id, permissions=principal.permissions)
+
+
+@contextmanager
+def operation_errors() -> Iterator[None]:
+    """Map operations-service errors to Connect codes. Their messages are safe to show."""
+    from backend.app.services import operations as ops
+
+    try:
+        yield
+    except ops.NotFound as error:
+        raise ConnectError(Code.NOT_FOUND, str(error)) from error
+    except ops.Forbidden as error:
+        raise ConnectError(Code.PERMISSION_DENIED, str(error)) from error
+    except ops.InvalidTransition as error:
+        raise ConnectError(Code.FAILED_PRECONDITION, str(error)) from error
+    except ops.OperationError as error:
+        raise ConnectError(Code.UNAVAILABLE, str(error)) from error

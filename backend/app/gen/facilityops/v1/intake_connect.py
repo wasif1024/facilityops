@@ -16,7 +16,7 @@ from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, DE
 from protobuf import DescService
 
 from . import intake_pb
-from .intake_pb import SubmitIntakeRequest, SubmitIntakeResponse
+from .intake_pb import GetRequestRequest, GetRequestResponse, ListMyRequestsRequest, ListMyRequestsResponse, ListRequestsRequest, ListRequestsResponse, RevealRequestDetailsRequest, RevealRequestDetailsResponse, SubmitIntakeRequest, SubmitIntakeResponse
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Iterable, Mapping
@@ -37,6 +37,31 @@ class IntakeService(Protocol):
         Submit a maintenance request. Retrying with the same request_id returns the
         original result, but only to the user who submitted it.
         Requires permission intake:submit.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def list_my_requests(self, request: ListMyRequestsRequest, ctx: RequestContext[ListMyRequestsRequest, ListMyRequestsResponse], /) -> ListMyRequestsResponse:
+        """
+        The caller's own requests, newest first. Requires intake:read_own.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def list_requests(self, request: ListRequestsRequest, ctx: RequestContext[ListRequestsRequest, ListRequestsResponse], /) -> ListRequestsResponse:
+        """
+        All requests, newest first. Requires intake:read_all.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def get_request(self, request: GetRequestRequest, ctx: RequestContext[GetRequestRequest, GetRequestResponse], /) -> GetRequestResponse:
+        """
+        One request: your own (intake:read_own) or any (intake:read_all).
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def reveal_request_details(self, request: RevealRequestDetailsRequest, ctx: RequestContext[RevealRequestDetailsRequest, RevealRequestDetailsResponse], /) -> RevealRequestDetailsResponse:
+        """
+        The original values behind the [PII_nnnn] placeholders. Every call is audited.
+        Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -67,6 +92,46 @@ class IntakeServiceASGIApplication(ConnectASGIApplication[IntakeService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.submit_intake,
+                ),
+                "/facilityops.v1.IntakeService/ListMyRequests": Endpoint.unary(
+                    method=MethodInfo(
+                        name="ListMyRequests",
+                        service_name="facilityops.v1.IntakeService",
+                        input=ListMyRequestsRequest,
+                        output=ListMyRequestsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.list_my_requests,
+                ),
+                "/facilityops.v1.IntakeService/ListRequests": Endpoint.unary(
+                    method=MethodInfo(
+                        name="ListRequests",
+                        service_name="facilityops.v1.IntakeService",
+                        input=ListRequestsRequest,
+                        output=ListRequestsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.list_requests,
+                ),
+                "/facilityops.v1.IntakeService/GetRequest": Endpoint.unary(
+                    method=MethodInfo(
+                        name="GetRequest",
+                        service_name="facilityops.v1.IntakeService",
+                        input=GetRequestRequest,
+                        output=GetRequestResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.get_request,
+                ),
+                "/facilityops.v1.IntakeService/RevealRequestDetails": Endpoint.unary(
+                    method=MethodInfo(
+                        name="RevealRequestDetails",
+                        service_name="facilityops.v1.IntakeService",
+                        input=RevealRequestDetailsRequest,
+                        output=RevealRequestDetailsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.reveal_request_details,
                 ),
             },
             interceptors=interceptors,
@@ -111,6 +176,99 @@ class IntakeServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def list_my_requests(
+        self,
+        request: ListMyRequestsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> ListMyRequestsResponse:
+        """
+        The caller's own requests, newest first. Requires intake:read_own.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListMyRequests",
+                service_name="facilityops.v1.IntakeService",
+                input=ListMyRequestsRequest,
+                output=ListMyRequestsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def list_requests(
+        self,
+        request: ListRequestsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> ListRequestsResponse:
+        """
+        All requests, newest first. Requires intake:read_all.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListRequests",
+                service_name="facilityops.v1.IntakeService",
+                input=ListRequestsRequest,
+                output=ListRequestsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def get_request(
+        self,
+        request: GetRequestRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> GetRequestResponse:
+        """
+        One request: your own (intake:read_own) or any (intake:read_all).
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetRequest",
+                service_name="facilityops.v1.IntakeService",
+                input=GetRequestRequest,
+                output=GetRequestResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def reveal_request_details(
+        self,
+        request: RevealRequestDetailsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> RevealRequestDetailsResponse:
+        """
+        The original values behind the [PII_nnnn] placeholders. Every call is audited.
+        Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="RevealRequestDetails",
+                service_name="facilityops.v1.IntakeService",
+                input=RevealRequestDetailsRequest,
+                output=RevealRequestDetailsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 class IntakeServiceSync(Protocol):
     """
     Maintenance request intake. Every request runs the deterministic workflow:
@@ -121,6 +279,31 @@ class IntakeServiceSync(Protocol):
         Submit a maintenance request. Retrying with the same request_id returns the
         original result, but only to the user who submitted it.
         Requires permission intake:submit.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def list_my_requests(self, request: ListMyRequestsRequest, ctx: RequestContext[ListMyRequestsRequest, ListMyRequestsResponse], /) -> ListMyRequestsResponse:
+        """
+        The caller's own requests, newest first. Requires intake:read_own.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def list_requests(self, request: ListRequestsRequest, ctx: RequestContext[ListRequestsRequest, ListRequestsResponse], /) -> ListRequestsResponse:
+        """
+        All requests, newest first. Requires intake:read_all.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def get_request(self, request: GetRequestRequest, ctx: RequestContext[GetRequestRequest, GetRequestResponse], /) -> GetRequestResponse:
+        """
+        One request: your own (intake:read_own) or any (intake:read_all).
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def reveal_request_details(self, request: RevealRequestDetailsRequest, ctx: RequestContext[RevealRequestDetailsRequest, RevealRequestDetailsResponse], /) -> RevealRequestDetailsResponse:
+        """
+        The original values behind the [PII_nnnn] placeholders. Every call is audited.
+        Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -149,6 +332,46 @@ class IntakeServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.submit_intake,
+                ),
+                "/facilityops.v1.IntakeService/ListMyRequests": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="ListMyRequests",
+                        service_name="facilityops.v1.IntakeService",
+                        input=ListMyRequestsRequest,
+                        output=ListMyRequestsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.list_my_requests,
+                ),
+                "/facilityops.v1.IntakeService/ListRequests": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="ListRequests",
+                        service_name="facilityops.v1.IntakeService",
+                        input=ListRequestsRequest,
+                        output=ListRequestsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.list_requests,
+                ),
+                "/facilityops.v1.IntakeService/GetRequest": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="GetRequest",
+                        service_name="facilityops.v1.IntakeService",
+                        input=GetRequestRequest,
+                        output=GetRequestResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.get_request,
+                ),
+                "/facilityops.v1.IntakeService/RevealRequestDetails": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="RevealRequestDetails",
+                        service_name="facilityops.v1.IntakeService",
+                        input=RevealRequestDetailsRequest,
+                        output=RevealRequestDetailsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.reveal_request_details,
                 ),
             },
             interceptors=interceptors,
@@ -187,6 +410,95 @@ class IntakeServiceClientSync(ConnectClientSync):
                 service_name="facilityops.v1.IntakeService",
                 input=SubmitIntakeRequest,
                 output=SubmitIntakeResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def list_my_requests(
+        self,
+        request: ListMyRequestsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> ListMyRequestsResponse:
+        """
+        The caller's own requests, newest first. Requires intake:read_own.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListMyRequests",
+                service_name="facilityops.v1.IntakeService",
+                input=ListMyRequestsRequest,
+                output=ListMyRequestsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def list_requests(
+        self,
+        request: ListRequestsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> ListRequestsResponse:
+        """
+        All requests, newest first. Requires intake:read_all.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListRequests",
+                service_name="facilityops.v1.IntakeService",
+                input=ListRequestsRequest,
+                output=ListRequestsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def get_request(
+        self,
+        request: GetRequestRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> GetRequestResponse:
+        """
+        One request: your own (intake:read_own) or any (intake:read_all).
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetRequest",
+                service_name="facilityops.v1.IntakeService",
+                input=GetRequestRequest,
+                output=GetRequestResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def reveal_request_details(
+        self,
+        request: RevealRequestDetailsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> RevealRequestDetailsResponse:
+        """
+        The original values behind the [PII_nnnn] placeholders. Every call is audited.
+        Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="RevealRequestDetails",
+                service_name="facilityops.v1.IntakeService",
+                input=RevealRequestDetailsRequest,
+                output=RevealRequestDetailsResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 0.3 (draft) |
-| **Status** | Phase 1 in progress |
+| **Version** | 0.4 (draft) |
+| **Status** | Phase 1 feature-complete; one exit criterion open (§11) |
 | **Last updated** | 2026-10-17 |
 | **Related** | [Architecture](architecture.md) · [README](../README.md) |
 
@@ -46,8 +46,8 @@ RPC checks a permission rather than a role.
 | Role | Permissions | Can |
 |---|---|---|
 | Tenant | `intake:submit`, `intake:read_own` | Submit requests; see the status of their own requests |
-| Technician | `intake:submit`, `work_orders:read_assigned`, `pii:reveal_assigned` | See assigned work orders; reveal location details for assigned work only |
-| Facility manager | `intake:*`, `work_orders:*`, `review_queue:manage`, `pii:reveal_all`, `evaluations:read`, `monitoring:read` | Work the review queue; approve work orders and incident plans; reveal PII with audit; read reports |
+| Technician | `intake:submit`, `work_orders:read_assigned`, `work_orders:update_assigned`, `pii:reveal_assigned` | See and complete assigned work orders; reveal details for assigned work only |
+| Facility manager | `intake:*`, `work_orders:*`, `review_queue:manage`, `pii:reveal_all`, `evaluations:read`, `monitoring:read` | Work the review queue; approve, reject and assign work orders; reveal PII with audit; read reports |
 | Admin | `users:*`, `roles:read`, `audit:read`, `evaluations:read`, `evaluations:run`, `monitoring:read` | Manage users and roles; read the audit log and reports; start evaluation runs |
 | On-call responder | *(external rota)* | Receive emergency handoffs; outside this system's AI path |
 
@@ -65,7 +65,7 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | ID | Requirement | Status |
 |---|---|---|
 | FR-1 | Accept a request as text via the `IntakeService/SubmitIntake` RPC with a client-supplied `request_id`. | ✅ |
-| FR-2 | Accept photo and voice requests and normalize them to text (OCR / speech-to-text) before the pipeline. | ⬜ |
+| FR-2 | Accept photo and voice requests and normalize them to text before the pipeline: photo caption + OCR (Azure AI Vision), voice transcription (Azure AI Speech, optional `en`/`es`/`fr` hint). The typed caption is screened for emergencies before any network call, and the combined text again after transcription. | ✅ |
 | FR-3 | Screen raw text for emergency signals **before** any redaction or model call; on a match, hand off to on-call and stop. | ✅ |
 | FR-4 | Redact PII with Azure AI Language; store the reversible mapping encrypted and separately. | ✅ |
 | FR-5 | Check redacted text with Azure AI Content Safety (harm categories) and Prompt Shields (injection). | ✅ |
@@ -75,8 +75,10 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-9 | Fail closed: if redaction, safety or classification is unavailable, route to human review. | ✅ |
 | FR-10 | Idempotency: repeating a `request_id` returns the original outcome and never creates a second work order. | ✅ |
 | FR-11 | Write an audit event for every decision (reason code, never request content). | ✅ |
-| FR-12 | Let authorized roles reveal redacted values for a request, with each reveal audited. | ⬜ |
-| FR-13 | Human-review queue and approval endpoints for facility managers. | ⬜ |
+| FR-12 | Let authorized roles reveal redacted values for a request (`RevealRequestDetails`): facility managers for any request, technicians only for work orders assigned to them. Every reveal is audited. | ✅ |
+| FR-13 | Human-review queue (emergencies first) where facility managers create a work order or dismiss with a fixed reason code. | ✅ |
+| FR-14 | Work-order lifecycle: approve or reject `pending_approval` orders, assign an active technician, complete by the assignee. Every decision is audited with the acting user. | ✅ |
+| FR-15 | Tenants list and read their own requests with work-order status; managers list all. | ✅ |
 
 ### 4.2 Complex-incident team (Phase 2)
 
@@ -190,6 +192,8 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 ## 8. Data and privacy
 
 - **What is stored:** redacted text, classification, routing outcome, work orders, audit events.
+- **Photos and voice notes:** sent only to Azure AI Vision and Speech for transcription, never to a language
+  model, and never stored. The transcript goes through PII redaction like typed text.
 - **PII mapping:** placeholder → original value, encrypted with Fernet (key from Key Vault in Azure), in
   `pii_mappings`, one row per request. Never sent to a model, log, trace or evaluation set.
 - **User records:** display name and email of people who sign in, readable only with `users:read`. Audit events
@@ -211,7 +215,7 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 | Reliability | Fail closed to human review; idempotent intake; checkpointed incident runs |
 | Latency | Emergency handoff < 1 s (no network calls); routine intake p95 < 8 s |
 | Cost | Small models for specialists, budgets in §6; cost per incident reported by eval runs |
-| Observability | Agent runs recorded per call (FR-47) for admin reports; traces to Application Insights, where every agent, tool and workflow step is a span (planned) |
+| Observability | Agent runs recorded per call (FR-47) for admin reports. OpenTelemetry to Application Insights: RPC spans, Azure service calls, one span per intake step, Agent Framework GenAI spans (model, tokens). No content: GenAI sensitive data off, exception messages never recorded or logged |
 | Portability | Schema via Alembic migrations, checked for drift in CI |
 
 ## 10. Evaluation and acceptance
@@ -221,13 +225,39 @@ Golden set: [`evals/datasets/golden_v1.jsonl`](../evals/datasets/golden_v1.jsonl
 | Metric | Phase 1 target | Gate | Current |
 |---|---|---|---|
 | Emergency recall | 1.00 | **Hard: every PR** | 1.00 |
-| Category accuracy | ≥ 0.85 | Live eval | 0.91 |
-| Priority within ±1 | ≥ 0.90 | Report | 0.92–0.95 |
+| Category accuracy | ≥ 0.85 | Live eval | 0.91, 0.91 |
+| Priority within ±1 | ≥ 0.90 | Report | 0.94, 0.94 |
 | Ambiguous → human review | 1.00 | Report | 1.00 |
 | Injection resistance | 1.00 | Report | 1.00 |
-| Counterfactual consistency | 1.00 | Report | 1.00 |
+| Counterfactual consistency | 1.00 | Report | **0.75**, 1.00 |
+| Counterfactual route consistency (modal, 5 samples) | 1.00 | Report | 1.00 |
+| Route self-agreement (5 samples) | — (tracked) | Report | 0.66 |
 | Groundedness of incident plans | ≥ 0.90 | Phase 2 (Foundry evaluator) | — |
 | Tool-call accuracy | ≥ 0.90 | Phase 2 (Foundry evaluator) | — |
+
+"Current" is the two consecutive live runs on 2026-10-17 with the complete pipeline, PII redaction included
+(gpt-5.2, prompt `2f091038960e`). Other targets: emergency recall, ambiguous → human review and injection
+resistance were 1.00 in both.
+
+**Finding: classifier non-determinism, measured.** In the first run, fairness group F02 split between priority
+2 and 3. After redaction two of its variants are *the identical text* (both names become `[PII_0001]`), so this
+was run-to-run variation, not name bias; `temperature: 0` and a fixed `seed` do not make gpt-5.2 deterministic.
+A follow-up run classified every case five times (`--samples 5`, run `54d3a843`):
+
+- **No bias.** On each member's modal answer, every fairness group takes the same route (1.00). F02's modal
+  priority still differs (2 vs 3), but both route to an automatic work order.
+- **Labels are mostly stable** (84% of cases give the same category and priority all five times).
+- **Routes are not** (66%). 25 of the 28 route flips are the *confidence* crossing 0.75, not priority: the model
+  reports a few habitual values (0.86, 0.78, 0.74), and the threshold sits between 0.74 and 0.78.
+- **Confidence still carries signal.** Category accuracy is 86% at 0.70–0.74 against 93–95% at 0.75 and above,
+  so the threshold filters weaker answers; it is just noisy at the boundary.
+- **The unstable direction is the safe one:** flips go between "automatic" and "human review", never past an
+  emergency or approval check. The cost is reviewer workload and inconsistent turnaround, not risk.
+
+A majority vote on priority would not have helped (priority causes 3 of the 28 flips). Options if route stability
+needs improving: re-sample only borderline answers (confidence 0.70–0.80) and use agreement as the confidence,
+or set the threshold from a calibration curve rather than a round number. Until then, `route_self_agreement` is
+tracked on every live run.
 
 Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note).
 
@@ -235,7 +265,7 @@ Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note)
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **1. Intake MVP** | FR-1–13, golden set, CI gate | All Phase 1 FRs ✅; targets in §10 met on two consecutive live runs |
+| **1. Intake MVP** | FR-1–15, golden set, CI gate | All Phase 1 FRs ✅ (met); targets in §10 met on two consecutive live runs (open: single-run counterfactual consistency, explained by sampling noise in §10; modal route consistency 1.00) |
 | **2. Incident team** | FR-20–26, synthetic manuals in AI Search, approvals | Scenario tests (success, disagreement, tool failure, budget exhaustion, injection in retrieved content, human rejection) pass; groundedness ≥ 0.90 |
 | **3. Product** | FR-30–32, red-team report, transparency note, demo | Deployed with `azd up` from a clean subscription |
 
@@ -244,4 +274,4 @@ Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note)
 1. Should the escalation thresholds in §4.3 be configurable per building?
 2. Cost-approval threshold: a fixed amount, or relative to the building's budget?
 3. Which languages must tenant notices support at launch? (Golden set covers English, Spanish and French.)
-4. Where do photos and voice notes live, and for how long, given they may themselves contain PII?
+4. ~~Where do photos and voice notes live?~~ Decided: nowhere. Raw media is transcribed in memory and discarded; only the redacted transcript is stored.

@@ -12,13 +12,57 @@ Contents: [First-time setup](#1-first-time-setup) · [Daily start](#2-daily-star
 
 ## 1. First-time setup
 
+Two ways to run the backend: **Docker** (quickest; nothing else to install) or **native** (Python and PostgreSQL
+on your machine; needed to develop and run the tests).
+
+### 1.1 Quick start with Docker
+
+Prerequisite: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+docker compose up --build -d                  # PostgreSQL + migrations + API on http://localhost:8000
+docker compose ps                             # api "healthy", migrate "Exited (0)"
+
+# Make yourself an admin (the first admin always comes from the CLI)
+docker compose exec api python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+
+# Try it
+curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
+  -H 'content-type: application/json' -H 'X-Dev-User: alice' \
+  -d '{"text": "There is a strong gas smell in the hallway"}'
+```
+
+| Command | What it does |
+|---|---|
+| `docker compose up --build -d` | Build the image and start everything in the background |
+| `docker compose logs -f api` | Follow the API logs |
+| `docker compose exec api python -m backend.app.cli list-users` | Run any CLI command inside the container |
+| `docker compose exec postgres psql -U facilityops` | SQL shell on the container database |
+| `docker compose --profile tools up -d` | Also start pgAdmin on http://localhost:5050 (`admin@example.com` / `local-dev-only`) |
+| `docker compose up --build -d` (again) | After `git pull`: rebuilds the image and re-runs the migrations before the API restarts |
+| `docker compose down` | Stop; the database is kept |
+| `docker compose down -v` | Stop and delete the database |
+
+What runs (`compose.yaml`): `postgres` (PostgreSQL 18, on host port **5433** so it doesn't clash with a local
+PostgreSQL on 5432), `migrate` (runs `alembic upgrade head` once, then exits; the API waits for it to succeed) and
+`api` (the [`Dockerfile`](../Dockerfile) image, non-root, with a health check). Ports bind to `127.0.0.1` only.
+Override them with `API_PORT`, `POSTGRES_PORT` or `PGADMIN_PORT`, for example `API_PORT=8080 docker compose up -d`.
+
+**Without Azure** everything except the AI steps works: emergency screening, users and roles, the review queue,
+work orders, admin reports and offline evals. Non-emergency requests go to human review with
+`pii_redaction_unavailable`, the fail-closed behaviour. **With Azure**, copy `.env.docker.example` to
+`.env.docker` (gitignored) and fill in your own endpoints and a service principal: a container can't use your
+`az login`. When deployed to Azure, a managed or workload identity replaces the secret.
+
+### 1.2 Native setup
+
 Prerequisites: Python 3.13+, PostgreSQL 16+ (Homebrew or Postgres.app), Azure CLI.
 
 ```bash
 # 1. Python environment and dependencies
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # 2. Configuration: copy the template, then edit .env
 cp .env.example .env
@@ -33,7 +77,15 @@ Set at least these in `.env`:
 | `FOUNDRY_MODEL` | `gpt-5.2` | Classifier, live eval |
 | `AZURE_LANGUAGE_ENDPOINT` | your Azure AI Language endpoint | PII redaction |
 | `CONTENT_SAFETY_ENDPOINT` | your Azure AI Content Safety endpoint | Content Safety, Prompt Shields |
-| `PII_MAPPING_ENCRYPTION_KEY` | see below | Storing the PII mapping |
+| `VISION_ENDPOINT` | your Azure AI Vision endpoint | Photo intake (caption + OCR) |
+| `SPEECH_ENDPOINT` | your Azure AI Speech endpoint | Voice intake (transcription) |
+| `PII_MAPPING_ENCRYPTION_KEY` | see below | Storing and revealing the PII mapping |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | from your Application Insights resource | OpenTelemetry export (optional) |
+
+One multi-service **AIServices** resource (`https://<name>.cognitiveservices.azure.com/`), such as the one behind
+a Foundry project, covers Language, Content Safety, Vision and Speech, so all four can use the same endpoint.
+Your Azure account needs a data-plane role on it (for example *Foundry User* / *Cognitive Services User*).
+Keep the PII key safe: losing it makes existing mappings unreadable.
 
 `.env` is gitignored. Never commit it.
 
@@ -45,15 +97,15 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 az login
 
 # 5. Create the database and apply all migrations
-createdb facilityops
-alembic upgrade head
+scripts/db.sh create
+scripts/db.sh up
 
 # 6. Make yourself an admin for local development
 python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
 ```
 
-Without the three Azure AI settings the app still runs, but every non-emergency request is routed to human
-review on purpose (fail closed).
+Without the Azure AI settings the app still runs, but every non-emergency request is routed to human review on
+purpose (fail closed).
 
 ## 2. Daily start
 
@@ -61,14 +113,100 @@ review on purpose (fail closed).
 cd /path/to/facilityops-ai
 source .venv/bin/activate
 brew services start postgresql@18      # if PostgreSQL is not already running
-alembic upgrade head                   # picks up any new migrations after a git pull
-uvicorn backend.app.main:app --reload
+scripts/db.sh up                       # picks up any new migrations after a git pull
+uvicorn backend.app.main:create_app --factory --reload
 ```
 
 ## 3. Database and migrations
 
 The schema lives in `backend/app/db/models.py` and is versioned by Alembic in `backend/migrations/versions/`.
 Alembic reads `DATABASE_URL` from the environment first, then from `.env`.
+
+### 3.1 Migration script: `scripts/db.sh`
+
+Wraps Alembic with safe defaults and works from any folder. Run `scripts/db.sh help` for the built-in summary.
+
+```bash
+# Setup
+scripts/db.sh create                          # create the database in DATABASE_URL if it does not exist
+
+# Apply
+scripts/db.sh up                              # apply all pending migrations
+scripts/db.sh up 0002_users_rbac_monitoring   # apply up to a specific revision only
+
+# Inspect
+scripts/db.sh status                          # current revision, latest revision, pending or up to date
+scripts/db.sh history                         # all migrations, with the current one marked
+scripts/db.sh check                           # fail if models and migrations disagree
+scripts/db.sh sql                             # print the SQL for all migrations instead of running it
+scripts/db.sh sql 0002_users_rbac_monitoring:head   # SQL for a range only
+
+# Roll back (asks you to type the database name first)
+scripts/db.sh down                            # undo the latest migration
+scripts/db.sh down 2                          # undo the latest two
+scripts/db.sh down 0001_phase1_schema         # go back to a specific revision
+scripts/db.sh down base                       # undo every migration (empty schema, all data lost)
+scripts/db.sh reset                           # undo everything, then re-apply (fresh empty schema)
+
+# Create
+scripts/db.sh new "add vendor table"          # new migration from model changes -> 0004_add_vendor_table.py
+
+# Options
+scripts/db.sh down --yes                      # skip the confirmation (scripts and CI only)
+DATABASE_URL=postgresql+psycopg://<user>@localhost:5432/<db> scripts/db.sh status   # another database, once
+```
+
+Safety: `down` and `reset` ask you to type the database name, refuse to run when `APP_ENV=production`, and stop
+(instead of assuming yes) when there is no terminal unless `--yes` is given. Printed URLs hide passwords.
+
+### 3.2 Common workflows
+
+**New machine or fresh clone**
+
+```bash
+scripts/db.sh create
+scripts/db.sh up
+scripts/db.sh status                          # expect "up to date"
+```
+
+**After `git pull`** (someone added migrations)
+
+```bash
+scripts/db.sh status                          # "migrations pending"?
+scripts/db.sh up
+```
+
+**Changing the schema**
+
+```bash
+# 1. Edit backend/app/db/models.py
+scripts/db.sh up                              # the database must be current before generating
+scripts/db.sh new "add vendor table"          # writes backend/migrations/versions/0004_add_vendor_table.py
+# 2. Read the new file; autogenerate misses renames, data migrations and seed data
+scripts/db.sh up
+scripts/db.sh check                           # expect "No new upgrade operations detected."
+scripts/db.sh down && scripts/db.sh up        # prove the downgrade works too
+```
+
+**Undo a migration you created but have not committed**
+
+```bash
+scripts/db.sh down                            # roll the database back first
+rm backend/migrations/versions/0004_add_vendor_table.py
+```
+
+Never delete a migration that is already committed or applied elsewhere; write a new migration that reverses it.
+
+**Start over with an empty local database**
+
+```bash
+scripts/db.sh reset                           # all data in the local database is lost
+python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+```
+
+### 3.3 Alembic directly
+
+`scripts/db.sh` calls these; use them when you need an option the script does not expose.
 
 | Task | Command |
 |---|---|
@@ -78,21 +216,13 @@ Alembic reads `DATABASE_URL` from the environment first, then from `.env`.
 | Check the models and migrations agree | `alembic check` |
 | Undo the latest migration | `alembic downgrade -1` |
 | Undo everything (empties the schema) | `alembic downgrade base` |
+| New migration from model changes | `alembic revision --autogenerate --rev-id 0004_add_vendor_table -m "add vendor table"` |
 | Target another database once | `DATABASE_URL=postgresql+psycopg://<user>@localhost:5432/<db> alembic upgrade head` |
-
-**Creating a migration after changing a model:**
-
-```bash
-alembic revision --autogenerate -m "add vendor table"
-# Read the new file in backend/migrations/versions/ and fix anything autogenerate missed
-alembic upgrade head
-alembic check                          # should print "No new upgrade operations detected."
-```
 
 Roles and permissions are seed data. Change them only in a new migration, and keep
 `SYSTEM_ROLE_PERMISSIONS` in `backend/app/domain/rbac.py` in sync (an integration test checks this).
 
-**PostgreSQL service (Homebrew):**
+### 3.4 PostgreSQL service (Homebrew)
 
 ```bash
 brew services start postgresql@18
@@ -105,8 +235,8 @@ psql -h localhost -d facilityops       # open a SQL shell
 ## 4. Run the backend
 
 ```bash
-uvicorn backend.app.main:app --reload             # http://localhost:8000
-uvicorn backend.app.main:app --reload --port 8001  # another port
+uvicorn backend.app.main:create_app --factory --reload             # http://localhost:8000
+uvicorn backend.app.main:create_app --factory --reload --port 8001  # another port
 ```
 
 The API is **Connect RPC**: every call is a `POST` to `/<package>.<Service>/<Method>`, for example
@@ -129,6 +259,28 @@ curl -s localhost:8000/facilityops.v1.AccountService/GetMe \
 curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
   -H 'content-type: application/json' -H 'X-Dev-User: alice' \
   -d '{"text": "The breaker keeps tripping whenever I use the microwave."}'
+
+# A photo or voice note (base64 in JSON; the web UI sends binary protobuf). Optional caption and language hint.
+curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
+  -H 'content-type: application/json' -H 'X-Dev-User: alice' \
+  -d "{\"source\": \"REQUEST_SOURCE_PHOTO\", \"mediaType\": \"image/jpeg\", \"media\": \"$(base64 -i leak.jpg)\"}"
+curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
+  -H 'content-type: application/json' -H 'X-Dev-User: alice' \
+  -d "{\"source\": \"REQUEST_SOURCE_VOICE\", \"mediaType\": \"audio/wav\", \"language\": \"es\", \"media\": \"$(base64 -i note.wav)\"}"
+
+# My requests and their work-order status
+curl -s localhost:8000/facilityops.v1.IntakeService/ListMyRequests \
+  -H 'content-type: application/json' -H 'X-Dev-User: alice' -d '{}'
+
+# Facility manager: review queue, decisions, PII reveal (make "fm" a facility_manager first, see section 6)
+FM=(-H 'content-type: application/json' -H 'X-Dev-User: fm')
+curl -s localhost:8000/facilityops.v1.ReviewQueueService/ListReviewCases "${FM[@]}" -d '{}'
+curl -s localhost:8000/facilityops.v1.ReviewQueueService/ResolveReviewCase "${FM[@]}" \
+  -d '{"caseId": "<id>", "resolution": "REVIEW_RESOLUTION_WORK_ORDER_CREATED", "category": "MAINTENANCE_CATEGORY_PLUMBING", "priority": 2}'
+curl -s localhost:8000/facilityops.v1.WorkOrderService/ApproveWorkOrder "${FM[@]}" -d '{"workOrderId": "<id>"}'
+curl -s localhost:8000/facilityops.v1.WorkOrderService/AssignWorkOrder "${FM[@]}" \
+  -d '{"workOrderId": "<id>", "technicianUserId": "<user-id>"}'
+curl -s localhost:8000/facilityops.v1.IntakeService/RevealRequestDetails "${FM[@]}" -d '{"requestId": "<id>"}'
 
 # Admin reports (as local-developer, after step 6 of the setup)
 curl -s localhost:8000/facilityops.v1.UserAdminService/ListUsers -H 'content-type: application/json' -d '{}'
@@ -163,7 +315,7 @@ buf breaking --against '.git#branch=main'         # would this change break exis
 buf format -w                                     # format the .proto files
 ```
 
-`buf`, `protoc-gen-py` and `protoc-gen-connectrpc` come from `requirements.txt`, so they work once the virtualenv
+`buf`, `protoc-gen-py` and `protoc-gen-connectrpc` come from `requirements-dev.txt`, so they work once the virtualenv
 is active. Never edit files in `backend/app/gen/` by hand.
 
 **Adding an RPC:**
@@ -227,9 +379,17 @@ python -m evals.run_eval --mode live --min-category-accuracy 0.85
 # Save the run so it appears in the admin reports (works with either mode)
 python -m evals.run_eval --mode live --store
 
+# Consistency: classify every case N times and report how often answers and routes agree
+python -m evals.run_eval --mode live --samples 5 --concurrency 8 --store
+
 # Write the full JSON report to a file (gitignored folder)
 python -m evals.run_eval --mode live --report evals/reports/live.json
 ```
+
+With `--samples N` the first sample feeds the usual metrics (so runs stay comparable), and four more are added:
+`classification_self_agreement` (same category and priority every time), `route_self_agreement` (same path:
+work order, pending approval or human review), and modal-answer fairness for labels and routes. The modal
+versions tell bias (a group member differs systematically) apart from sampling noise (one unlucky draw).
 
 The command exits with code 1 when a gate fails (emergency recall below 1.0, or category accuracy below the given
 threshold), which is what fails CI. An admin can also start a run with the
@@ -250,6 +410,9 @@ threshold), which is what fails CI. An admin can also start a run with the
 | `415 Unsupported Media Type` | Missing `content-type: application/json` | Add the header |
 | Native gRPC client (`--protocol grpc`, grpcurl) fails | gRPC needs HTTP/2; uvicorn serves HTTP/1.1 | Use the Connect or gRPC-Web protocol, as browsers do |
 | `buf: command not found` | Virtualenv not active | `source .venv/bin/activate` |
+| `docker compose up`: port is already allocated | Something else uses 8000 or 5433 | `API_PORT=8080 POSTGRES_PORT=5434 docker compose up -d` |
+| `docker-credential-desktop: executable file not found` | Docker Desktop's tools are not on `PATH` in this shell | Open a new terminal after starting Docker Desktop, or add `/Applications/Docker.app/Contents/Resources/bin` to `PATH` |
+| API container keeps restarting | Migration failed, or a bad setting in `.env.docker` | `docker compose logs migrate api` |
 | CI says generated code is out of date | A `.proto` changed without regenerating | `buf generate` and commit `backend/app/gen` |
 | Every request ends in `human_review` with `pii_redaction_unavailable` | Azure AI Language endpoint or encryption key not set | Fill in the Azure settings in `.env` |
 | Live eval fails with an auth error | Not signed in to Azure | `az login` |

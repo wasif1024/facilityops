@@ -10,12 +10,14 @@ from typing import Literal, TYPE_CHECKING, TypeAlias
 
 from protobuf import Enum, Message
 from protobuf._codegen import file_desc
+from protobuf.wkt.google.protobuf import timestamp_pb
 
 if TYPE_CHECKING:
     from protobuf import DescFile
+    from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
 
 
-_SubmitIntakeRequestFields: TypeAlias = Literal["request_id", "source", "text"]
+_SubmitIntakeRequestFields: TypeAlias = Literal["request_id", "source", "text", "media", "media_type", "language"]
 
 class SubmitIntakeRequest(Message[_SubmitIntakeRequestFields]):
     """
@@ -35,14 +37,34 @@ class SubmitIntakeRequest(Message[_SubmitIntakeRequestFields]):
             facilityops.v1.RequestSource source = 2;
             ```
         text:
-            The request in the tenant's own words, 1 to 10,000 characters.
+            The request in the tenant's own words, up to 10,000 characters. Required for text
+            requests; an optional caption for photo and voice requests.
 
             ```proto
             string text = 3;
             ```
+        media:
+            Photo (JPEG, PNG, WebP...) or voice note (WAV, MP3, OGG, WebM...), up to 8 MiB.
+            Transcribed, then discarded: raw media is never stored.
+
+            ```proto
+            bytes media = 4;
+            ```
+        media_type:
+            MIME type of media, for example "image/jpeg" or "audio/webm".
+
+            ```proto
+            string media_type = 5;
+            ```
+        language:
+            Optional ISO 639-1 language hint: "en", "es" or "fr".
+
+            ```proto
+            string language = 6;
+            ```
     """
 
-    __slots__ = ("request_id", "source", "text")
+    __slots__ = ("request_id", "source", "text", "media", "media_type", "language")
 
     if TYPE_CHECKING:
 
@@ -52,12 +74,18 @@ class SubmitIntakeRequest(Message[_SubmitIntakeRequestFields]):
             request_id: str = "",
             source: RequestSource | None = None,
             text: str = "",
+            media: bytes = b"",
+            media_type: str = "",
+            language: str = "",
         ) -> None:
             pass
 
         request_id: str
         source: RequestSource
         text: str
+        media: bytes
+        media_type: str
+        language: str
 
 _SubmitIntakeResponseFields: TypeAlias = Literal["result"]
 
@@ -157,6 +185,370 @@ class IntakeResult(Message[_IntakeResultFields]):
         confidence: float
         work_order_id: str
 
+_IntakeRequestSummaryFields: TypeAlias = Literal["request_id", "source", "status", "reason_code", "category", "priority", "confidence", "work_order_id", "work_order_status", "redacted_description", "created_at"]
+
+class IntakeRequestSummary(Message[_IntakeRequestSummaryFields]):
+    """
+    ```proto
+    message facilityops.v1.IntakeRequestSummary
+    ```
+
+    Attributes:
+        request_id:
+            ```proto
+            string request_id = 1;
+            ```
+        source:
+            ```proto
+            facilityops.v1.RequestSource source = 2;
+            ```
+        status:
+            ```proto
+            facilityops.v1.IntakeStatus status = 3;
+            ```
+        reason_code:
+            ```proto
+            string reason_code = 4;
+            ```
+        category:
+            ```proto
+            facilityops.v1.MaintenanceCategory category = 5;
+            ```
+        priority:
+            ```proto
+            optional int32 priority = 6;
+            ```
+        confidence:
+            ```proto
+            optional double confidence = 7;
+            ```
+        work_order_id:
+            ```proto
+            string work_order_id = 8;
+            ```
+        work_order_status:
+            Work order status name, for example "open" or "completed"; empty when there is none.
+
+            ```proto
+            string work_order_status = 9;
+            ```
+        redacted_description:
+            PII-redacted text, with [PII_nnnn] placeholders.
+
+            ```proto
+            string redacted_description = 10;
+            ```
+        created_at:
+            ```proto
+            optional google.protobuf.Timestamp created_at = 11;
+            ```
+    """
+
+    __slots__ = ("request_id", "source", "status", "reason_code", "category", "priority", "confidence", "work_order_id", "work_order_status", "redacted_description", "created_at")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            request_id: str = "",
+            source: RequestSource | None = None,
+            status: IntakeStatus | None = None,
+            reason_code: str = "",
+            category: MaintenanceCategory | None = None,
+            priority: int | None = None,
+            confidence: float | None = None,
+            work_order_id: str = "",
+            work_order_status: str = "",
+            redacted_description: str = "",
+            created_at: Timestamp | None = None,
+        ) -> None:
+            pass
+
+        request_id: str
+        source: RequestSource
+        status: IntakeStatus
+        reason_code: str
+        category: MaintenanceCategory
+        priority: int
+        confidence: float
+        work_order_id: str
+        work_order_status: str
+        redacted_description: str
+        created_at: Timestamp | None
+
+_ListMyRequestsRequestFields: TypeAlias = Literal["limit", "offset"]
+
+class ListMyRequestsRequest(Message[_ListMyRequestsRequestFields]):
+    """
+    ```proto
+    message facilityops.v1.ListMyRequestsRequest
+    ```
+
+    Attributes:
+        limit:
+            1 to 100; defaults to 20.
+
+            ```proto
+            int32 limit = 1;
+            ```
+        offset:
+            ```proto
+            int32 offset = 2;
+            ```
+    """
+
+    __slots__ = ("limit", "offset")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            limit: int = 0,
+            offset: int = 0,
+        ) -> None:
+            pass
+
+        limit: int
+        offset: int
+
+_ListMyRequestsResponseFields: TypeAlias = Literal["requests", "total"]
+
+class ListMyRequestsResponse(Message[_ListMyRequestsResponseFields]):
+    """
+    ```proto
+    message facilityops.v1.ListMyRequestsResponse
+    ```
+
+    Attributes:
+        requests:
+            ```proto
+            repeated facilityops.v1.IntakeRequestSummary requests = 1;
+            ```
+        total:
+            ```proto
+            int32 total = 2;
+            ```
+    """
+
+    __slots__ = ("requests", "total")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            requests: list[IntakeRequestSummary] | None = None,
+            total: int = 0,
+        ) -> None:
+            pass
+
+        requests: list[IntakeRequestSummary]
+        total: int
+
+_ListRequestsRequestFields: TypeAlias = Literal["status", "limit", "offset"]
+
+class ListRequestsRequest(Message[_ListRequestsRequestFields]):
+    """
+    ```proto
+    message facilityops.v1.ListRequestsRequest
+    ```
+
+    Attributes:
+        status:
+            ```proto
+            facilityops.v1.IntakeStatus status = 1;
+            ```
+        limit:
+            1 to 100; defaults to 20.
+
+            ```proto
+            int32 limit = 2;
+            ```
+        offset:
+            ```proto
+            int32 offset = 3;
+            ```
+    """
+
+    __slots__ = ("status", "limit", "offset")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            status: IntakeStatus | None = None,
+            limit: int = 0,
+            offset: int = 0,
+        ) -> None:
+            pass
+
+        status: IntakeStatus
+        limit: int
+        offset: int
+
+_ListRequestsResponseFields: TypeAlias = Literal["requests", "total"]
+
+class ListRequestsResponse(Message[_ListRequestsResponseFields]):
+    """
+    ```proto
+    message facilityops.v1.ListRequestsResponse
+    ```
+
+    Attributes:
+        requests:
+            ```proto
+            repeated facilityops.v1.IntakeRequestSummary requests = 1;
+            ```
+        total:
+            ```proto
+            int32 total = 2;
+            ```
+    """
+
+    __slots__ = ("requests", "total")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            requests: list[IntakeRequestSummary] | None = None,
+            total: int = 0,
+        ) -> None:
+            pass
+
+        requests: list[IntakeRequestSummary]
+        total: int
+
+_GetRequestRequestFields: TypeAlias = Literal["request_id"]
+
+class GetRequestRequest(Message[_GetRequestRequestFields]):
+    """
+    ```proto
+    message facilityops.v1.GetRequestRequest
+    ```
+
+    Attributes:
+        request_id:
+            ```proto
+            string request_id = 1;
+            ```
+    """
+
+    __slots__ = ("request_id",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            request_id: str = "",
+        ) -> None:
+            pass
+
+        request_id: str
+
+_GetRequestResponseFields: TypeAlias = Literal["request"]
+
+class GetRequestResponse(Message[_GetRequestResponseFields]):
+    """
+    ```proto
+    message facilityops.v1.GetRequestResponse
+    ```
+
+    Attributes:
+        request:
+            ```proto
+            optional facilityops.v1.IntakeRequestSummary request = 1;
+            ```
+    """
+
+    __slots__ = ("request",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            request: IntakeRequestSummary | None = None,
+        ) -> None:
+            pass
+
+        request: IntakeRequestSummary | None
+
+_RevealRequestDetailsRequestFields: TypeAlias = Literal["request_id"]
+
+class RevealRequestDetailsRequest(Message[_RevealRequestDetailsRequestFields]):
+    """
+    ```proto
+    message facilityops.v1.RevealRequestDetailsRequest
+    ```
+
+    Attributes:
+        request_id:
+            ```proto
+            string request_id = 1;
+            ```
+    """
+
+    __slots__ = ("request_id",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            request_id: str = "",
+        ) -> None:
+            pass
+
+        request_id: str
+
+_RevealRequestDetailsResponseFields: TypeAlias = Literal["request_id", "redacted_description", "values"]
+
+class RevealRequestDetailsResponse(Message[_RevealRequestDetailsResponseFields]):
+    """
+    ```proto
+    message facilityops.v1.RevealRequestDetailsResponse
+    ```
+
+    Attributes:
+        request_id:
+            ```proto
+            string request_id = 1;
+            ```
+        redacted_description:
+            ```proto
+            string redacted_description = 2;
+            ```
+        values:
+            Placeholder (for example "[PII_0001]") to original value. Do not cache or log.
+
+            ```proto
+            map<string, string> values = 3;
+            ```
+    """
+
+    __slots__ = ("request_id", "redacted_description", "values")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            request_id: str = "",
+            redacted_description: str = "",
+            values: dict[str, str] | None = None,
+        ) -> None:
+            pass
+
+        request_id: str
+        redacted_description: str
+        values: dict[str, str]
+
 class RequestSource(Enum):
     """
     ```proto
@@ -220,6 +612,12 @@ class IntakeStatus(Enum):
             ```proto
             INTAKE_STATUS_WORK_ORDER_CREATED = 4
             ```
+        DISMISSED:
+            Closed without a work order by a reviewer, or the work order was rejected.
+
+            ```proto
+            INTAKE_STATUS_DISMISSED = 5
+            ```
     """
 
     UNSPECIFIED = 0
@@ -227,6 +625,7 @@ class IntakeStatus(Enum):
     HUMAN_REVIEW = 2
     PENDING_APPROVAL = 3
     WORK_ORDER_CREATED = 4
+    DISMISSED = 5
 
 class MaintenanceCategory(Enum):
     """
@@ -280,12 +679,23 @@ class MaintenanceCategory(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x1bfacilityops/v1/intake.proto\x12\x0efacilityops.v1"\x7f\n\x13SubmitIntakeRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x125\n\x06source\x18\x02 \x01(\x0e2\x1d.facilityops.v1.RequestSourceR\x06source\x12\x12\n\x04text\x18\x03 \x01(\tR\x04text"L\n\x14SubmitIntakeResponse\x124\n\x06result\x18\x01 \x01(\x0b2\x1c.facilityops.v1.IntakeResultR\x06result"\xcb\x02\n\x0cIntakeResult\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x124\n\x06status\x18\x02 \x01(\x0e2\x1c.facilityops.v1.IntakeStatusR\x06status\x12\x1f\n\x0breason_code\x18\x03 \x01(\tR\nreasonCode\x12?\n\x08category\x18\x04 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1f\n\x08priority\x18\x05 \x01(\x05H\x00R\x08priority\x88\x01\x01\x12#\n\nconfidence\x18\x06 \x01(\x01H\x01R\nconfidence\x88\x01\x01\x12"\n\rwork_order_id\x18\x07 \x01(\tR\x0bworkOrderIdB\x0b\n\t_priorityB\r\n\x0b_confidence*|\n\rRequestSource\x12\x1e\n\x1aREQUEST_SOURCE_UNSPECIFIED\x10\x00\x12\x17\n\x13REQUEST_SOURCE_TEXT\x10\x01\x12\x18\n\x14REQUEST_SOURCE_PHOTO\x10\x02\x12\x18\n\x14REQUEST_SOURCE_VOICE\x10\x03*\xbc\x01\n\x0cIntakeStatus\x12\x1d\n\x19INTAKE_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fINTAKE_STATUS_EMERGENCY_HANDOFF\x10\x01\x12\x1e\n\x1aINTAKE_STATUS_HUMAN_REVIEW\x10\x02\x12"\n\x1eINTAKE_STATUS_PENDING_APPROVAL\x10\x03\x12$\n INTAKE_STATUS_WORK_ORDER_CREATED\x10\x04*\xad\x02\n\x13MaintenanceCategory\x12$\n MAINTENANCE_CATEGORY_UNSPECIFIED\x10\x00\x12\x1d\n\x19MAINTENANCE_CATEGORY_HVAC\x10\x01\x12!\n\x1dMAINTENANCE_CATEGORY_PLUMBING\x10\x02\x12#\n\x1fMAINTENANCE_CATEGORY_ELECTRICAL\x10\x03\x12!\n\x1dMAINTENANCE_CATEGORY_SECURITY\x10\x04\x12#\n\x1fMAINTENANCE_CATEGORY_STRUCTURAL\x10\x05\x12!\n\x1dMAINTENANCE_CATEGORY_CLEANING\x10\x06\x12\x1e\n\x1aMAINTENANCE_CATEGORY_OTHER\x10\x072j\n\rIntakeService\x12Y\n\x0cSubmitIntake\x12#.facilityops.v1.SubmitIntakeRequest\x1a$.facilityops.v1.SubmitIntakeResponseb\x06proto3',
-    [],
+    b'\n\x1bfacilityops/v1/intake.proto\x12\x0efacilityops.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\xd0\x01\n\x13SubmitIntakeRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x125\n\x06source\x18\x02 \x01(\x0e2\x1d.facilityops.v1.RequestSourceR\x06source\x12\x12\n\x04text\x18\x03 \x01(\tR\x04text\x12\x14\n\x05media\x18\x04 \x01(\x0cR\x05media\x12\x1d\n\nmedia_type\x18\x05 \x01(\tR\tmediaType\x12\x1a\n\x08language\x18\x06 \x01(\tR\x08language"L\n\x14SubmitIntakeResponse\x124\n\x06result\x18\x01 \x01(\x0b2\x1c.facilityops.v1.IntakeResultR\x06result"\xcb\x02\n\x0cIntakeResult\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x124\n\x06status\x18\x02 \x01(\x0e2\x1c.facilityops.v1.IntakeStatusR\x06status\x12\x1f\n\x0breason_code\x18\x03 \x01(\tR\nreasonCode\x12?\n\x08category\x18\x04 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1f\n\x08priority\x18\x05 \x01(\x05H\x00R\x08priority\x88\x01\x01\x12#\n\nconfidence\x18\x06 \x01(\x01H\x01R\nconfidence\x88\x01\x01\x12"\n\rwork_order_id\x18\x07 \x01(\tR\x0bworkOrderIdB\x0b\n\t_priorityB\r\n\x0b_confidence"\xa4\x04\n\x14IntakeRequestSummary\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x125\n\x06source\x18\x02 \x01(\x0e2\x1d.facilityops.v1.RequestSourceR\x06source\x124\n\x06status\x18\x03 \x01(\x0e2\x1c.facilityops.v1.IntakeStatusR\x06status\x12\x1f\n\x0breason_code\x18\x04 \x01(\tR\nreasonCode\x12?\n\x08category\x18\x05 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1f\n\x08priority\x18\x06 \x01(\x05H\x00R\x08priority\x88\x01\x01\x12#\n\nconfidence\x18\x07 \x01(\x01H\x01R\nconfidence\x88\x01\x01\x12"\n\rwork_order_id\x18\x08 \x01(\tR\x0bworkOrderId\x12*\n\x11work_order_status\x18\t \x01(\tR\x0fworkOrderStatus\x121\n\x14redacted_description\x18\n \x01(\tR\x13redactedDescription\x129\n\ncreated_at\x18\x0b \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAtB\x0b\n\t_priorityB\r\n\x0b_confidence"E\n\x15ListMyRequestsRequest\x12\x14\n\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x02 \x01(\x05R\x06offset"p\n\x16ListMyRequestsResponse\x12@\n\x08requests\x18\x01 \x03(\x0b2$.facilityops.v1.IntakeRequestSummaryR\x08requests\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"y\n\x13ListRequestsRequest\x124\n\x06status\x18\x01 \x01(\x0e2\x1c.facilityops.v1.IntakeStatusR\x06status\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x03 \x01(\x05R\x06offset"n\n\x14ListRequestsResponse\x12@\n\x08requests\x18\x01 \x03(\x0b2$.facilityops.v1.IntakeRequestSummaryR\x08requests\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"2\n\x11GetRequestRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId"T\n\x12GetRequestResponse\x12>\n\x07request\x18\x01 \x01(\x0b2$.facilityops.v1.IntakeRequestSummaryR\x07request"<\n\x1bRevealRequestDetailsRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId"\xfd\x01\n\x1cRevealRequestDetailsResponse\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x121\n\x14redacted_description\x18\x02 \x01(\tR\x13redactedDescription\x12P\n\x06values\x18\x03 \x03(\x0b28.facilityops.v1.RevealRequestDetailsResponse.ValuesEntryR\x06values\x1a9\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*|\n\rRequestSource\x12\x1e\n\x1aREQUEST_SOURCE_UNSPECIFIED\x10\x00\x12\x17\n\x13REQUEST_SOURCE_TEXT\x10\x01\x12\x18\n\x14REQUEST_SOURCE_PHOTO\x10\x02\x12\x18\n\x14REQUEST_SOURCE_VOICE\x10\x03*\xd9\x01\n\x0cIntakeStatus\x12\x1d\n\x19INTAKE_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fINTAKE_STATUS_EMERGENCY_HANDOFF\x10\x01\x12\x1e\n\x1aINTAKE_STATUS_HUMAN_REVIEW\x10\x02\x12"\n\x1eINTAKE_STATUS_PENDING_APPROVAL\x10\x03\x12$\n INTAKE_STATUS_WORK_ORDER_CREATED\x10\x04\x12\x1b\n\x17INTAKE_STATUS_DISMISSED\x10\x05*\xad\x02\n\x13MaintenanceCategory\x12$\n MAINTENANCE_CATEGORY_UNSPECIFIED\x10\x00\x12\x1d\n\x19MAINTENANCE_CATEGORY_HVAC\x10\x01\x12!\n\x1dMAINTENANCE_CATEGORY_PLUMBING\x10\x02\x12#\n\x1fMAINTENANCE_CATEGORY_ELECTRICAL\x10\x03\x12!\n\x1dMAINTENANCE_CATEGORY_SECURITY\x10\x04\x12#\n\x1fMAINTENANCE_CATEGORY_STRUCTURAL\x10\x05\x12!\n\x1dMAINTENANCE_CATEGORY_CLEANING\x10\x06\x12\x1e\n\x1aMAINTENANCE_CATEGORY_OTHER\x10\x072\xee\x03\n\rIntakeService\x12Y\n\x0cSubmitIntake\x12#.facilityops.v1.SubmitIntakeRequest\x1a$.facilityops.v1.SubmitIntakeResponse\x12_\n\x0eListMyRequests\x12%.facilityops.v1.ListMyRequestsRequest\x1a&.facilityops.v1.ListMyRequestsResponse\x12Y\n\x0cListRequests\x12#.facilityops.v1.ListRequestsRequest\x1a$.facilityops.v1.ListRequestsResponse\x12S\n\nGetRequest\x12!.facilityops.v1.GetRequestRequest\x1a".facilityops.v1.GetRequestResponse\x12q\n\x14RevealRequestDetails\x12+.facilityops.v1.RevealRequestDetailsRequest\x1a,.facilityops.v1.RevealRequestDetailsResponseb\x06proto3',
+    [
+        timestamp_pb.desc(),
+    ],
     {
         "SubmitIntakeRequest": SubmitIntakeRequest,
         "SubmitIntakeResponse": SubmitIntakeResponse,
         "IntakeResult": IntakeResult,
+        "IntakeRequestSummary": IntakeRequestSummary,
+        "ListMyRequestsRequest": ListMyRequestsRequest,
+        "ListMyRequestsResponse": ListMyRequestsResponse,
+        "ListRequestsRequest": ListRequestsRequest,
+        "ListRequestsResponse": ListRequestsResponse,
+        "GetRequestRequest": GetRequestRequest,
+        "GetRequestResponse": GetRequestResponse,
+        "RevealRequestDetailsRequest": RevealRequestDetailsRequest,
+        "RevealRequestDetailsResponse": RevealRequestDetailsResponse,
         "RequestSource": RequestSource,
         "IntakeStatus": IntakeStatus,
         "MaintenanceCategory": MaintenanceCategory,

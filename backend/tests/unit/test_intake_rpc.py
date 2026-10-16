@@ -90,7 +90,7 @@ def test_invalid_text_names_the_field_only():
         empty = call(client, "IntakeService/SubmitIntake", {"text": ""})
         bad_id = call(client, "IntakeService/SubmitIntake", {"requestId": "nope", "text": "x"})
 
-    assert empty.json() == {"code": "invalid_argument", "message": "Invalid field(s): text"}
+    assert empty.json() == {"code": "invalid_argument", "message": "text is required"}
     assert bad_id.json()["code"] == "invalid_argument"
 
 

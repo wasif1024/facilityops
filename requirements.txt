@@ -1,3 +1,5 @@
+# Runtime dependencies (used by the Docker image). For development use requirements-dev.txt.
+
 # API and configuration
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.34,<1.0
@@ -28,13 +30,5 @@ cryptography>=44,<51
 # OpenTelemetry and Azure Monitor
 azure-monitor-opentelemetry>=1.8,<2.0
 
-# Tests
-pytest>=8.0,<10.0
-pytest-asyncio>=0.24,<2.0
+# HTTP client for Azure AI Vision and Speech (photo and voice intake)
 httpx>=0.27,<1.0
-debugpy>=1.8,<2.0
-
-# Protobuf code generation (buf generate)
-buf-bin>=1.74,<2.0
-protoc-gen-py>=0.6,<0.7
-protoc-gen-connectrpc>=0.12,<0.13

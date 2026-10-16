@@ -26,13 +26,13 @@ class FakePiiRedactor:
 
 
 class FakeSafetyInspector:
-    def __init__(self, safe: bool = True) -> None:
-        self.safe = safe
+    def __init__(self, reason: str | None = None) -> None:
+        self.reason = reason
         self.calls: list[str] = []
 
-    async def is_safe(self, redacted_text: str) -> bool:
+    async def assess(self, redacted_text: str) -> str | None:
         self.calls.append(redacted_text)
-        return self.safe
+        return self.reason
 
 
 class FakeClassifier:
@@ -148,12 +148,12 @@ async def test_classifier_only_receives_redacted_text(dependencies):
 @pytest.mark.asyncio
 async def test_safety_failure_stops_classification_and_creation(dependencies):
     coordinator, _, safety, classifier, work_orders, _, _ = dependencies
-    safety.safe = False
+    safety.reason = "prompt_attack_detected"
 
     result = await coordinator.process(IntakeCommand(text="Please inspect my unit"))
 
     assert result.status is IntakeStatus.HUMAN_REVIEW
-    assert result.reason_code == "content_safety_review"
+    assert result.reason_code == "prompt_attack_detected"
     assert classifier.calls == []
     assert work_orders.calls == []
 

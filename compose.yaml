@@ -1,0 +1,81 @@
+# Run FacilityOps AI locally with Docker: PostgreSQL, migrations and the API.
+#
+#   docker compose up --build          # start everything; API on http://localhost:8000
+#   docker compose --profile tools up  # also start pgAdmin on http://localhost:5050
+#   docker compose down                # stop (data is kept)
+#   docker compose down -v             # stop and delete the database volume
+#
+# Works without Azure: the emergency screen, users and roles, review queue, work orders,
+# admin reports and offline evals all run, and AI steps fail closed to human review.
+# To use Azure AI services, copy .env.docker.example to .env.docker and fill it in.
+# See docs/commands.md, section "Run with Docker".
+
+name: facilityops
+
+# Settings shared by the one-off migration job and the API.
+x-app: &app
+  build: .
+  image: facilityops-api:local
+  env_file:
+    # Optional Azure settings; missing is fine.
+    - path: .env.docker
+      required: false
+  environment: &app-env
+    APP_ENV: development
+    DATABASE_URL: postgresql+psycopg://facilityops:${POSTGRES_PASSWORD:-local-dev-only}@postgres:5432/facilityops
+    # Local development sign-in: pick a user with the X-Dev-User header (never in production).
+    AUTH_ENABLED: "false"
+    ALLOWED_HOSTS: '["localhost","127.0.0.1"]'
+    FRONTEND_ORIGINS: '["http://localhost:5173"]'
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: facilityops
+      POSTGRES_USER: facilityops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+    ports:
+      # Host port 5433 so it doesn't clash with a PostgreSQL already installed on 5432.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U facilityops -d facilityops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Applies database migrations once, then exits. The API only starts if this succeeds.
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Optional database UI: docker compose --profile tools up
+  pgadmin:
+    image: dpage/pgadmin4:9
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-local-dev-only}
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Protocol
+from typing import Protocol, TypeVar
 from uuid import UUID
+
+from opentelemetry import trace
 
 from backend.app.domain.emergency import detect_emergency
 from backend.app.domain.intake import (
@@ -11,15 +13,49 @@ from backend.app.domain.intake import (
     IntakeResult,
     IntakeStatus,
     PiiRedaction,
+    RequestSource,
 )
+
+
+# No-op unless telemetry is configured. Spans carry ids and reason codes, never text.
+_tracer = trace.get_tracer("facilityops.intake")
+T = TypeVar("T")
+
+
+async def _step(name: str, awaitable: Awaitable[T]) -> T:
+    """Trace one pipeline step. Exception messages are not recorded, only the type,
+    because they can contain request text."""
+    with _tracer.start_as_current_span(
+        name, record_exception=False, set_status_on_exception=False
+    ) as span:
+        try:
+            return await awaitable
+        except Exception as error:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, type(error).__name__))
+            raise
 
 
 class PiiRedactor(Protocol):
     async def redact(self, text: str, language: str = "en") -> PiiRedaction: ...
 
 
+class MediaTranscriber(Protocol):
+    async def transcribe(
+        self,
+        *,
+        source: RequestSource,
+        media: bytes,
+        media_type: str,
+        language: str | None,
+    ) -> str:
+        """Text found in a photo (caption and OCR) or spoken in a voice note."""
+        ...
+
+
 class ContentSafetyInspector(Protocol):
-    async def is_safe(self, redacted_text: str) -> bool: ...
+    async def assess(self, redacted_text: str) -> str | None:
+        """None when safe; otherwise a reason code such as "prompt_attack_detected"."""
+        ...
 
 
 class MaintenanceClassifier(Protocol):
@@ -61,6 +97,7 @@ class IntakeCoordinator:
         work_order_writer: WorkOrderWriter,
         decision_writer: IntakeDecisionWriter,
         emergency_handoff: Callable[[UUID, str], Awaitable[None]],
+        media_transcriber: MediaTranscriber | None = None,
         minimum_confidence: float = 0.75,
         approval_priority_threshold: int = 4,
     ) -> None:
@@ -75,24 +112,55 @@ class IntakeCoordinator:
         self._work_order_writer = work_order_writer
         self._decision_writer = decision_writer
         self._emergency_handoff = emergency_handoff
+        self._media_transcriber = media_transcriber
         self._minimum_confidence = minimum_confidence
         self._approval_priority_threshold = approval_priority_threshold
 
     async def process(self, command: IntakeCommand) -> IntakeResult:
-        emergency_reason = self._emergency_reason(command.text)
-        if emergency_reason is not None:
-            await self._emergency_handoff(command.request_id, emergency_reason)
-            return await self._finish(
-                command,
-                IntakeResult(
-                    request_id=command.request_id,
-                    status=IntakeStatus.EMERGENCY_HANDOFF,
-                    reason_code=emergency_reason,
-                ),
-            )
+        with _tracer.start_as_current_span("intake.process") as span:
+            span.set_attribute("facilityops.request_id", str(command.request_id))
+            span.set_attribute("facilityops.source", command.source.value)
+            result = await self._run(command)
+            span.set_attribute("facilityops.status", result.status.value)
+            span.set_attribute("facilityops.reason_code", result.reason_code)
+            return result
+
+    async def _run(self, command: IntakeCommand) -> IntakeResult:
+        # Screen what the tenant typed first: no network call can delay an emergency.
+        if (emergency_reason := self._emergency_reason(command.text)) is not None:
+            return await self._hand_off(command, emergency_reason)
+
+        text = command.text
+        if command.media is not None:
+            if self._media_transcriber is None:
+                return await self._finish(
+                    command, self._human_review(command, "media_transcription_unavailable")
+                )
+            try:
+                transcript = await _step(
+                    "intake.media_transcription",
+                    self._media_transcriber.transcribe(
+                        source=command.source,
+                        media=command.media,
+                        media_type=command.media_type or "",
+                        language=command.language,
+                    ),
+                )
+            except Exception:
+                return await self._finish(
+                    command, self._human_review(command, "media_transcription_unavailable")
+                )
+            text = "\n".join(part for part in (command.text.strip(), transcript.strip()) if part)
+            if not text:
+                return await self._finish(command, self._human_review(command, "media_unreadable"))
+            if (emergency_reason := self._emergency_reason(text)) is not None:
+                return await self._hand_off(command, emergency_reason)
 
         try:
-            redaction = await self._pii_redactor.redact(command.text)
+            redaction = await _step(
+                "intake.pii_redaction",
+                self._pii_redactor.redact(text, language=command.language or "en"),
+            )
         except Exception:
             return await self._finish(
                 command, self._human_review(command, "pii_redaction_unavailable")
@@ -106,13 +174,9 @@ class IntakeCoordinator:
             )
 
         try:
-            if not await self._safety_inspector.is_safe(redacted_text):
-                return await self._finish(
-                    command,
-                    self._human_review(command, "content_safety_review"),
-                    redacted_text,
-                    redaction.encrypted_mapping,
-                )
+            safety_reason = await _step(
+                "intake.content_safety", self._safety_inspector.assess(redacted_text)
+            )
         except Exception:
             return await self._finish(
                 command,
@@ -120,9 +184,18 @@ class IntakeCoordinator:
                 redacted_text,
                 redaction.encrypted_mapping,
             )
+        if safety_reason is not None:
+            return await self._finish(
+                command,
+                self._human_review(command, safety_reason),
+                redacted_text,
+                redaction.encrypted_mapping,
+            )
 
         try:
-            classification = await self._classifier.classify(redacted_text)
+            classification = await _step(
+                "intake.classification", self._classifier.classify(redacted_text)
+            )
         except Exception:
             return await self._finish(
                 command,
@@ -180,6 +253,17 @@ class IntakeCoordinator:
             ),
             redacted_text,
             redaction.encrypted_mapping,
+        )
+
+    async def _hand_off(self, command: IntakeCommand, reason_code: str) -> IntakeResult:
+        await self._emergency_handoff(command.request_id, reason_code)
+        return await self._finish(
+            command,
+            IntakeResult(
+                request_id=command.request_id,
+                status=IntakeStatus.EMERGENCY_HANDOFF,
+                reason_code=reason_code,
+            ),
         )
 
     async def _finish(

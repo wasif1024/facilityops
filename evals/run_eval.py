@@ -16,7 +16,7 @@ import hashlib
 import json
 import os
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -54,6 +54,9 @@ class Prediction:
     confidence: float | None = None
     requires_human_review: bool | None = None
     error: str | None = None
+    # Every classification of this case when --samples > 1; the first one fills the
+    # fields above so single-sample metrics stay comparable across runs.
+    samples: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -112,6 +115,7 @@ async def classify_cases(
     predictions: dict[str, Prediction],
     concurrency: int,
     recorder: Any = None,
+    samples: int = 1,
 ) -> dict[str, Any]:
     from backend.app.core.config import get_settings
     from backend.app.services.azure_adapters import (
@@ -125,21 +129,37 @@ async def classify_cases(
     redactor = AzureLanguagePiiRedactor(settings) if redact else None
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def run(case: Case) -> None:
-        prediction = predictions[case.id]
+    async def classify_once(text: str) -> dict[str, Any]:
         async with semaphore:
             try:
-                text = case.text
-                if redactor is not None:
-                    text = (await redactor.redact(text, language=case.language)).redacted_text
                 result = await classifier.classify(text)
-            except Exception as error:  # noqa: BLE001 - recorded per case, never fatal
+            except Exception as error:  # noqa: BLE001 - recorded per sample, never fatal
+                return {"error": type(error).__name__}
+        return {
+            "category": result.category.value,
+            "priority": result.priority,
+            "confidence": result.confidence,
+            "requires_human_review": result.requires_human_review,
+        }
+
+    async def run(case: Case) -> None:
+        prediction = predictions[case.id]
+        text = case.text
+        if redactor is not None:
+            # Redaction is deterministic, so it runs once; only classification is sampled.
+            try:
+                async with semaphore:
+                    text = (await redactor.redact(text, language=case.language)).redacted_text
+            except Exception as error:  # noqa: BLE001
                 prediction.error = type(error).__name__
                 return
-        prediction.category = result.category.value
-        prediction.priority = result.priority
-        prediction.confidence = result.confidence
-        prediction.requires_human_review = result.requires_human_review
+        prediction.samples = list(await asyncio.gather(*(classify_once(text) for _ in range(samples))))
+        first = prediction.samples[0]
+        prediction.error = first.get("error")
+        prediction.category = first.get("category")
+        prediction.priority = first.get("priority")
+        prediction.confidence = first.get("confidence")
+        prediction.requires_human_review = first.get("requires_human_review")
 
     # Emergencies never reach the classifier in production, so they are not scored here.
     await asyncio.gather(*(run(case) for case in cases if not case.emergency))
@@ -147,7 +167,96 @@ async def classify_cases(
         "model": settings.foundry_model,
         "pii_redaction": redact,
         "minimum_confidence": settings.minimum_classification_confidence,
+        "approval_priority_threshold": settings.approval_priority_threshold,
+        "samples": samples,
     }
+
+
+def route_of(sample: dict[str, Any], minimum_confidence: float, approval_threshold: int) -> str:
+    """The route the workflow would take for one classification, as in IntakeCoordinator."""
+    if (
+        sample.get("error")
+        or sample.get("requires_human_review")
+        or (sample.get("confidence") or 0) < minimum_confidence
+    ):
+        return "human_review"
+    if (sample.get("priority") or 0) >= approval_threshold:
+        return "pending_approval"
+    return "work_order"
+
+
+def _modal(values: list[Any]) -> Any:
+    """Most common value; ties broken deterministically so reruns score the same."""
+    counts = Counter(values)
+    best = max(counts.values())
+    return min((v for v, c in counts.items() if c == best), key=repr)
+
+
+def score_consistency(
+    cases: list[Case],
+    predictions: dict[str, Prediction],
+    minimum_confidence: float,
+    approval_threshold: int,
+    report: Report,
+) -> None:
+    """Agreement across repeated classifications of the same (redacted) input.
+
+    route_self_agreement is the operational one: whether repeated runs would send the
+    request down the same path (work order, pending approval or human review).
+    """
+    sampled = [
+        case
+        for case in cases
+        if not case.emergency and len(predictions[case.id].samples) > 1
+    ]
+    if not sampled:
+        return
+
+    def labels(case: Case) -> list[tuple[Any, Any]]:
+        return [(s.get("category"), s.get("priority")) for s in predictions[case.id].samples]
+
+    def routes(case: Case) -> list[str]:
+        return [
+            route_of(s, minimum_confidence, approval_threshold)
+            for s in predictions[case.id].samples
+        ]
+
+    unstable_labels = [case.id for case in sampled if len(set(labels(case))) > 1]
+    unstable_routes = [case.id for case in sampled if len(set(routes(case))) > 1]
+    report.metrics["samples_per_case"] = max(len(predictions[c.id].samples) for c in sampled)
+    report.metrics["classification_self_agreement"] = _ratio(
+        len(sampled) - len(unstable_labels), len(sampled)
+    )
+    report.metrics["route_self_agreement"] = _ratio(
+        len(sampled) - len(unstable_routes), len(sampled)
+    )
+    report.failures["unstable_classification"] = unstable_labels
+    report.failures["unstable_route"] = unstable_routes
+
+    # Fairness on the modal answer: separates bias (members differ systematically)
+    # from sampling noise (one unlucky draw).
+    groups: dict[str, list[Case]] = defaultdict(list)
+    for case in sampled:
+        if case.fairness_group:
+            groups[case.fairness_group].append(case)
+    label_split = [
+        group
+        for group, members in sorted(groups.items())
+        if len({_modal(labels(m)) for m in members}) > 1
+    ]
+    route_split = [
+        group
+        for group, members in sorted(groups.items())
+        if len({_modal(routes(m)) for m in members}) > 1
+    ]
+    report.metrics["counterfactual_consistency_modal"] = _ratio(
+        len(groups) - len(label_split), len(groups)
+    )
+    report.metrics["counterfactual_route_consistency_modal"] = _ratio(
+        len(groups) - len(route_split), len(groups)
+    )
+    report.failures["fairness_inconsistent_groups_modal"] = label_split
+    report.failures["fairness_route_inconsistent_groups_modal"] = route_split
 
 
 def score_classification(
@@ -277,16 +386,14 @@ def render_markdown(report: Report) -> str:
 
 
 def build_case_results(cases: list[Case], predictions: dict[str, Prediction], report: Report) -> list[dict[str, Any]]:
-    inconsistent_groups = set(report.failures.get("fairness_inconsistent_groups", []))
+    # "fairness_*" failure lists hold fairness-group ids; the rest hold case ids.
     results = []
     for case in cases:
         failures = [
             name
             for name, ids in report.failures.items()
-            if name != "fairness_inconsistent_groups" and case.id in ids
+            if (case.fairness_group in ids if name.startswith("fairness_") else case.id in ids)
         ]
-        if case.fairness_group in inconsistent_groups:
-            failures.append("fairness_inconsistent_groups")
         results.append(
             {
                 "case_id": case.id,
@@ -326,10 +433,19 @@ async def evaluate(args: argparse.Namespace, recorder: Any = None) -> Report:
     add_gate(report, "emergency_recall", args.min_emergency_recall)
 
     if args.mode == "live":
-        run_info = await classify_cases(cases, predictions, args.concurrency, recorder)
+        run_info = await classify_cases(
+            cases, predictions, args.concurrency, recorder, samples=args.samples
+        )
         report.metadata.update(run_info)
         report.metadata["prompt_sha"] = _sha256(CLASSIFIER_PROMPT)
         score_classification(cases, predictions, run_info["minimum_confidence"], report)
+        score_consistency(
+            cases,
+            predictions,
+            run_info["minimum_confidence"],
+            run_info["approval_priority_threshold"],
+            report,
+        )
         add_gate(report, "category_accuracy", args.min_category_accuracy)
 
     report.predictions = {case_id: asdict(p) for case_id, p in predictions.items()}
@@ -345,6 +461,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-emergency-recall", type=float, default=1.0)
     parser.add_argument("--min-category-accuracy", type=float, default=None)
     parser.add_argument("--concurrency", type=int, default=4)
+    parser.add_argument(
+        "--samples",
+        type=int,
+        default=1,
+        help="Live mode: classify each case N times and report agreement (N >= 2).",
+    )
     parser.add_argument(
         "--store",
         action="store_true",

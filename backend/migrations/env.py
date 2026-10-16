@@ -10,7 +10,8 @@ from backend.app.db import models as _models
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers the app already created; the default would silently disable them.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Same source as the app: DATABASE_URL from the environment, falling back to .env.
 # Callers such as the integration tests may set sqlalchemy.url explicitly instead.

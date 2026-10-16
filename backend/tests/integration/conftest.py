@@ -12,6 +12,7 @@ import os
 
 import psycopg
 import pytest
+from cryptography.fernet import Fernet
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -27,6 +28,9 @@ from backend.app.services.evaluations import eval_arguments, run_and_store
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://localhost:5432/facilityops_test"
 )
+# Fixed per test session; encrypts the synthetic PII mappings the tests insert.
+TEST_PII_KEY = Fernet.generate_key().decode()
+
 # Seeded reference data (roles, permissions) is kept; everything else is wiped per test.
 _DATA_TABLES = (
     "users",
@@ -85,6 +89,7 @@ def client(session_factory, migrated_database):
         content_safety_endpoint=None,
         foundry_endpoint=None,
         rate_limit_requests=1000,
+        pii_mapping_encryption_key=TEST_PII_KEY,
     )
     container = Container.default(settings, session_factory=session_factory)
 

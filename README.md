@@ -8,7 +8,7 @@ The project is a worked example of enterprise AI practice: fail-closed orchestra
 redacted but recoverable by authorized roles, an evaluation suite with a hard CI gate, and Responsible AI
 checks for prompt injection and counterfactual fairness. All data in the repository is synthetic.
 
-> **Status:** Phase 1 (intake MVP) in progress. See [Roadmap](#roadmap).
+> **Status:** Phase 1 (intake MVP) feature-complete. See [Roadmap](#roadmap).
 >
 > **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Architecture and agent orchestration](docs/architecture.md)
 
@@ -74,16 +74,27 @@ this repository and access to the Foundry project), plus `FOUNDRY_ENDPOINT`.
 
 ## Running locally
 
-Requires Python 3.13+, PostgreSQL 16+ and the Azure CLI signed in with `az login`. Authentication to
-Azure uses Entra ID via `DefaultAzureCredential`, not API keys.
+**Quickest: Docker.** Nothing to install except Docker Desktop:
+
+```bash
+docker compose up --build -d      # PostgreSQL + migrations + API on http://localhost:8000
+docker compose exec api python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+```
+
+Without Azure configured, everything except the AI steps works, and those fail closed to human review. To use
+your own Azure AI resources, copy `.env.docker.example` to `.env.docker`. Details in
+[Developer commands §1.1](docs/commands.md#11-quick-start-with-docker).
+
+**Native setup** (to develop and run the tests) requires Python 3.13+, PostgreSQL 16+ and the Azure CLI signed
+in with `az login`. Authentication to Azure uses Entra ID via `DefaultAzureCredential`, not API keys.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env          # set DATABASE_URL and your Foundry / Azure AI endpoints
-createdb facilityops          # once per machine
-alembic upgrade head          # creates or updates the schema
-uvicorn backend.app.main:app --reload
+scripts/db.sh create          # once per machine
+scripts/db.sh up              # creates or updates the schema (see docs/commands.md for down, reset, new...)
+uvicorn backend.app.main:create_app --factory --reload
 python -m pytest -q
 ```
 
@@ -135,7 +146,9 @@ checks the generated code is current and blocks breaking changes on pull request
 | Service | RPCs |
 |---|---|
 | `AccountService` | `GetMe` |
-| `IntakeService` | `SubmitIntake` |
+| `IntakeService` | `SubmitIntake` (text, photo, voice), `ListMyRequests`, `ListRequests`, `GetRequest`, `RevealRequestDetails` |
+| `ReviewQueueService` | `ListReviewCases`, `ResolveReviewCase` |
+| `WorkOrderService` | `ListWorkOrders`, `GetWorkOrder`, `ApproveWorkOrder`, `RejectWorkOrder`, `AssignWorkOrder`, `CompleteWorkOrder` |
 | `UserAdminService` | `ListUsers`, `GetUser`, `CreateUser`, `UpdateUser`, `SetUserRoles`, `ListRoles`, `ListAuditEvents` |
 | `EvaluationService` | `ListEvaluationRuns`, `GetEvaluationRun`, `StartEvaluationRun`, `GetMetricTrend` |
 | `MonitoringService` | `GetAgentReport`, `ListAgentRuns`, `GetIntakeReport` |
@@ -186,7 +199,9 @@ docs/            specification and architecture
 
 ## Roadmap
 
-1. **Intake MVP:** deterministic workflow, PII handling, classification, eval set and CI gate *(in progress)*
+1. **Intake MVP:** deterministic workflow for text, photo and voice; PII redaction with audited reveal; review
+   queue and work-order approvals; users and RBAC; agent monitoring; OpenTelemetry; eval set and CI gate *(done;
+   one open finding on classifier consistency, see [spec §10](docs/specification.md#10-evaluation-and-acceptance))*
 2. **Complex incidents:** a Magentic team (diagnostician over manuals with Azure AI Search, asset historian,
    safety and compliance, procurement, scheduler, communicator) with capped rounds and token budgets; approval workflow
 3. **Product:** tenant and manager web UI, `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md`, demo

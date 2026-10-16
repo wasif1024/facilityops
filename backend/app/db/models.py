@@ -60,8 +60,18 @@ class WorkOrderRecord(Base):
     category: Mapped[str] = mapped_column(String(32))
     priority: Mapped[int] = mapped_column(Integer)
     confidence: Mapped[float] = mapped_column(Float)
-    status: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(32), index=True)
     approval_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    assigned_technician_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    decided_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Fixed reason code when rejected; never free text.
+    decision_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -82,7 +92,14 @@ class HumanReviewCase(Base):
         String(10_000), nullable=True
     )
     encrypted_source: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    status: Mapped[str] = mapped_column(String(32), default="queued")
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    resolution: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Fixed reason code when dismissed; never free text.
+    resolution_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    resolved_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

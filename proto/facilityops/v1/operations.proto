@@ -1,0 +1,195 @@
+syntax = "proto3";
+
+package facilityops.v1;
+
+import "facilityops/v1/intake.proto";
+import "google/protobuf/timestamp.proto";
+
+// The human-review queue: requests the workflow would not decide on its own.
+// Decisions use fixed reason codes, never free text, so the audit trail holds no PII.
+service ReviewQueueService {
+  // Emergencies first, then oldest first. Requires review_queue:manage.
+  rpc ListReviewCases(ListReviewCasesRequest) returns (ListReviewCasesResponse);
+  // Create a work order (the reviewer's decision counts as approval) or dismiss.
+  // Requires review_queue:manage.
+  rpc ResolveReviewCase(ResolveReviewCaseRequest) returns (ResolveReviewCaseResponse);
+}
+
+// Work-order lifecycle: pending_approval -> open | rejected; open -> completed.
+service WorkOrderService {
+  // Technicians see only their assignments. Requires work_orders:read_all or read_assigned.
+  rpc ListWorkOrders(ListWorkOrdersRequest) returns (ListWorkOrdersResponse);
+  // Requires work_orders:read_all, or read_assigned for your own assignment.
+  rpc GetWorkOrder(GetWorkOrderRequest) returns (GetWorkOrderResponse);
+  // pending_approval -> open. Requires work_orders:approve.
+  rpc ApproveWorkOrder(ApproveWorkOrderRequest) returns (ApproveWorkOrderResponse);
+  // pending_approval -> rejected. Requires work_orders:approve.
+  rpc RejectWorkOrder(RejectWorkOrderRequest) returns (RejectWorkOrderResponse);
+  // Assign to an active technician. Requires work_orders:assign.
+  rpc AssignWorkOrder(AssignWorkOrderRequest) returns (AssignWorkOrderResponse);
+  // open -> completed, by the assigned technician. Requires work_orders:update_assigned.
+  rpc CompleteWorkOrder(CompleteWorkOrderRequest) returns (CompleteWorkOrderResponse);
+}
+
+enum ReviewCaseStatus {
+  REVIEW_CASE_STATUS_UNSPECIFIED = 0;
+  REVIEW_CASE_STATUS_QUEUED = 1;
+  // Emergency handed to on-call; resolve once the follow-up is decided.
+  REVIEW_CASE_STATUS_EMERGENCY_ON_CALL_QUEUE = 2;
+  REVIEW_CASE_STATUS_RESOLVED = 3;
+}
+
+enum ReviewResolution {
+  REVIEW_RESOLUTION_UNSPECIFIED = 0;
+  REVIEW_RESOLUTION_WORK_ORDER_CREATED = 1;
+  REVIEW_RESOLUTION_DISMISSED = 2;
+}
+
+enum DismissalReason {
+  DISMISSAL_REASON_UNSPECIFIED = 0;
+  DISMISSAL_REASON_DUPLICATE = 1;
+  DISMISSAL_REASON_NOT_ACTIONABLE = 2;
+  DISMISSAL_REASON_OUT_OF_SCOPE = 3;
+  DISMISSAL_REASON_HANDLED_BY_ON_CALL = 4;
+  DISMISSAL_REASON_RESOLVED_BY_TENANT = 5;
+  DISMISSAL_REASON_ABUSIVE_OR_SPAM = 6;
+}
+
+enum WorkOrderStatus {
+  WORK_ORDER_STATUS_UNSPECIFIED = 0;
+  WORK_ORDER_STATUS_PENDING_APPROVAL = 1;
+  WORK_ORDER_STATUS_OPEN = 2;
+  WORK_ORDER_STATUS_REJECTED = 3;
+  WORK_ORDER_STATUS_COMPLETED = 4;
+}
+
+enum RejectionReason {
+  REJECTION_REASON_UNSPECIFIED = 0;
+  REJECTION_REASON_DUPLICATE = 1;
+  REJECTION_REASON_NOT_ACTIONABLE = 2;
+  REJECTION_REASON_COST_NOT_APPROVED = 3;
+  REJECTION_REASON_SAFETY_REVIEW_NEEDED = 4;
+  REJECTION_REASON_OUT_OF_SCOPE = 5;
+}
+
+message ReviewCase {
+  string id = 1;
+  string request_id = 2;
+  ReviewCaseStatus status = 3;
+  // Why the workflow sent it here, for example "classification_uncertain" or "emergency_gas".
+  string reason_code = 4;
+  string redacted_description = 5;
+  // The classifier's suggestion, when there was one.
+  MaintenanceCategory suggested_category = 6;
+  optional int32 suggested_priority = 7;
+  optional double suggested_confidence = 8;
+  ReviewResolution resolution = 9;
+  DismissalReason dismissal_reason = 10;
+  string resolved_by_user_id = 11;
+  google.protobuf.Timestamp resolved_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  string work_order_id = 14;
+}
+
+message WorkOrder {
+  string id = 1;
+  string request_id = 2;
+  MaintenanceCategory category = 3;
+  int32 priority = 4;
+  double confidence = 5;
+  WorkOrderStatus status = 6;
+  bool approval_required = 7;
+  string assigned_technician_id = 8;
+  string decided_by_user_id = 9;
+  google.protobuf.Timestamp decided_at = 10;
+  RejectionReason rejection_reason = 11;
+  google.protobuf.Timestamp completed_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  // PII-redacted request text; use IntakeService.RevealRequestDetails for the originals.
+  string redacted_description = 14;
+}
+
+message ListReviewCasesRequest {
+  // Include resolved cases too. Off by default: the queue shows open work.
+  bool include_resolved = 1;
+  bool emergency_only = 2;
+  // 1 to 100; defaults to 50.
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListReviewCasesResponse {
+  repeated ReviewCase cases = 1;
+  int32 total = 2;
+}
+
+message ResolveReviewCaseRequest {
+  string case_id = 1;
+  ReviewResolution resolution = 2;
+  // Required when creating a work order.
+  MaintenanceCategory category = 3;
+  // Required when creating a work order: 1 (lowest) to 5 (highest).
+  int32 priority = 4;
+  // Required when dismissing.
+  DismissalReason dismissal_reason = 5;
+}
+
+message ResolveReviewCaseResponse {
+  ReviewCase review_case = 1;
+}
+
+message ListWorkOrdersRequest {
+  WorkOrderStatus status = 1;
+  // Only work orders assigned to the caller (always on for technicians).
+  bool assigned_to_me = 2;
+  // 1 to 100; defaults to 50.
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListWorkOrdersResponse {
+  repeated WorkOrder work_orders = 1;
+  int32 total = 2;
+}
+
+message GetWorkOrderRequest {
+  string work_order_id = 1;
+}
+
+message GetWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message ApproveWorkOrderRequest {
+  string work_order_id = 1;
+}
+
+message ApproveWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message RejectWorkOrderRequest {
+  string work_order_id = 1;
+  RejectionReason reason = 2;
+}
+
+message RejectWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message AssignWorkOrderRequest {
+  string work_order_id = 1;
+  string technician_user_id = 2;
+}
+
+message AssignWorkOrderResponse {
+  WorkOrder work_order = 1;
+}
+
+message CompleteWorkOrderRequest {
+  string work_order_id = 1;
+}
+
+message CompleteWorkOrderResponse {
+  WorkOrder work_order = 1;
+}

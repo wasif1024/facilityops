@@ -5,16 +5,20 @@ enterprise AI practices, PII handling, evaluation and Responsible AI on Microsof
 Intended for the owner's public GitHub profile, so the README, diagrams and demo quality matter.
 
 ## Status
-Phase 1 in progress. Done: Connect RPC API (protobuf in proto/, served from the FastAPI/ASGI host), deterministic coordinator, emergency screen,
+Phase 1 feature-complete (exit criterion open: counterfactual consistency, see docs/specification.md §10). Done: Connect RPC API (protobuf in proto/, served from the FastAPI/ASGI host), deterministic coordinator, emergency screen,
 PII redaction adapter, Foundry classifier, Postgres/Alembic, golden set + eval runner + CI gate,
 user management + DB-backed RBAC (Entra authenticates, DB authorizes), security audit log,
 agent-run monitoring middleware, stored eval runs, admin report API. See docs/ for spec and architecture.
-Remaining for Phase 1: photo/voice normalization, OpenTelemetry, PII reveal endpoint, review queue
-and approval endpoints.
+photo/voice intake (Vision caption+OCR, Speech), review queue, work-order lifecycle, audited PII reveal,
+OpenTelemetry to App Insights (no content). Next: Phase 2 (Magentic incident team).
+Run the server with `uvicorn backend.app.main:create_app --factory` (no module-level app), or the whole
+stack with `docker compose up --build -d` (Dockerfile = runtime deps only; Postgres on host port 5433;
+optional Azure settings in gitignored `.env.docker`).
 Before writing agent code, check the current Microsoft Agent Framework and Foundry SDK APIs
 (they change quickly); don't rely on memory.
 
-Commands (run from repo root): `python -m pytest -q backend/tests/unit`,
+Migrations: `scripts/db.sh up|down|status|new "msg"|check|reset|sql` (wraps Alembic; new files are named
+`NNNN_slug.py`). Commands (run from repo root): `python -m pytest -q backend/tests/unit`,
 `python -m pytest -q backend/tests/integration` (needs local PostgreSQL),
 `python -m evals.run_eval [--mode live] [--store]`, `python -m backend.app.cli grant-role ...`.
 API changes: edit `proto/facilityops/v1/*.proto`, run `buf lint && buf generate` (venv active), implement in

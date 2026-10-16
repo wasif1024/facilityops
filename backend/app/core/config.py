@@ -21,9 +21,13 @@ class Settings(BaseSettings):
     )
     azure_language_endpoint: str | None = None
     content_safety_endpoint: str | None = None
+    # Photo captions/OCR and voice transcription. Usually the same AIServices resource.
+    vision_endpoint: str | None = None
+    speech_endpoint: str | None = None
     frontend_origins: list[str] = ["http://localhost:5173"]
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
-    max_request_body_bytes: int = Field(default=1_048_576, ge=1_024, le=10_485_760)
+    # Large enough for an 8 MiB photo or voice note sent as base64 JSON.
+    max_request_body_bytes: int = Field(default=12_582_912, ge=1_024, le=16_777_216)
     auth_enabled: bool = False
     entra_tenant_id: str | None = None
     entra_api_audience: str | None = None

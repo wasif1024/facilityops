@@ -14,10 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from backend.app.api.auth import Identity, Principal, resolve_principal
 from backend.app.core.config import Settings
 from backend.app.domain.workflow import IntakeCoordinator
-from backend.app.services.agent_monitoring import AgentRunRecorder, SqlAgentRunRecorder
+from backend.app.services.agent_monitoring import SqlAgentRunRecorder
 from backend.app.services.azure_adapters import (
     AzureContentSafetyInspector,
     AzureLanguagePiiRedactor,
+    AzureMediaTranscriber,
     FoundryMaintenanceClassifier,
 )
 from backend.app.services.evaluations import execute_admin_run
@@ -83,8 +84,16 @@ class Container:
                 reset_at=reset_at,
             )
 
+        # Long-lived adapters: the classifier holds a pooled Foundry client.
+        adapters = IntakeAdapters(
+            pii_redactor=AzureLanguagePiiRedactor(settings),
+            safety_inspector=AzureContentSafetyInspector(settings),
+            classifier=FoundryMaintenanceClassifier(settings, recorder=recorder),
+            media_transcriber=AzureMediaTranscriber(settings),
+        )
+
         def coordinator_for(repository: SqlIntakeRepository) -> IntakeCoordinator:
-            return build_coordinator(settings, repository, recorder)
+            return build_coordinator(settings, repository, adapters)
 
         return cls(
             settings=settings,
@@ -97,16 +106,25 @@ class Container:
         )
 
 
+@dataclass(frozen=True)
+class IntakeAdapters:
+    pii_redactor: AzureLanguagePiiRedactor
+    safety_inspector: AzureContentSafetyInspector
+    classifier: FoundryMaintenanceClassifier
+    media_transcriber: AzureMediaTranscriber
+
+
 def build_coordinator(
-    settings: Settings, repository: SqlIntakeRepository, recorder: AgentRunRecorder
+    settings: Settings, repository: SqlIntakeRepository, adapters: IntakeAdapters
 ) -> IntakeCoordinator:
     return IntakeCoordinator(
-        pii_redactor=AzureLanguagePiiRedactor(settings),
-        safety_inspector=AzureContentSafetyInspector(settings),
-        classifier=FoundryMaintenanceClassifier(settings, recorder=recorder),
+        pii_redactor=adapters.pii_redactor,
+        safety_inspector=adapters.safety_inspector,
+        classifier=adapters.classifier,
         work_order_writer=repository,
         decision_writer=repository,
         emergency_handoff=repository.emergency_handoff,
+        media_transcriber=adapters.media_transcriber,
         minimum_confidence=settings.minimum_classification_confidence,
         approval_priority_threshold=settings.approval_priority_threshold,
     )

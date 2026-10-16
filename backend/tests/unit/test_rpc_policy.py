@@ -9,6 +9,7 @@ from backend.app.gen.facilityops.v1 import (
     evaluations_connect,
     intake_connect,
     monitoring_connect,
+    operations_connect,
     users_connect,
 )
 
@@ -20,6 +21,8 @@ SERVICES = (
     users_connect.UserAdminService,
     evaluations_connect.EvaluationService,
     monitoring_connect.MonitoringService,
+    operations_connect.ReviewQueueService,
+    operations_connect.WorkOrderService,
 )
 
 
@@ -78,8 +81,10 @@ def test_invalid_dev_user_header_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_error_boundary_hides_unexpected_error_details():
+async def test_error_boundary_hides_unexpected_error_details(caplog):
     class Ctx:
+        request_headers: dict[str, str] = {}
+
         class method:
             service_name = "facilityops.v1.Test"
             name = "Leak"
@@ -92,3 +97,6 @@ async def test_error_boundary_hides_unexpected_error_details():
 
     assert raised.value.code is Code.INTERNAL
     assert raised.value.message == "Internal error"
+    # Logs are exported to Application Insights: type and RPC only, never the message.
+    assert "Unhandled RuntimeError in facilityops.v1.Test/Leak" in caplog.text
+    assert "Avery" not in caplog.text

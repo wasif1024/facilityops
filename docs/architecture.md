@@ -145,7 +145,7 @@ Code and people decide.
 
 ```mermaid
 flowchart TB
-    req["Request<br/>text · photo · voice"] --> norm["Normalize to text<br/><i>photo/voice: Phase 1 TODO</i>"]
+    req["Request<br/>text · photo · voice"] --> norm["Normalize to text<br/>photo: caption + OCR<br/>voice: speech-to-text"]
     norm --> e{"Emergency<br/>screen"}
     e -- "gas · fire · flood · CO · electrical" --> oncall["On-call human<br/>AI never involved"]
     e -- "no signal" --> t1
@@ -342,6 +342,37 @@ flowchart LR
     ai --> code --> human
 ```
 
+### 6.1 Review queue and work-order lifecycle
+
+Requests the workflow will not decide on its own land in the review queue (`ReviewQueueService`), emergencies
+first. A facility manager either creates a work order, choosing category and priority (that decision counts as
+the approval), or dismisses it with a fixed reason code. Work orders then follow a small state machine
+(`WorkOrderService`). Every transition is enforced in code, recorded in `intake_audit_events` with the acting
+user, and uses reason codes rather than free text, so the audit trail never collects personal data.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Queued: workflow unsure / service failure
+    [*] --> OnCallQueue: emergency handoff
+    Queued --> Resolved: create work order / dismiss
+    OnCallQueue --> Resolved: follow-up work order / handled by on-call
+    Resolved --> [*]
+
+    state "Work order" as wo {
+        [*] --> PendingApproval: priority ≥ 4
+        [*] --> Open: routine, or created by reviewer
+        PendingApproval --> Open: ApproveWorkOrder
+        PendingApproval --> Rejected: RejectWorkOrder (reason code)
+        Open --> Completed: CompleteWorkOrder (assigned technician)
+    }
+```
+
+| Who | Can | Scope enforced in |
+|---|---|---|
+| Facility manager | Resolve review cases; approve, reject and assign work orders; reveal PII for any request | `policy.py` + `OperationsService` |
+| Technician | List, read and complete *their own* assignments; reveal PII only for those | `OperationsService` filters by `assigned_technician_id`; others' orders look "not found" |
+| Tenant | List and read their own requests with work-order status | `OperationsService` filters by `submitted_by_user_id` |
+
 ## 7. Trust boundaries and PII
 
 ```mermaid
@@ -485,8 +516,15 @@ flowchart LR
 | Start a run | `EvaluationService/StartEvaluationRun` | Offline or live run in the background; one at a time | `evaluations:run` |
 
 The same middleware applies unchanged to the Phase 2 specialists, which gives per-specialist cost and latency
-without new code. OpenTelemetry export to Application Insights (spec §9) is complementary: traces for debugging a
-single request, while these tables answer aggregate questions for the admin console.
+without new code.
+
+**OpenTelemetry** complements these tables: tables answer aggregate questions for the admin console, while traces
+in Application Insights debug a single request end to end. `configure_telemetry` turns on the Azure Monitor
+distro (RPC spans, Azure service calls), one span per intake step (`intake.pii_redaction`,
+`intake.classification`, …, carrying only ids and reason codes) and Agent Framework's GenAI spans
+(`invoke_agent`, `chat <model>` with token usage). Content is excluded on purpose: GenAI sensitive-data capture
+is off, step spans don't record exception messages, and the error interceptor logs only the exception type,
+because any of these could otherwise carry request text into telemetry. Tests never export.
 
 ## 10. Development skills
 

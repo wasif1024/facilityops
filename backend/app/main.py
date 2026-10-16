@@ -1,5 +1,8 @@
 """ASGI host: security middleware, a health endpoint and the Connect RPC services.
 
+Run with ``uvicorn backend.app.main:create_app --factory``. There is deliberately no
+module-level app, so importing this module (for example in tests) configures nothing.
+
 The frontend talks to the backend over Connect RPC (Connect, gRPC-Web or gRPC
 protocols) using the contracts in ``proto/facilityops/v1``. Each service is mounted at
 its own path, for example ``/facilityops.v1.IntakeService/SubmitIntake``.
@@ -13,9 +16,11 @@ from backend.app.api.auth import DEV_USER_HEADER
 from backend.app.api.container import Container
 from backend.app.api.interceptors import AuthInterceptor, ErrorBoundaryInterceptor
 from backend.app.api.rpc.intake import IntakeRpc
+from backend.app.api.rpc.operations import ReviewQueueRpc, WorkOrderRpc
 from backend.app.api.rpc.reports import EvaluationRpc, MonitoringRpc
 from backend.app.api.rpc.users import AccountRpc, UserAdminRpc
 from backend.app.core.config import Settings, get_settings
+from backend.app.core.telemetry import configure_telemetry
 from backend.app.gen.facilityops.v1.account_connect import AccountServiceASGIApplication
 from backend.app.gen.facilityops.v1.evaluations_connect import (
     EvaluationServiceASGIApplication,
@@ -23,6 +28,10 @@ from backend.app.gen.facilityops.v1.evaluations_connect import (
 from backend.app.gen.facilityops.v1.intake_connect import IntakeServiceASGIApplication
 from backend.app.gen.facilityops.v1.monitoring_connect import (
     MonitoringServiceASGIApplication,
+)
+from backend.app.gen.facilityops.v1.operations_connect import (
+    ReviewQueueServiceASGIApplication,
+    WorkOrderServiceASGIApplication,
 )
 from backend.app.gen.facilityops.v1.users_connect import UserAdminServiceASGIApplication
 from backend.app.middleware.security import (
@@ -72,6 +81,8 @@ def _check_production_settings(settings: Settings) -> None:
 def create_app(settings: Settings | None = None, container: Container | None = None) -> FastAPI:
     app_settings = settings or get_settings()
     _check_production_settings(app_settings)
+    # Before the app object exists, so the distro can instrument it.
+    configure_telemetry(app_settings)
     services = container or Container.default(app_settings)
 
     # FastAPI is only the host; the API contract is the protobuf schema, so no OpenAPI docs.
@@ -83,12 +94,19 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         ErrorBoundaryInterceptor(),
         AuthInterceptor(app_settings, services.resolve_principal),
     )
+    options = {
+        "interceptors": interceptors,
+        # Match the body-size middleware so photo and voice uploads fit.
+        "read_max_bytes": app_settings.max_request_body_bytes,
+    }
     for rpc_app in (
-        AccountServiceASGIApplication(AccountRpc(), interceptors=interceptors),
-        IntakeServiceASGIApplication(IntakeRpc(services), interceptors=interceptors),
-        UserAdminServiceASGIApplication(UserAdminRpc(services), interceptors=interceptors),
-        EvaluationServiceASGIApplication(EvaluationRpc(services), interceptors=interceptors),
-        MonitoringServiceASGIApplication(MonitoringRpc(services), interceptors=interceptors),
+        AccountServiceASGIApplication(AccountRpc(), **options),
+        IntakeServiceASGIApplication(IntakeRpc(services), **options),
+        UserAdminServiceASGIApplication(UserAdminRpc(services), **options),
+        EvaluationServiceASGIApplication(EvaluationRpc(services), **options),
+        MonitoringServiceASGIApplication(MonitoringRpc(services), **options),
+        ReviewQueueServiceASGIApplication(ReviewQueueRpc(services), **options),
+        WorkOrderServiceASGIApplication(WorkOrderRpc(services), **options),
     ):
         app.mount(rpc_app.path, rpc_app)
 
@@ -114,5 +132,3 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     )
     return app
 
-
-app = create_app()

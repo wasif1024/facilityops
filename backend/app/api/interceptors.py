@@ -17,7 +17,7 @@ from connectrpc.code import Code
 from connectrpc.errors import ConnectError
 from connectrpc.request import RequestContext
 from backend.app.api import auth
-from backend.app.api.policy import required_permissions
+from backend.app.api.policy import is_satisfied, required_permissions
 from backend.app.core.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -31,10 +31,17 @@ class ErrorBoundaryInterceptor:
             return await call_next(request, ctx)
         except ConnectError:
             raise
-        except Exception:
+        except Exception as error:
             method = ctx.method
-            # Log the type and traceback server-side; never echo the message to the client.
-            logger.exception("Unhandled error in %s/%s", method.service_name, method.name)
+            # Logs are exported to Application Insights, and exception text can contain
+            # SQL values or request content, so only the type and the RPC are logged.
+            logger.error(
+                "Unhandled %s in %s/%s",
+                type(error).__name__,
+                method.service_name,
+                method.name,
+                extra={"request_id": ctx.request_headers.get("x-request-id")},
+            )
             raise ConnectError(Code.INTERNAL, "Internal error") from None
 
 
@@ -55,7 +62,7 @@ class AuthInterceptor:
 
         identity = await auth.authenticate(ctx.request_headers, self._settings)
         principal = await self._resolve_principal(identity)
-        if not required.issubset(principal.permissions):
+        if not is_satisfied(required, principal.permissions):
             raise ConnectError(Code.PERMISSION_DENIED, "Insufficient permissions")
 
         token = auth._current_principal.set(principal)

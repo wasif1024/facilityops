@@ -9,14 +9,38 @@ from pydantic import ValidationError
 
 from backend.app.api.auth import current_principal
 from backend.app.api.container import Container
-from backend.app.api.rpc.convert import from_proto_enum, parse_uuid, text, to_proto_enum
-from backend.app.domain.intake import IntakeCommand, IntakeResult, RequestSource
+from backend.app.api.rpc.convert import (
+    from_proto_enum,
+    operation_errors,
+    page,
+    parse_uuid,
+    text,
+    timestamp,
+    to_proto_enum,
+    viewer,
+)
+from backend.app.domain.intake import IntakeCommand, IntakeResult, IntakeStatus, RequestSource
 from backend.app.gen.facilityops.v1 import intake_pb as pb
 from backend.app.services.agent_monitoring import monitoring_scope
+from backend.app.services.operations import OperationsService, RequestView
 from backend.app.services.intake_repository import (
     DuplicateRequestInProgress,
     RequestIdOwnedByAnotherUser,
 )
+
+
+def _describe(error: ValidationError) -> str:
+    """Field names for field errors; our own fixed messages for cross-field rules.
+
+    Pydantic error inputs are never included, so submitted text and media are not echoed.
+    """
+    problems = []
+    for item in error.errors(include_input=False, include_url=False):
+        if item["loc"]:
+            problems.append(f"invalid {item['loc'][0]}")
+        else:
+            problems.append(str(item.get("ctx", {}).get("error", "invalid request")))
+    return "; ".join(problems)
 
 
 def to_proto_result(result: IntakeResult) -> pb.IntakeResult:
@@ -33,6 +57,23 @@ def to_proto_result(result: IntakeResult) -> pb.IntakeResult:
     )
 
 
+def to_proto_summary(view: RequestView) -> pb.IntakeRequestSummary:
+    request = view.request
+    return pb.IntakeRequestSummary(
+        request_id=str(request.request_id),
+        source=to_proto_enum(pb.RequestSource, request.source),
+        status=to_proto_enum(pb.IntakeStatus, request.status),
+        reason_code=text(request.reason_code),
+        category=to_proto_enum(pb.MaintenanceCategory, request.category),
+        priority=request.priority,
+        confidence=request.confidence,
+        work_order_id=text(request.work_order_id),
+        work_order_status=text(view.work_order_status),
+        redacted_description=text(request.redacted_description),
+        created_at=timestamp(request.created_at),
+    )
+
+
 class IntakeRpc:
     def __init__(self, container: Container) -> None:
         self._c = container
@@ -46,11 +87,12 @@ class IntakeRpc:
                 request_id=parse_uuid(request.request_id, "request_id", required=False) or uuid4(),
                 source=RequestSource(from_proto_enum(request.source) or RequestSource.TEXT.value),
                 text=request.text,
+                language=request.language or None,
+                media=request.media or None,
+                media_type=request.media_type or None,
             )
         except ValidationError as error:
-            # Field names only; the submitted text is never echoed back.
-            fields = ", ".join(str(e["loc"][0]) for e in error.errors())
-            raise ConnectError(Code.INVALID_ARGUMENT, f"Invalid field(s): {fields}") from None
+            raise ConnectError(Code.INVALID_ARGUMENT, _describe(error)) from None
 
         try:
             rate = await self._c.check_rate_limit(principal.user_id)
@@ -87,3 +129,55 @@ class IntakeRpc:
             except Exception as error:
                 raise ConnectError(Code.UNAVAILABLE, "Intake processing is unavailable") from error
         return pb.SubmitIntakeResponse(result=to_proto_result(result))
+
+    # --- Reading requests and revealing PII -------------------------------------------
+
+    async def list_my_requests(
+        self, request: pb.ListMyRequestsRequest, ctx: RequestContext
+    ) -> pb.ListMyRequestsResponse:
+        limit, offset = page(request.limit, request.offset, default=20, maximum=100)
+        async with self._c.session_factory() as session:
+            views, total = await OperationsService(session).list_requests(
+                submitted_by=current_principal().user_id, status=None, limit=limit, offset=offset
+            )
+        return pb.ListMyRequestsResponse(requests=[to_proto_summary(v) for v in views], total=total)
+
+    async def list_requests(
+        self, request: pb.ListRequestsRequest, ctx: RequestContext
+    ) -> pb.ListRequestsResponse:
+        limit, offset = page(request.limit, request.offset, default=20, maximum=100)
+        status = from_proto_enum(request.status)
+        async with self._c.session_factory() as session:
+            views, total = await OperationsService(session).list_requests(
+                submitted_by=None,
+                status=IntakeStatus(status) if status else None,
+                limit=limit,
+                offset=offset,
+            )
+        return pb.ListRequestsResponse(requests=[to_proto_summary(v) for v in views], total=total)
+
+    async def get_request(
+        self, request: pb.GetRequestRequest, ctx: RequestContext
+    ) -> pb.GetRequestResponse:
+        request_id = parse_uuid(request.request_id, "request_id")
+        async with self._c.session_factory() as session:
+            with operation_errors():
+                view = await OperationsService(session).get_request(request_id, viewer())
+        return pb.GetRequestResponse(request=to_proto_summary(view))
+
+    async def reveal_request_details(
+        self, request: pb.RevealRequestDetailsRequest, ctx: RequestContext
+    ) -> pb.RevealRequestDetailsResponse:
+        request_id = parse_uuid(request.request_id, "request_id")
+        # SecurityHeadersMiddleware sends Cache-Control: no-store on every response,
+        # so revealed values are never cached by browsers or proxies.
+        async with self._c.session_factory() as session:
+            with operation_errors():
+                details = await OperationsService(
+                    session, self._c.settings.pii_mapping_encryption_key
+                ).reveal(request_id, viewer())
+        return pb.RevealRequestDetailsResponse(
+            request_id=str(details.request_id),
+            redacted_description=details.redacted_description,
+            values=details.values,
+        )
