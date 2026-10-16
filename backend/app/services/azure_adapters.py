@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,10 @@ from cryptography.fernet import Fernet
 
 from backend.app.core.config import Settings
 from backend.app.domain.intake import Classification, PiiRedaction
+from backend.app.services.agent_monitoring import (
+    AgentMonitoringMiddleware,
+    AgentRunRecorder,
+)
 
 
 class AzureLanguagePiiRedactor:
@@ -105,14 +110,20 @@ class AzureContentSafetyInspector:
 
 
 class FoundryMaintenanceClassifier:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, recorder: AgentRunRecorder | None = None
+    ) -> None:
         self._settings = settings
-        self._instructions = (
+        self._recorder = recorder
+        prompt_bytes = (
             Path(__file__)
             .parents[1]
             .joinpath("prompts", "maintenance_triage_classifier.md")
-            .read_text(encoding="utf-8")
+            .read_bytes()
         )
+        self._instructions = prompt_bytes.decode("utf-8")
+        # Same short hash the eval runner reports, so runs and evals line up.
+        self.prompt_sha = hashlib.sha256(prompt_bytes).hexdigest()[:12]
 
     async def classify(self, redacted_text: str) -> Classification:
         if not self._settings.foundry_endpoint:
@@ -134,6 +145,17 @@ class FoundryMaintenanceClassifier:
                 description="Classifies redacted maintenance requests without tools or side effects.",
                 instructions=self._instructions,
                 default_options={"store": False},
+                middleware=(
+                    [
+                        AgentMonitoringMiddleware(
+                            self._recorder,
+                            model=self._settings.foundry_model,
+                            prompt_sha=self.prompt_sha,
+                        )
+                    ]
+                    if self._recorder
+                    else None
+                ),
             )
             async with agent:
                 response = await agent.run(

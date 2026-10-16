@@ -5,13 +5,22 @@ enterprise AI practices, PII handling, evaluation and Responsible AI on Microsof
 Intended for the owner's public GitHub profile, so the README, diagrams and demo quality matter.
 
 ## Status
-Phase 1 in progress. Done: FastAPI intake API, deterministic coordinator, emergency screen,
-PII redaction adapter, Foundry classifier, Postgres/Alembic, golden set + eval runner + CI gate.
-Remaining for Phase 1: photo/voice normalization, OpenTelemetry, role-based PII reveal endpoint.
+Phase 1 in progress. Done: Connect RPC API (protobuf in proto/, served from the FastAPI/ASGI host), deterministic coordinator, emergency screen,
+PII redaction adapter, Foundry classifier, Postgres/Alembic, golden set + eval runner + CI gate,
+user management + DB-backed RBAC (Entra authenticates, DB authorizes), security audit log,
+agent-run monitoring middleware, stored eval runs, admin report API. See docs/ for spec and architecture.
+Remaining for Phase 1: photo/voice normalization, OpenTelemetry, PII reveal endpoint, review queue
+and approval endpoints.
 Before writing agent code, check the current Microsoft Agent Framework and Foundry SDK APIs
 (they change quickly); don't rely on memory.
 
-Commands: `python -m pytest -q`, `python -m evals.run_eval [--mode live]` (run from repo root).
+Commands (run from repo root): `python -m pytest -q backend/tests/unit`,
+`python -m pytest -q backend/tests/integration` (needs local PostgreSQL),
+`python -m evals.run_eval [--mode live] [--store]`, `python -m backend.app.cli grant-role ...`.
+API changes: edit `proto/facilityops/v1/*.proto`, run `buf lint && buf generate` (venv active), implement in
+`backend/app/api/rpc/`, and add the RPC to `backend/app/api/policy.py` (permissions, never role names; RPCs
+without a policy are denied). Never edit `backend/app/gen/`. No REST endpoints except `/health/live`.
+Roles/permissions change only through a new Alembic migration; keep `SYSTEM_ROLE_PERMISSIONS` in sync.
 
 ## Azure environment
 - Use the existing Azure subscription and Foundry project; don't create new ones unless asked.

@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package facilityops.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Evaluation runs against the synthetic golden set. Results reference cases by id;
+// request text never leaves the dataset file.
+service EvaluationService {
+  // Requires evaluations:read.
+  rpc ListEvaluationRuns(ListEvaluationRunsRequest) returns (ListEvaluationRunsResponse);
+  // Run with per-case results. Requires evaluations:read.
+  rpc GetEvaluationRun(GetEvaluationRunRequest) returns (GetEvaluationRunResponse);
+  // Start a run in the background; poll GetEvaluationRun for the result.
+  // Only one run at a time. Requires evaluations:run.
+  rpc StartEvaluationRun(StartEvaluationRunRequest) returns (StartEvaluationRunResponse);
+  // One metric across recent runs, oldest first. Requires evaluations:read.
+  rpc GetMetricTrend(GetMetricTrendRequest) returns (GetMetricTrendResponse);
+}
+
+enum EvaluationMode {
+  EVALUATION_MODE_UNSPECIFIED = 0;
+  // Emergency screen only; no Azure calls.
+  EVALUATION_MODE_OFFLINE = 1;
+  // Also runs the Foundry classifier.
+  EVALUATION_MODE_LIVE = 2;
+}
+
+enum EvaluationStatus {
+  EVALUATION_STATUS_UNSPECIFIED = 0;
+  EVALUATION_STATUS_RUNNING = 1;
+  EVALUATION_STATUS_PASSED = 2;
+  // A quality gate failed.
+  EVALUATION_STATUS_FAILED = 3;
+  // The run itself crashed; see error_type.
+  EVALUATION_STATUS_ERROR = 4;
+}
+
+message Gate {
+  double threshold = 1;
+  optional double value = 2;
+  bool passed = 3;
+}
+
+message EvaluationRun {
+  string id = 1;
+  EvaluationMode mode = 2;
+  EvaluationStatus status = 3;
+  // "cli", "ci" or "admin".
+  string source = 4;
+  string dataset = 5;
+  string dataset_sha = 6;
+  string model = 7;
+  string prompt_sha = 8;
+  string git_sha = 9;
+  int32 case_count = 10;
+  // For example "emergency_recall" or "category_accuracy". Metrics without a value are omitted.
+  map<string, double> metrics = 11;
+  map<string, Gate> gates = 12;
+  string error_type = 13;
+  string triggered_by_user_id = 14;
+  google.protobuf.Timestamp started_at = 15;
+  google.protobuf.Timestamp completed_at = 16;
+}
+
+message CaseExpectation {
+  bool emergency = 1;
+  string emergency_type = 2;
+  string category = 3;
+  optional int32 priority = 4;
+  bool human_review = 5;
+  string fairness_group = 6;
+}
+
+message CasePrediction {
+  // Emergency type detected by the screen, empty if none.
+  string emergency = 1;
+  string category = 2;
+  optional int32 priority = 3;
+  optional double confidence = 4;
+  optional bool requires_human_review = 5;
+  // Exception type when the classifier failed.
+  string error = 6;
+}
+
+message EvaluationCase {
+  string case_id = 1;
+  repeated string tags = 2;
+  CaseExpectation expected = 3;
+  CasePrediction predicted = 4;
+  // Names of the checks this case failed, for example "category_mismatch".
+  repeated string failures = 5;
+  bool passed = 6;
+}
+
+message CaseIdList {
+  repeated string ids = 1;
+}
+
+message TrendPoint {
+  string run_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  EvaluationMode mode = 3;
+  string model = 4;
+  string prompt_sha = 5;
+  string dataset_sha = 6;
+  optional double value = 7;
+}
+
+message ListEvaluationRunsRequest {
+  EvaluationMode mode = 1;
+  EvaluationStatus status = 2;
+  // 1 to 100; defaults to 20.
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListEvaluationRunsResponse {
+  repeated EvaluationRun runs = 1;
+  int32 total = 2;
+}
+
+message GetEvaluationRunRequest {
+  string run_id = 1;
+  // Only return cases that failed at least one check.
+  bool failed_only = 2;
+}
+
+message GetEvaluationRunResponse {
+  EvaluationRun run = 1;
+  repeated EvaluationCase cases = 2;
+  // Failing case ids (or fairness group ids) per check.
+  map<string, CaseIdList> failures = 3;
+}
+
+message StartEvaluationRunRequest {
+  // Defaults to offline.
+  EvaluationMode mode = 1;
+}
+
+message StartEvaluationRunResponse {
+  EvaluationRun run = 1;
+}
+
+message GetMetricTrendRequest {
+  // Defaults to "emergency_recall".
+  string metric = 1;
+  EvaluationMode mode = 2;
+  // 1 to 200; defaults to 30.
+  int32 limit = 3;
+}
+
+message GetMetricTrendResponse {
+  repeated TrendPoint points = 1;
+}

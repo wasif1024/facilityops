@@ -20,11 +20,17 @@ class DuplicateRequestInProgress(Exception):
     pass
 
 
+class RequestIdOwnedByAnotherUser(Exception):
+    """Replays only return a stored result to the user who submitted the request."""
+
+
 class SqlIntakeRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def begin_request(self, command: IntakeCommand) -> IntakeResult | None:
+    async def begin_request(
+        self, command: IntakeCommand, *, submitted_by_user_id: UUID | None = None
+    ) -> IntakeResult | None:
         insert_statement = (
             insert(IntakeRequestRecord)
             .values(
@@ -32,6 +38,7 @@ class SqlIntakeRepository:
                 request_id=command.request_id,
                 source=command.source.value,
                 status="processing",
+                submitted_by_user_id=submitted_by_user_id,
             )
             .on_conflict_do_nothing(index_elements=[IntakeRequestRecord.request_id])
             .returning(IntakeRequestRecord.request_id)
@@ -50,6 +57,8 @@ class SqlIntakeRepository:
         )
         if existing is None:
             raise RuntimeError("Unable to resolve idempotent intake request")
+        if existing.submitted_by_user_id != submitted_by_user_id:
+            raise RequestIdOwnedByAnotherUser
         if existing.status == "processing":
             raise DuplicateRequestInProgress
         return IntakeResult(

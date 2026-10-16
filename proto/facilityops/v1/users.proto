@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package facilityops.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// User and role administration. Every change writes a security audit event.
+service UserAdminService {
+  // Requires users:read.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // Requires users:read.
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  // Pre-provision a user (for example staff) before their first sign-in. Requires users:manage.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  // Change display name or status. Requires users:manage.
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  // Replace a user's roles. The last active admin cannot be removed. Requires users:manage.
+  rpc SetUserRoles(SetUserRolesRequest) returns (SetUserRolesResponse);
+  // Requires roles:read.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  // Requires audit:read.
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+}
+
+enum IdentityProvider {
+  IDENTITY_PROVIDER_UNSPECIFIED = 0;
+  IDENTITY_PROVIDER_ENTRA = 1;
+  // Local development only (X-Dev-User header).
+  IDENTITY_PROVIDER_DEVELOPMENT = 2;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_DISABLED = 2;
+}
+
+message User {
+  string id = 1;
+  IdentityProvider identity_provider = 2;
+  // Entra object id (oid), or the development user name.
+  string external_id = 3;
+  string display_name = 4;
+  string email = 5;
+  UserStatus status = 6;
+  repeated string roles = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp last_login_at = 9;
+}
+
+message Role {
+  string id = 1;
+  string display_name = 2;
+  string description = 3;
+  bool is_system = 4;
+  repeated string permissions = 5;
+}
+
+message AuditEvent {
+  string id = 1;
+  string actor_user_id = 2;
+  // For example "user.created" or "user.roles_changed".
+  string action = 3;
+  string target_type = 4;
+  string target_id = 5;
+  // Structured, non-PII details such as {"added": ["technician"], "removed": []}.
+  google.protobuf.Struct details = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListUsersRequest {
+  // Only users holding this role.
+  string role = 1;
+  UserStatus status = 2;
+  // Matches display name or email.
+  string search = 3;
+  // 1 to 100; defaults to 50.
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  int32 total = 2;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message CreateUserRequest {
+  // Defaults to Entra.
+  IdentityProvider identity_provider = 1;
+  string external_id = 2;
+  string display_name = 3;
+  string email = 4;
+  repeated string roles = 5;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  optional string display_name = 2;
+  // Leave unspecified to keep the current status.
+  UserStatus status = 3;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message SetUserRolesRequest {
+  string user_id = 1;
+  repeated string roles = 2;
+}
+
+message SetUserRolesResponse {
+  User user = 1;
+}
+
+message ListRolesRequest {}
+
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+message ListAuditEventsRequest {
+  string action = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListAuditEventsResponse {
+  repeated AuditEvent events = 1;
+  int32 total = 2;
+}

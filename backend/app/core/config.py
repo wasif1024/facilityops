@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     entra_tenant_id: str | None = None
     entra_api_audience: str | None = None
+    # Role granted on first sign-in. Leave empty to give new users no access until
+    # an administrator assigns a role.
+    default_user_role: str | None = "tenant"
     rate_limit_requests: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
     rate_limit_hmac_secret: str = "development-only-change-me"

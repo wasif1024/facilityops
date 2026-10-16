@@ -64,6 +64,7 @@ class Report:
     gates: dict[str, dict[str, Any]] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     predictions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    case_results: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -110,6 +111,7 @@ async def classify_cases(
     cases: list[Case],
     predictions: dict[str, Prediction],
     concurrency: int,
+    recorder: Any = None,
 ) -> dict[str, Any]:
     from backend.app.core.config import get_settings
     from backend.app.services.azure_adapters import (
@@ -118,7 +120,7 @@ async def classify_cases(
     )
 
     settings = get_settings()
-    classifier = FoundryMaintenanceClassifier(settings)
+    classifier = FoundryMaintenanceClassifier(settings, recorder=recorder)
     redact = bool(settings.azure_language_endpoint and settings.pii_mapping_encryption_key)
     redactor = AzureLanguagePiiRedactor(settings) if redact else None
     semaphore = asyncio.Semaphore(concurrency)
@@ -274,7 +276,39 @@ def render_markdown(report: Report) -> str:
     return "\n".join(lines)
 
 
-async def evaluate(args: argparse.Namespace) -> Report:
+def build_case_results(cases: list[Case], predictions: dict[str, Prediction], report: Report) -> list[dict[str, Any]]:
+    inconsistent_groups = set(report.failures.get("fairness_inconsistent_groups", []))
+    results = []
+    for case in cases:
+        failures = [
+            name
+            for name, ids in report.failures.items()
+            if name != "fairness_inconsistent_groups" and case.id in ids
+        ]
+        if case.fairness_group in inconsistent_groups:
+            failures.append("fairness_inconsistent_groups")
+        results.append(
+            {
+                "case_id": case.id,
+                "tags": case.tags,
+                "expected": {
+                    "emergency": case.emergency,
+                    "emergency_type": case.emergency_type,
+                    "category": case.expected_category,
+                    "priority": case.expected_priority,
+                    "human_review": case.expected_review,
+                    "fairness_group": case.fairness_group,
+                },
+                "predicted": asdict(predictions[case.id]),
+                "failures": failures,
+                "passed": not failures,
+            }
+        )
+    return results
+
+
+async def evaluate(args: argparse.Namespace, recorder: Any = None) -> Report:
+    """Run the evaluation. ``recorder`` receives agent-run samples in live mode."""
     cases = load_cases(args.dataset)
     predictions = {case.id: Prediction() for case in cases}
     report = Report(mode=args.mode)
@@ -292,13 +326,14 @@ async def evaluate(args: argparse.Namespace) -> Report:
     add_gate(report, "emergency_recall", args.min_emergency_recall)
 
     if args.mode == "live":
-        run_info = await classify_cases(cases, predictions, args.concurrency)
+        run_info = await classify_cases(cases, predictions, args.concurrency, recorder)
         report.metadata.update(run_info)
         report.metadata["prompt_sha"] = _sha256(CLASSIFIER_PROMPT)
         score_classification(cases, predictions, run_info["minimum_confidence"], report)
         add_gate(report, "category_accuracy", args.min_category_accuracy)
 
     report.predictions = {case_id: asdict(p) for case_id, p in predictions.items()}
+    report.case_results = build_case_results(cases, predictions, report)
     return report
 
 
@@ -310,12 +345,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-emergency-recall", type=float, default=1.0)
     parser.add_argument("--min-category-accuracy", type=float, default=None)
     parser.add_argument("--concurrency", type=int, default=4)
+    parser.add_argument(
+        "--store",
+        action="store_true",
+        help="Save the run to the database so it shows in the admin reports.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    report = asyncio.run(evaluate(args))
+    if args.store:
+        from backend.app.services.evaluations import run_and_store
+
+        report = asyncio.run(run_and_store(args, source="ci" if os.environ.get("CI") else "cli"))
+    else:
+        report = asyncio.run(evaluate(args))
     markdown = render_markdown(report)
     print(markdown)
 

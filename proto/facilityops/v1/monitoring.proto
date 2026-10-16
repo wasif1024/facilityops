@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package facilityops.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Agent health and intake outcome reports for the admin console.
+service MonitoringService {
+  // Per-agent volume, failures, latency and tokens. Requires monitoring:read.
+  rpc GetAgentReport(GetAgentReportRequest) returns (GetAgentReportResponse);
+  // Individual agent runs, newest first. Requires monitoring:read.
+  rpc ListAgentRuns(ListAgentRunsRequest) returns (ListAgentRunsResponse);
+  // Intake outcome mix and rates. Requires monitoring:read.
+  rpc GetIntakeReport(GetIntakeReportRequest) returns (GetIntakeReportResponse);
+}
+
+enum AgentRunStatus {
+  AGENT_RUN_STATUS_UNSPECIFIED = 0;
+  AGENT_RUN_STATUS_SUCCEEDED = 1;
+  AGENT_RUN_STATUS_FAILED = 2;
+}
+
+message AgentSummary {
+  string agent_name = 1;
+  string model = 2;
+  int32 runs = 3;
+  int32 failures = 4;
+  optional double failure_rate = 5;
+  optional int32 p50_ms = 6;
+  optional int32 p95_ms = 7;
+  int64 input_tokens = 8;
+  int64 output_tokens = 9;
+  int64 total_tokens = 10;
+  optional int32 avg_tokens_per_run = 11;
+  google.protobuf.Timestamp last_run_at = 12;
+}
+
+message AgentDailyPoint {
+  // ISO date, for example "2026-10-17".
+  string day = 1;
+  string agent_name = 2;
+  int32 runs = 3;
+  int32 failures = 4;
+  optional int32 p95_ms = 5;
+  int64 total_tokens = 6;
+}
+
+message AgentErrorCount {
+  string agent_name = 1;
+  string error_type = 2;
+  int32 count = 3;
+}
+
+message AgentRun {
+  string id = 1;
+  string agent_name = 2;
+  string model = 3;
+  string prompt_sha = 4;
+  string request_id = 5;
+  string evaluation_run_id = 6;
+  AgentRunStatus status = 7;
+  string error_type = 8;
+  int32 duration_ms = 9;
+  optional int32 input_tokens = 10;
+  optional int32 output_tokens = 11;
+  optional int32 total_tokens = 12;
+  google.protobuf.Timestamp started_at = 13;
+}
+
+message ReasonCount {
+  string reason_code = 1;
+  int32 count = 2;
+}
+
+message IntakeDailyPoint {
+  string day = 1;
+  // Intake status name, for example "human_review".
+  string status = 2;
+  int32 count = 3;
+}
+
+message GetAgentReportRequest {
+  // 1 to 90; defaults to 7.
+  int32 days = 1;
+  // Include agent runs made by evaluation runs. Off by default so production stays separate.
+  bool include_evaluations = 2;
+}
+
+message GetAgentReportResponse {
+  int32 window_days = 1;
+  google.protobuf.Timestamp since = 2;
+  repeated AgentSummary agents = 3;
+  repeated AgentDailyPoint daily = 4;
+  repeated AgentErrorCount errors = 5;
+}
+
+message ListAgentRunsRequest {
+  string agent_name = 1;
+  AgentRunStatus status = 2;
+  string evaluation_run_id = 3;
+  // 1 to 100; defaults to 50.
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListAgentRunsResponse {
+  repeated AgentRun runs = 1;
+  int32 total = 2;
+}
+
+message GetIntakeReportRequest {
+  // 1 to 90; defaults to 7.
+  int32 days = 1;
+}
+
+message GetIntakeReportResponse {
+  int32 window_days = 1;
+  google.protobuf.Timestamp since = 2;
+  int32 total_requests = 3;
+  map<string, int32> by_status = 4;
+  int32 emergency_handoffs = 5;
+  optional double human_review_rate = 6;
+  optional double automation_rate = 7;
+  optional double average_confidence = 8;
+  int32 pending_approvals = 9;
+  map<string, int32> by_category = 10;
+  // Keyed by priority level "1" to "5".
+  map<string, int32> by_priority = 11;
+  repeated ReasonCount top_reason_codes = 12;
+  repeated IntakeDailyPoint daily = 13;
+}

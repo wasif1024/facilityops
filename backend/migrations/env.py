@@ -13,8 +13,10 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Same source as the app: DATABASE_URL from the environment, falling back to .env.
-database_url = get_settings().database_url
-config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+# Callers such as the integration tests may set sqlalchemy.url explicitly instead.
+if not config.get_main_option("sqlalchemy.url"):
+    database_url = get_settings().database_url
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

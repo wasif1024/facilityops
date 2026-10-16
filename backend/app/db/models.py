@@ -10,10 +10,13 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     LargeBinary,
+    PrimaryKeyConstraint,
     String,
+    UniqueConstraint,
     Uuid,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.db.base import Base
@@ -36,6 +39,9 @@ class IntakeRequestRecord(Base):
     priority: Mapped[int | None] = mapped_column(Integer, nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     work_order_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    submitted_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -117,3 +123,162 @@ class RateLimitCounter(Base):
         DateTime(timezone=True), primary_key=True
     )
     request_count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class UserRecord(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("identity_provider", "external_id"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    identity_provider: Mapped[str] = mapped_column(String(16))
+    # Entra object id (oid), stable across apps; never the email address.
+    external_id: Mapped[str] = mapped_column(String(128))
+    display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class RoleRecord(Base):
+    __tablename__ = "roles"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(String(256))
+    is_system: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PermissionRecord(Base):
+    __tablename__ = "permissions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    description: Mapped[str] = mapped_column(String(256))
+
+
+class RolePermissionRecord(Base):
+    __tablename__ = "role_permissions"
+    __table_args__ = (PrimaryKeyConstraint("role_id", "permission_id"),)
+
+    role_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("roles.id", ondelete="CASCADE")
+    )
+    permission_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("permissions.id", ondelete="CASCADE")
+    )
+
+
+class UserRoleRecord(Base):
+    __tablename__ = "user_roles"
+    __table_args__ = (PrimaryKeyConstraint("user_id", "role_id"),)
+
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    role_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("roles.id", ondelete="RESTRICT"), index=True
+    )
+    granted_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SecurityAuditEvent(Base):
+    """Who changed access or viewed protected data. Details never hold PII."""
+
+    __tablename__ = "security_audit_events"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    actor_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    target_type: Mapped[str] = mapped_column(String(32))
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class EvaluationRunRecord(Base):
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    mode: Mapped[str] = mapped_column(String(16))
+    # running -> passed | failed (a gate failed) | error (the run itself crashed)
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    source: Mapped[str] = mapped_column(String(16))
+    dataset: Mapped[str] = mapped_column(String(128))
+    dataset_sha: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prompt_sha: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    git_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    case_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    metrics: Mapped[dict] = mapped_column(JSONB, default=dict)
+    gates: Mapped[dict] = mapped_column(JSONB, default=dict)
+    failures: Mapped[dict] = mapped_column(JSONB, default=dict)
+    error_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    triggered_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class EvaluationCaseResultRecord(Base):
+    """Per-case outcome by golden-set id. Request text stays in the dataset file."""
+
+    __tablename__ = "evaluation_case_results"
+    __table_args__ = (PrimaryKeyConstraint("run_id", "case_id"),)
+
+    run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("evaluation_runs.id", ondelete="CASCADE")
+    )
+    case_id: Mapped[str] = mapped_column(String(32))
+    tags: Mapped[list] = mapped_column(JSONB, default=list)
+    expected: Mapped[dict] = mapped_column(JSONB, default=dict)
+    predicted: Mapped[dict] = mapped_column(JSONB, default=dict)
+    failures: Mapped[list] = mapped_column(JSONB, default=list)
+    passed: Mapped[bool] = mapped_column(Boolean)
+
+
+class AgentRunRecord(Base):
+    """One agent invocation: timing, tokens and outcome. Never prompts or responses."""
+
+    __tablename__ = "agent_runs"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    agent_name: Mapped[str] = mapped_column(String(64), index=True)
+    model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prompt_sha: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    request_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    evaluation_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("evaluation_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(16))
+    error_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

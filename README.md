@@ -10,7 +10,7 @@ checks for prompt injection and counterfactual fairness. All data in the reposit
 
 > **Status:** Phase 1 (intake MVP) in progress. See [Roadmap](#roadmap).
 >
-> **Docs:** [Specification](docs/specification.md) · [Architecture and agent orchestration](docs/architecture.md)
+> **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Architecture and agent orchestration](docs/architecture.md)
 
 ## How a request flows
 
@@ -110,21 +110,78 @@ Generate a mapping key with
 Without `AZURE_LANGUAGE_ENDPOINT`, `CONTENT_SAFETY_ENDPOINT` and `PII_MAPPING_ENCRYPTION_KEY`, every
 non-emergency request is deliberately routed to human review.
 
+With `AUTH_ENABLED=false`, the `X-Dev-User` header picks a local identity. New users start as `tenant`:
+
 ```bash
-curl -s localhost:8000/api/v1/intake -H 'content-type: application/json' \
+curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
+  -H 'content-type: application/json' -H 'X-Dev-User: alice' \
   -d '{"text": "The breaker keeps tripping whenever I use the microwave."}'
 ```
+
+### API: Connect RPC
+
+The frontend talks to the backend with **[Connect RPC](https://connectrpc.com)**. The API is defined in protobuf
+([`proto/facilityops/v1/`](proto/facilityops/v1)), and `buf` generates typed Python stubs (and, for the web UI,
+TypeScript clients) from it. One endpoint serves three protocols:
+
+- **gRPC-Web** and **Connect** for browsers, with no proxy (no Envoy) in between;
+- **Connect with JSON**, so `curl` works for debugging;
+- **gRPC** for server-to-server clients (needs an HTTP/2 server).
+
+Authorization is a table of RPC → required permissions ([`policy.py`](backend/app/api/policy.py)), enforced by an
+interceptor. RPCs without a policy are denied, and a test fails if any RPC is missing one. CI lints the contracts,
+checks the generated code is current and blocks breaking changes on pull requests.
+
+| Service | RPCs |
+|---|---|
+| `AccountService` | `GetMe` |
+| `IntakeService` | `SubmitIntake` |
+| `UserAdminService` | `ListUsers`, `GetUser`, `CreateUser`, `UpdateUser`, `SetUserRoles`, `ListRoles`, `ListAuditEvents` |
+| `EvaluationService` | `ListEvaluationRuns`, `GetEvaluationRun`, `StartEvaluationRun`, `GetMetricTrend` |
+| `MonitoringService` | `GetAgentReport`, `ListAgentRuns`, `GetIntakeReport` |
+
+`buf curl --schema proto --list-methods` lists them; [Developer commands](docs/commands.md#4-run-the-backend)
+shows how to call them.
+
+### Users, roles and the admin API
+
+Entra ID authenticates; roles and permissions live in the database (see
+[Architecture §8](docs/architecture.md#8-users-and-access-control)). Create the first administrator from the CLI,
+then manage everyone else through `UserAdminService`:
+
+```bash
+python -m backend.app.cli grant-role --external-id <entra-object-id> --role admin
+python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin  # local
+python -m backend.app.cli list-users
+```
+
+Add `--store` to `python -m evals.run_eval` to save a run to the admin reports.
+
+### Tests
+
+```bash
+python -m pytest -q backend/tests/unit          # no services needed
+python -m pytest -q backend/tests/integration   # real PostgreSQL; creates facilityops_test
+```
+
+Integration tests rebuild `facilityops_test` from the migrations (override with `TEST_DATABASE_URL`) and are
+skipped if PostgreSQL is not reachable. Your development database is never touched.
 
 ## Repository layout
 
 ```
 backend/app/
-  domain/        intake models, emergency screen, deterministic coordinator
-  services/      Azure adapters (Language, Content Safety, Foundry agent), Postgres repository
-  api/           FastAPI routes, Entra ID auth with app roles, rate limiting
+  domain/        intake models, emergency screen, coordinator, RBAC roles and permissions
+  services/      Azure adapters, repositories, user directory, agent monitoring, eval store, reports
+  api/           Connect RPC handlers (rpc/), auth + permission interceptor, RPC policy table
+  gen/           code generated from proto/ by `buf generate` (do not edit)
   prompts/       versioned agent instructions
-backend/migrations/  Alembic schema
+  cli.py         operator commands (bootstrap admin, list users)
+proto/           protobuf API contracts (facilityops.v1)
+backend/migrations/  Alembic schema and RBAC seed
+backend/tests/   unit/ (no services) and integration/ (PostgreSQL)
 evals/           golden set and eval runner
+docs/            specification and architecture
 ```
 
 ## Roadmap

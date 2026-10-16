@@ -1,0 +1,13 @@
+# Run `buf generate` from the repository root with the virtualenv active.
+# Generated code is committed; CI fails if it is out of date.
+version: v2
+clean: true
+plugins:
+  - local: protoc-gen-py
+    out: backend/app/gen
+  - local: protoc-gen-connectrpc
+    out: backend/app/gen
+  # Phase 3 web UI: TypeScript messages and Connect clients.
+  # - local: protoc-gen-es
+  #   out: frontend/src/gen
+  #   opt: target=ts

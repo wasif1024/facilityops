@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 0.2 (draft) |
+| **Version** | 0.3 (draft) |
 | **Status** | Phase 1 in progress |
 | **Last updated** | 2026-10-17 |
 | **Related** | [Architecture](architecture.md) · [README](../README.md) |
@@ -38,14 +38,25 @@ agent orchestration, PII handling, evaluation as a release gate and Responsible 
 
 ## 3. Users and roles
 
-Roles are Entra ID app roles carried in the access token.
+**Entra ID authenticates; the application authorizes.** Every caller signs in with Entra ID. On first sign-in the
+app creates a user record (keyed by the Entra object id) with the default role, `tenant`. Administrators grant
+other roles. Roles map to fine-grained permissions in the database (seeded by migration `0002`), and every
+RPC checks a permission rather than a role.
 
-| Role | App role claim | Can |
+| Role | Permissions | Can |
 |---|---|---|
-| Tenant | `FacilityOps.Tenant` | Submit requests; see the status of their own requests |
-| Technician | `FacilityOps.Technician` | See assigned work orders; reveal location details for assigned work only |
-| Facility manager | `FacilityOps.FacilityManager` | Work the human-review queue; approve or reject work orders and incident plans; reveal PII with audit |
+| Tenant | `intake:submit`, `intake:read_own` | Submit requests; see the status of their own requests |
+| Technician | `intake:submit`, `work_orders:read_assigned`, `pii:reveal_assigned` | See assigned work orders; reveal location details for assigned work only |
+| Facility manager | `intake:*`, `work_orders:*`, `review_queue:manage`, `pii:reveal_all`, `evaluations:read`, `monitoring:read` | Work the review queue; approve work orders and incident plans; reveal PII with audit; read reports |
+| Admin | `users:*`, `roles:read`, `audit:read`, `evaluations:read`, `evaluations:run`, `monitoring:read` | Manage users and roles; read the audit log and reports; start evaluation runs |
 | On-call responder | *(external rota)* | Receive emergency handoffs; outside this system's AI path |
+
+**Separation of duties:** the admin role controls *access* but holds no operational authority. It cannot reveal
+PII, approve work or submit requests. A person who needs both holds both roles, and that assignment is audited.
+
+**Safeguards:** the last active administrator cannot be demoted or disabled; nobody can disable their own account;
+disabled users are rejected on every request; every access change writes a security audit event (never PII).
+The first administrator is created with `python -m backend.app.cli grant-role`.
 
 ## 4. Functional requirements
 
@@ -53,7 +64,7 @@ Roles are Entra ID app roles carried in the access token.
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-1 | Accept a request as text via `POST /api/v1/intake` with a client-supplied `request_id`. | ✅ |
+| FR-1 | Accept a request as text via the `IntakeService/SubmitIntake` RPC with a client-supplied `request_id`. | ✅ |
 | FR-2 | Accept photo and voice requests and normalize them to text (OCR / speech-to-text) before the pipeline. | ⬜ |
 | FR-3 | Screen raw text for emergency signals **before** any redaction or model call; on a match, hand off to on-call and stop. | ✅ |
 | FR-4 | Redact PII with Azure AI Language; store the reversible mapping encrypted and separately. | ✅ |
@@ -90,12 +101,29 @@ in the deterministic path:
 
 Emergencies never enter the team, before or after the on-call handoff.
 
-### 4.4 Product (Phase 3)
+### 4.4 Administration, evaluation and monitoring
+
+| ID | Requirement | Status |
+|---|---|---|
+| FR-40 | Provision users on first sign-in with a configurable default role; pre-provision staff by Entra object id. | ✅ |
+| FR-41 | Admins list, search, disable and re-enable users, and assign roles. | ✅ |
+| FR-42 | Permission-based authorization on every RPC, with roles and permissions stored in the database. | ✅ |
+| FR-43 | Security audit log of provisioning and access changes, readable by admins. | ✅ |
+| FR-44 | Store every evaluation run (CLI, CI or admin-started) with metrics, gates and per-case results by case id. | ✅ |
+| FR-45 | Admins start an offline or live evaluation run (`StartEvaluationRun`); one run at a time. | ✅ |
+| FR-46 | Metric trends across runs, tagged with model, prompt hash and dataset hash. | ✅ |
+| FR-47 | Record every agent run (agent, model, prompt hash, duration, tokens, outcome, error type) via Agent Framework middleware; never prompts or responses. | ✅ |
+| FR-48 | Agent report: volume, failure rate, p50/p95 latency, tokens, daily series and error breakdown; production and evaluation traffic kept apart. | ✅ |
+| FR-49 | Intake report: outcomes by status, category and priority, human-review and automation rates, top reason codes, pending approvals. | ✅ |
+| FR-50 | Cost per run, derived from token counts and model prices. | ⬜ |
+
+### 4.5 Product (Phase 3)
 
 | ID | Requirement | Status |
 |---|---|---|
 | FR-30 | Tenant web view: submit (text, photo, voice), track status, read notices in their language. | ⬜ |
 | FR-31 | Manager web view: review queue, approvals, incident plans with citations, PII reveal. | ⬜ |
+| FR-33 | Admin web view: users and roles, audit log, evaluation history and trends, agent and intake dashboards (API: FR-40–49). | ⬜ |
 | FR-32 | Infrastructure as code (`azd` + Bicep) using managed identity and Key Vault. | ⬜ |
 
 ## 5. Agents
@@ -164,6 +192,10 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 - **What is stored:** redacted text, classification, routing outcome, work orders, audit events.
 - **PII mapping:** placeholder → original value, encrypted with Fernet (key from Key Vault in Azure), in
   `pii_mappings`, one row per request. Never sent to a model, log, trace or evaluation set.
+- **User records:** display name and email of people who sign in, readable only with `users:read`. Audit events
+  record ids and role names, never email addresses.
+- **Agent runs and eval results:** ids, counts, timings and labels only. Prompts, responses and request text are
+  never stored there.
 - **Telemetry:** OpenTelemetry spans carry ids, reason codes, model and prompt versions, token counts and latency;
   Agent Framework sensitive-data (message content) capture stays **off**.
 - **Retention (proposed):** PII mappings 90 days after a work order closes; audit events 2 years.
@@ -173,12 +205,13 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 
 | Area | Requirement |
 |---|---|
-| Security | Entra ID bearer tokens with app roles; managed identity to Azure services; no API keys; secrets in Key Vault; strict CORS and host allow-lists; security headers; request-size limit |
+| API | Connect RPC with protobuf contracts in `proto/`; browsers use Connect or gRPC-Web without a proxy; contracts linted and checked for breaking changes in CI |
+| Security | Entra ID bearer tokens; permission-based RBAC from the database (RPC policy table, deny by default); managed identity to Azure services; no API keys; secrets in Key Vault; strict CORS and host allow-lists; security headers; request-size limit |
 | Abuse | Per-identity rate limiting (HMAC-hashed buckets in PostgreSQL) |
 | Reliability | Fail closed to human review; idempotent intake; checkpointed incident runs |
 | Latency | Emergency handoff < 1 s (no network calls); routine intake p95 < 8 s |
 | Cost | Small models for specialists, budgets in §6; cost per incident reported by eval runs |
-| Observability | Traces to Application Insights; every agent, tool and workflow step is a span |
+| Observability | Agent runs recorded per call (FR-47) for admin reports; traces to Application Insights, where every agent, tool and workflow step is a span (planned) |
 | Portability | Schema via Alembic migrations, checked for drift in CI |
 
 ## 10. Evaluation and acceptance
