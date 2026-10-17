@@ -261,8 +261,8 @@ sequenceDiagram
 
 ## 5. Tier 2: Magentic incident team
 
-*Phase 2.* Built with `MagenticBuilder` from `agent_framework.orchestrations` (package
-`agent-framework-orchestrations`, not installed yet). The manager is a `StandardMagenticManager` on a larger model.
+*Phase 2, built:* [`backend/app/agents/team.py`](../backend/app/agents/team.py). Built with `MagenticBuilder` from
+`agent_framework.orchestrations` (package `agent-framework-orchestrations`). The manager is a `StandardMagenticManager` on a larger model.
 Specialists are **harness agents** (`create_harness_agent`) on smaller models, configured by one FacilityOps
 harness profile (§5.4). Runs happen in an **incident worker**, triggered by events, never inside an RPC (§5.5).
 

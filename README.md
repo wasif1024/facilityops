@@ -30,7 +30,7 @@ privacy, human oversight, evaluation, identity and access control. **New to AI?*
 repository is synthetic.
 
 > **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team) in progress: Azure Translator and the
-> transparency trail and the events foundation are done; the multi-agent team is being built. See [Roadmap](#roadmap).
+> transparency trail, events, plans, tools, knowledge and the Magentic team are done; approved actions, notices and screens are next. See [Roadmap](#roadmap).
 
 ## Features
 
@@ -82,8 +82,8 @@ flowchart LR
     F & P & S & C -. failure or flagged .-> Q[Human review]
 ```
 
-The incident team is being built in Phase 2: escalation, the event-driven worker, plans and the approval gate are in
-place; the seven team agents come next. Details: [architecture and agent orchestration](docs/architecture.md).
+The incident team runs in Phase 2: escalation, the event-driven worker, the seven agents, their read-only tools and
+knowledge base, plans and the approval gate are in place. Details: [architecture and agent orchestration](docs/architecture.md).
 
 ## Tech stack
 
@@ -197,8 +197,8 @@ docs/         documentation and diagrams
 - [x] Incident plans with citations and review flags; manager approve / revise / reject with a safety and cost gate in code
 - [x] Scenario evaluation harness (scripted): 9 incident scenarios and 5 hard gates on every PR
 - [x] Synthetic facility world and 7 read-only tools (read-only transactions, budgets, recorded on the trail)
-- [ ] Magentic multi-agent incident team on Agent Framework's harness, with budgets
-- [ ] Foundry IQ knowledge base over synthetic equipment manuals
+- [x] Magentic incident team: Incident Manager (gpt-5.2) and 6 harness specialists (gpt-5.4-mini), with budgets; a live boiler incident produced a fully cited, correctly safety-blocked plan
+- [x] Foundry IQ knowledge base over synthetic manuals and procedures; Prompt Shields drops injected passages
 - [ ] Tenant notices in the tenant's language; translate-then-classify experiment
 
 **Phase 3, production**

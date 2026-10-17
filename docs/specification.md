@@ -89,14 +89,14 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | ID | Requirement | Status |
 |---|---|---|
 | FR-20 | Escalate a non-emergency request to the incident team when it meets the escalation criteria (§4.3): automatically for priority ≥ 4 in HVAC, electrical or plumbing (the work order is still created, pending approval), or manually by a facility manager (`IncidentService/EscalateRequest`). Emergencies can never be escalated. The repeat-failure criterion arrives with the asset-history tools. | ✅ |
-| FR-21 | A Magentic manager plans, delegates to specialists, tracks progress and re-plans within fixed budgets (§6). | ⬜ |
-| FR-22 | Specialists: diagnostician, asset historian, safety & compliance, procurement, scheduler, communicator (§5.2). | ⬜ |
-| FR-23 | Produce a structured **incident plan** whose factual claims cite manual sections or records. *Plan model, versioning and review flags (`safety_block`, `high_cost`, `unverified_claims`) done; producing plans waits for the team.* | 🚧 |
+| FR-21 | A Magentic manager plans, delegates to specialists, tracks progress and re-plans within fixed budgets (§6). *[`agents/team.py`](../backend/app/agents/team.py): `MagenticBuilder` with the 7 ledger prompts on gpt-5.2; every round is a decision-trail step.* | ✅ |
+| FR-22 | Specialists: diagnostician, asset historian, safety & compliance, procurement, scheduler, communicator (§5.2). *Harness agents on gpt-5.4-mini, each with its own prompt file and only its own tools.* | ✅ |
+| FR-23 | Produce a structured **incident plan** whose factual claims cite manual sections or records. *The manager's final answer is validated as an `IncidentPlan`; citations no tool returned in the run are removed, so the claim shows as unverified; an invalid answer goes to a person.* | ✅ |
 | FR-24 | Facility manager approves, revises or rejects the plan before any side effect (`IncidentService/DecideIncidentPlan`). The gate is code: a safety-blocked plan can't be approved, a high-cost plan needs explicit confirmation, rejections use fixed reason codes, revisions go back to the team with the feedback and previous plan. | ✅ |
 | FR-25 | After approval, the application (not an agent) executes actions: purchase request, technician assignment, tenant notice. | ⬜ |
-| FR-26 | Checkpoint runs so a run paused for human review can resume. | ⬜ |
+| FR-26 | Checkpoint runs so a run paused for human review can resume. *Today a revision starts a new run with the previous plan and the feedback (state lives in the database, so nothing is lost); Magentic `checkpoint_storage` for resuming mid-run is a follow-up.* | 🚧 |
 | FR-27 | Incidents run off the request path: escalations and plan decisions are published as events (transactional outbox, §6.2) and handled by an incident worker (`python -m backend.app.worker`). Until the team exists, the worker fails closed to a person (`incident_team_unavailable`). | ✅ |
-| FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). | ⬜ |
+| FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). *Foundry IQ knowledge base (GA, extractive), `search_manuals` and `get_safety_procedure`, Prompt Shields on every passage; a planted injection is dropped live.* | ✅ |
 | FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). *Scripted harness with 9 scenarios and 5 hard gates runs on every PR (`evals/incidents/`); live mode and tool fixtures arrive with the team.* | 🚧 |
 
 ### 4.2.1 Language support with Azure Translator (Phase 2)
@@ -202,6 +202,15 @@ without a citation is shown to the reviewer as unverified.
 The manager is Agent Framework's `StandardMagenticManager`. Specialists are created with `create_harness_agent`
 and the FacilityOps harness profile (§5.3).
 
+**Prompts** ([`backend/app/prompts/`](../backend/app/prompts)), one file per agent: `incident_manager.md`,
+`incident_manager_ledgers.md` (the seven Magentic planning and progress prompts, keeping the framework's
+progress-ledger JSON schema; the final answer is the `IncidentPlan` schema), `asset_historian.md`, `diagnostician.md`,
+`safety_compliance.md`, `procurement.md`, `scheduler.md`, `communicator.md`. Each has the role, the exact tools,
+a procedure, constraints, a JSON output contract and worked examples with realistic tool results. Unit tests
+(`test_prompts.py`) check that ledger prompts format with exactly their placeholders, every JSON example parses (the
+manager's example validates as an `IncidentPlan`), each specialist's tool table matches the registry, and every
+citation in an example exists in the synthetic world or knowledge base.
+
 ### 5.3 Agent runtime: the harness profile
 
 Agent Framework's **harness** (`create_harness_agent`, released July 2026) is a ready-made agent runtime: tool-calling
@@ -212,14 +221,15 @@ tools.
 
 | Harness feature | Setting | Why |
 |---|---|---|
-| Tool-calling loop | On, `loop_max_iterations=5` | This is the per-specialist tool-call budget (§6) |
-| Context compaction | On, `max_context_window_tokens` per model | Long tool results don't overflow small models |
-| History persistence | On, `history_provider` in PostgreSQL, scoped to the run | A run survives a restart; only redacted text and tool results are stored, deleted with the run's retention |
-| Skills | On, `skills_paths` = `backend/app/agents/skills/` | Procedural know-how (how to cite a manual, how to read a lockout/tagout procedure), loaded only when needed |
-| Middleware | Monitoring (FR-47) + token budget | Same per-run records as Phase 1; tokens per run enforced here |
+| Tool-calling loop | On; **5 calls per specialist per incident, enforced by our tool runtime** (`run_tool`) | The harness's `loop_max_iterations` only applies to its optional looping feature, so the budget lives in our code, where it is also recorded |
+| Harness instructions | **Replaced** by [`specialist_harness.md`](../backend/app/prompts/specialist_harness.md) | The default tells agents to "perform actions" and narrate; ours says read-only, data-not-instructions, JSON only |
+| History | In memory, scoped to one run (the harness default) | Nothing is written to disk; what each model saw and said is captured by the monitoring middleware (FR-71) |
+| Context compaction | Off for now (no token limits passed) | A run is a few short turns per specialist; switch on with `max_context_window_tokens` if runs grow |
+| Skills | Not used yet | Procedures come from the knowledge base (§5.4); skills can be added for reusable know-how later |
+| Middleware | Token budget + monitoring (FR-47, FR-71) | Stops the run when the incident's tokens are spent; records every call, with content, including streamed runs |
 | OpenTelemetry | On, sensitive data off | GenAI spans without content (§8) |
 | Todo list, plan/execute modes | **Off** (`disable_todo`, `disable_mode`) | The Magentic manager owns the plan; two planners would disagree |
-| File memory | **Off** (`disable_file_memory`) | No state outside the run; nothing that could accumulate request text |
+| File memory | **Off** (`disable_file_memory`) | On by default it writes notes to an `agent-file-memory` folder on disk; no state may outlive the run |
 | Web search | **Off** (`disable_web_search`) | Answers come from synthetic manuals and records only; the open web is an injection and grounding risk |
 | Tool auto-approval | **Off** (`disable_tool_auto_approval`) | Tools are read-only; approvals of actions are application code (§7), never a heuristic |
 | Background agents, file access, shell, looping | **Never** (experimental, and outside least privilege) | |
@@ -243,6 +253,13 @@ the synthetic world in [`fixtures/synthetic_world.json`](../backend/app/fixtures
 (`scripts/db.sh seed-world`): 2 buildings, 6 assets, maintenance history (one repeat failure), parts, vendors with
 SLAs, technician shifts and permits (one expired).
 
+**Knowledge base** ([`agents/knowledge.py`](../backend/app/agents/knowledge.py), `scripts/knowledge.sh`): 9 synthetic
+documents in [`fixtures/knowledge/`](../backend/app/fixtures/knowledge) (5 manuals, 3 procedures, 1 deliberately
+poisoned "community tip"), one passage per section, in a Foundry IQ knowledge base on the existing serverless
+search service. It uses the generally available API (2026-04-01) in minimal, extractive mode: passages come back and
+our agents reason over them, so no model runs inside the search service and it needs no extra identity. Untrusted
+notes are screened and never returned.
+
 All documents are synthetic. Retrieved passages pass Prompt Shields' document-attack check before they reach a
 model; a flagged passage is dropped and recorded as a reason code. Each tool call is checked against the per-run
 tool budget and recorded (tool name, duration, outcome; never arguments that could contain text).
@@ -261,12 +278,17 @@ loop limit caps tool calls.
 | Coordination rounds | 10 | `max_round_count` | Stop; return partial plan to human review |
 | Rounds without progress before re-plan | 2 | `max_stall_count` | Re-plan, then human input on stall |
 | Re-plans | 1 | `max_reset_count` | Stop; human review |
-| Tokens per run | 60,000 | Agent middleware summing usage | Terminate; human review |
-| Tool calls per specialist per run | 5 | Harness `loop_max_iterations` + function middleware | Tool returns a refusal |
-| Wall-clock time per run | 120 s | Worker timeout | Terminate; human review |
+| Tokens per run | 150,000 | `TokenBudgetMiddleware` on every agent | Terminate; human review (`token_budget_exhausted`) |
+| Tool calls per specialist per run | 5 | Tool runtime (`run_tool`) | Tool returns a refusal the model can read |
+| Wall-clock time per run | 240 s | Team timeout | Terminate; human review (`team_timeout`) |
 | Delivery attempts per event | 3 | Event consumer | Dead-letter; human review |
 
 Defaults are starting points to be tuned with evaluation data and cost per incident.
+
+**Tuned from the first live runs (2026-10-17).** With 60k tokens and 120 s, a real boiler incident stopped after four
+of six specialists (65k tokens, 74 s): the manager's context grows every round, and each specialist resends its prompt
+and tool results on each tool step. A complete run then took **7 rounds, 11 tool calls, 119k tokens and 110 s**
+(manager on gpt-5.2, specialists on gpt-5.4-mini), so the limits are now 150k tokens and 240 s.
 
 ### 6.2 Events and topics
 

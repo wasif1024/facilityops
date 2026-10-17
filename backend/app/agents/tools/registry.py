@@ -1,14 +1,13 @@
 """Which specialist may use which tool (least privilege, spec 5.2).
 
 A specialist is built with only its own tools; the manager and the communicator have none.
-Knowledge-base tools (search_manuals, get_safety_procedure) are added in the knowledge step.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.app.agents.tools import facility
+from backend.app.agents.tools import facility, knowledge_tools
 from backend.app.agents.tools.runtime import ToolFunction
 
 
@@ -18,6 +17,8 @@ class ToolSpec:
     function: ToolFunction
     # What the model reads to decide when to call it.
     description: str
+    # Searches the knowledge base instead of the database.
+    uses_knowledge: bool = False
 
 
 TOOLS: dict[str, ToolSpec] = {
@@ -30,13 +31,15 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec("get_vendor_terms", facility.get_vendor_terms, "Contracted vendors for a trade: response time, call-out fee, contract."),
         ToolSpec("find_available_technicians", facility.find_available_technicians, "Technicians with a skill available within a number of hours."),
         ToolSpec("check_permit_requirements", facility.check_permit_requirements, "Permits work on an asset needs, and whether a valid one is on record."),
+        ToolSpec("search_manuals", knowledge_tools.search_manuals, "Equipment manual passages (error codes, diagnosis, service steps), with citations.", uses_knowledge=True),
+        ToolSpec("get_safety_procedure", knowledge_tools.get_safety_procedure, "Safety and lockout/tagout procedures (permits, isolation), with citations.", uses_knowledge=True),
     )
 }
 
 SPECIALIST_TOOLS: dict[str, tuple[str, ...]] = {
-    "diagnostician": ("find_assets", "get_asset"),
+    "diagnostician": ("search_manuals", "find_assets", "get_asset"),
     "asset_historian": ("find_assets", "get_asset", "get_maintenance_history"),
-    "safety_compliance": ("get_asset", "check_permit_requirements"),
+    "safety_compliance": ("get_safety_procedure", "get_asset", "check_permit_requirements"),
     "procurement": ("get_asset", "find_parts", "get_vendor_terms"),
     "scheduler": ("find_available_technicians",),
     "communicator": (),

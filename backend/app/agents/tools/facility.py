@@ -8,14 +8,16 @@ skills, never names.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.models import (
     AssetRecord,
+    BuildingRecord,
     MaintenanceRecord,
     PartRecord,
     PermitRecord,
@@ -53,8 +55,8 @@ def _asset(a: AssetRecord) -> dict[str, Any]:
 async def find_assets(
     session: AsyncSession, *, category: str | None = None, text: str | None = None, building_id: str | None = None
 ) -> dict[str, Any]:
-    """Assets by category, building, or a few words of kind, model or location."""
-    query = select(AssetRecord)
+    """Assets by category, building, or a few words of kind, model, location, manufacturer or building name."""
+    query = select(AssetRecord).join(BuildingRecord, BuildingRecord.id == AssetRecord.building_id)
     if category:
         query = query.where(AssetRecord.category == category.lower())
     if building_id:
@@ -68,6 +70,7 @@ async def find_assets(
                     func.lower(AssetRecord.model).like(pattern),
                     func.lower(AssetRecord.location).like(pattern),
                     func.lower(AssetRecord.manufacturer).like(pattern),
+                    func.lower(BuildingRecord.name).like(pattern),
                 )
             )
     rows = await session.scalars(query.order_by(AssetRecord.id).limit(MAX_RESULTS))
@@ -118,7 +121,13 @@ async def find_parts(session: AsyncSession, *, model: str | None = None, text: s
     if model:
         query = query.where(PartRecord.fits_models.contains([model]))
     if text:
-        query = query.where(func.lower(PartRecord.name).like(f"%{text.lower()[:40]}%"))
+        # Any meaningful word of the query in the part name: models phrase searches very differently.
+        words = [w for w in re.split(r"[^a-z0-9]+", text.lower()) if len(w) > 2][:6]
+        if words:
+            matches = [case((func.lower(PartRecord.name).like(f"%{w}%"), 1), else_=0) for w in words]
+            query = query.where(or_(*(func.lower(PartRecord.name).like(f"%{w}%") for w in words)))
+            # Best match first: the part whose name contains the most query words.
+            query = query.order_by(sum(matches[1:], matches[0]).desc())
     rows = await session.scalars(query.order_by(PartRecord.sku).limit(MAX_RESULTS))
     return {
         "parts": [

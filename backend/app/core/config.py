@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # Azure AI Translator: requests are translated into the staff language for reviewers (FR-60).
     # The same AI Services resource works. Unset: no translation, originals only.
     translator_endpoint: str | None = None
+    # Incident team knowledge (Foundry IQ knowledge base on Azure AI Search, Entra ID).
+    azure_search_endpoint: str | None = None
+    knowledge_base_name: str = "facilityops-knowledge"
+    knowledge_source_name: str = "facilityops-knowledge-ks"
+    knowledge_index_name: str = "facilityops-knowledge-passages"
     staff_language: str = Field(default="en", pattern=r"^[a-z]{2}$")
     frontend_origins: list[str] = ["http://localhost:5173"]
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
@@ -59,6 +64,10 @@ class Settings(BaseSettings):
     # Application logs: "json" (one object per line, for Azure Monitor) or "text" (local reading).
     log_format: Literal["json", "text"] = "text"
     log_level: str = "INFO"
+    # Incident team (Phase 2): the manager plans on the larger model, specialists use a small one.
+    incident_team_enabled: bool = True
+    incident_manager_model: str = "gpt-5.2"
+    incident_specialist_model: str = "gpt-5.4-mini"
     # Incident worker: seconds between outbox polls when idle.
     worker_poll_seconds: float = Field(default=2.0, gt=0, le=60)
     rate_limit_requests: int = Field(default=30, ge=1)

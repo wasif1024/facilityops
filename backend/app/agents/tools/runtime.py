@@ -39,8 +39,12 @@ class ToolContext:
     session_factory: async_sessionmaker[AsyncSession]
     request_id: UUID
     max_calls_per_specialist: int = DEFAULT_MAX_CALLS
+    # The knowledge base search (KnowledgeSearch); None when knowledge isn't configured.
+    knowledge: Any = None
     calls: dict[str, int] = field(default_factory=dict)
     steps: list[DecisionStep] = field(default_factory=list)
+    # Every citation id a tool actually returned in this run: the plan may cite only these.
+    returned_sources: set[str] = field(default_factory=set)
 
     def remaining(self, specialist: str) -> int:
         return self.max_calls_per_specialist - self.calls.get(specialist, 0)
@@ -60,7 +64,13 @@ def _safe_args(kwargs: dict[str, Any]) -> dict[str, Any]:
 
 
 async def run_tool(
-    ctx: ToolContext, specialist: str, name: str, function: ToolFunction, **kwargs: Any
+    ctx: ToolContext,
+    specialist: str,
+    name: str,
+    function: ToolFunction,
+    *,
+    uses_knowledge: bool = False,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     started = datetime.now(UTC)
     start = time.perf_counter()
@@ -76,16 +86,34 @@ async def run_tool(
     with _tracer.start_as_current_span(f"tool {name}", record_exception=False, set_status_on_exception=False) as span:
         span.set_attribute("facilityops.specialist", specialist)
         try:
-            async with ctx.session_factory() as session:
-                await session.execute(text("SET TRANSACTION READ ONLY"))
-                result = await function(session, **kwargs)
-                await session.rollback()
+            if uses_knowledge:
+                if ctx.knowledge is None:
+                    raise RuntimeError("knowledge base not configured")
+                result = await function(ctx.knowledge, **kwargs)
+            else:
+                async with ctx.session_factory() as session:
+                    await session.execute(text("SET TRANSACTION READ ONLY"))
+                    result = await function(session, **kwargs)
+                    await session.rollback()
         except Exception as error:  # noqa: BLE001 - the model gets the type only
             span.set_status(trace.Status(trace.StatusCode.ERROR, type(error).__name__))
             _record(ctx, specialist, name, kwargs, StepOutcome.FAILED, None, started, start, None, type(error).__name__)
             return {"error": type(error).__name__}
+    _collect_sources(result, ctx.returned_sources)
     _record(ctx, specialist, name, kwargs, StepOutcome.PASSED, None, started, start, _count(result))
     return result
+
+
+def _collect_sources(value: Any, into: set[str]) -> None:
+    if isinstance(value, dict):
+        citation = value.get("citation")
+        if isinstance(citation, dict) and isinstance(citation.get("source_id"), str):
+            into.add(citation["source_id"])
+        for item in value.values():
+            _collect_sources(item, into)
+    elif isinstance(value, list):
+        for item in value:
+            _collect_sources(item, into)
 
 
 def _count(result: dict[str, Any]) -> int:

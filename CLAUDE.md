@@ -23,7 +23,13 @@ gate in code) and the scripted scenario harness (evals/incidents/, 9 scenarios, 
 suite) done. The team returns TeamOutcome(plan|reason) and never writes or acts. Next: synthetic fixture world +
 read-only tools (done: backend/app/agents/tools/, runtime.run_tool = READ ONLY txn + budget + trail step;
 registry.SPECIALIST_TOOLS least privilege; world in backend/app/fixtures/synthetic_world.json, `scripts/db.sh
-seed-world`), then Foundry IQ knowledge, Magentic team behind IncidentTeam.
+seed-world`) and Foundry IQ knowledge (done: agents/knowledge.py, GA 2026-04-01 extractive, no model in search;
+`scripts/knowledge.sh setup|search`; Prompt Shields on every passage, notes never returned) done. Agent prompts written (8 files,
+agents/prompts.py loader, tests/unit/test_prompts.py keeps them consistent with tools and fixtures). Magentic team done:
+agents/team.py (MagenticIncidentTeam; manager gpt-5.2 + harness specialists gpt-5.4-mini; budgets 10 rounds,
+150k tokens, 240 s; invented citations removed), agents/scripted.py (ScriptedChatClient for tests), wired in
+worker.py. Next: approved actions executed by the application (FR-25), tenant notices + translation (FR-61),
+incident screens, live scenario eval.
 Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
 Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
 scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport).

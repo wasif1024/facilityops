@@ -175,6 +175,13 @@ scripts/db.sh new "add vendor table"          # new migration from model changes
 # Transparency records past their retention period (model content 90 days, audit 2 years)
 scripts/db.sh purge-expired                   # run daily in production (cron, scheduled job)
 
+# Knowledge base for the incident team (Foundry IQ on Azure AI Search; needs AZURE_SEARCH_ENDPOINT and az login)
+scripts/knowledge.sh setup                    # index + synthetic manuals and procedures + knowledge base (re-runnable)
+scripts/knowledge.sh search "E04 low pressure" --model HX-200     # what the diagnostician's search returns
+scripts/knowledge.sh search "isolate the board" --procedures      # what safety & compliance gets
+# Roles needed on the search service for your account: Search Service Contributor, Search Index Data Contributor.
+# The deployed app only needs Search Index Data Reader.
+
 # Synthetic facility data the incident team's tools read (buildings, assets, history, parts, vendors, technicians)
 scripts/db.sh seed-world                      # safe to re-run; refused in production; seed_demo.py runs it too
 

@@ -25,12 +25,32 @@ from backend.app.services.incident_worker import build_dispatcher
 _log = logging.getLogger("facilityops.worker")
 
 
+def incident_team(settings, session_factory):
+    """The Magentic team when it is enabled and Foundry is configured; otherwise None, so the worker
+    falls back to UnavailableIncidentTeam and incidents go to a person (fail closed)."""
+    if not (settings.incident_team_enabled and settings.foundry_endpoint):
+        _log.warning("incident team disabled or Foundry not configured: incidents go to a person")
+        return None
+    from backend.app.agents.knowledge import azure_knowledge
+    from backend.app.agents.team import MagenticIncidentTeam, foundry_clients
+    from backend.app.services.agent_monitoring import SqlAgentRunRecorder
+
+    return MagenticIncidentTeam(
+        settings=settings,
+        session_factory=session_factory,
+        client_for=foundry_clients(settings),
+        recorder=SqlAgentRunRecorder(session_factory),
+        knowledge=azure_knowledge(settings) if settings.azure_search_endpoint else None,
+    )
+
+
 async def run(*, once: bool) -> None:
     settings = get_settings()
     configure_logging(settings)
     configure_telemetry(settings)
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
-    dispatcher = build_dispatcher(async_sessionmaker(engine, expire_on_commit=False))
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    dispatcher = build_dispatcher(session_factory, incident_team(settings, session_factory))
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

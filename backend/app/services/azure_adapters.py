@@ -406,6 +406,30 @@ class AzureContentSafetyInspector:
                 return f"harmful_image_{str(category.category).lower()}"[:64]
         return None
 
+    async def screen_documents(self, texts: Sequence[str]) -> list[bool]:
+        """Prompt Shields document check for retrieved passages: True where an attack is found."""
+        from azure.core.rest import HttpRequest
+
+        flags: list[bool] = []
+        # The service checks several documents per call; keep batches small.
+        for start in range(0, len(texts), 5):
+            batch = [t[:5_000] for t in texts[start : start + 5]]
+            async with self._client() as client:
+                response = await client.send_request(
+                    HttpRequest(
+                        "POST",
+                        "/text:shieldPrompt",
+                        params={"api-version": self._SHIELD_API_VERSION},
+                        json={"userPrompt": "", "documents": batch},
+                    )
+                )
+                response.raise_for_status()
+            results = response.json().get("documentsAnalysis") or []
+            if len(results) != len(batch):
+                raise RuntimeError("Prompt Shields result is missing document analysis")
+            flags.extend(bool(r.get("attackDetected")) for r in results)
+        return flags
+
     @asynccontextmanager
     async def _client(self) -> AsyncIterator[Any]:
         if not self._settings.content_safety_endpoint:

@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from agent_framework import AgentContext, AgentMiddleware
+from agent_framework import AgentContext, AgentMiddleware, ResponseStream
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -151,19 +151,30 @@ class AgentMonitoringMiddleware(AgentMiddleware):
         try:
             await call_next()
         except Exception as error:
-            await self._record(context, started_at, start, "failed", type(error).__name__)
+            await self._record(context, None, started_at, start, "failed", type(error).__name__)
             raise
-        await self._record(context, started_at, start, "succeeded", None)
+        result = context.result
+        if isinstance(result, ResponseStream):
+            # Streamed runs (every Magentic participant): record once the stream has finished,
+            # when the full answer and its token usage are known.
+            async def record_final(final: Any) -> Any:
+                await self._record(context, final, started_at, start, "succeeded", None)
+                return final
+
+            context.result = result.with_result_hook(record_final)
+            return
+        await self._record(context, result, started_at, start, "succeeded", None)
 
     async def _record(
         self,
         context: AgentContext,
+        result: Any,
         started_at: datetime,
         start: float,
         status: str,
         error_type: str | None,
     ) -> None:
-        usage: dict[str, Any] = dict(getattr(context.result, "usage_details", None) or {})
+        usage: dict[str, Any] = dict(getattr(result, "usage_details", None) or {})
         scope = _scope.get()
         await self._recorder.record(
             AgentRunSample(
@@ -180,16 +191,15 @@ class AgentMonitoringMiddleware(AgentMiddleware):
                 request_id=scope.request_id,
                 evaluation_run_id=scope.evaluation_run_id,
                 trace_id=current_trace_id(),
-                **(self._content(context) if self._capture_content else {}),
+                **(self._content(context, result) if self._capture_content else {}),
             )
         )
 
-    def _content(self, context: AgentContext) -> dict[str, str | None]:
+    def _content(self, context: AgentContext, result: Any) -> dict[str, str | None]:
         """The messages sent to the model and its answer, as plain text."""
         sent = "\n\n".join(
             f"[{getattr(message, 'role', 'user')}] {getattr(message, 'text', '') or ''}"
             for message in (context.messages or [])
         )
-        result = context.result
         answer = getattr(result, "text", None) if result is not None else None
         return {"input_text": sent, "output_text": answer or "", "instructions": self._instructions}

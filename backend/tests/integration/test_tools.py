@@ -117,3 +117,16 @@ def test_least_privilege_mapping():
     assert SPECIALIST_TOOLS["communicator"] == ()
     assert all(name in TOOLS for names in SPECIALIST_TOOLS.values() for name in names)
     assert [t.name for t in tools_for("scheduler")] == ["find_available_technicians"]
+
+
+@pytest.mark.asyncio
+async def test_assets_match_the_building_name_too(world):
+    result = await call(world, "find_assets", category="hvac", text="boiler plant room B Harbor View")
+    assert [a["asset_id"] for a in result["assets"]] == ["asset-hv-boiler-1"]
+
+
+@pytest.mark.asyncio
+async def test_parts_match_words_not_the_whole_phrase(world):
+    # The live run's procurement query, which found nothing when matched as one string.
+    result = await call(world, "find_parts", "procurement", model="HX-200", text="24 L expansion vessel for Thermacore HX-200 boiler")
+    assert result["parts"][0]["sku"] == "exp-vessel-24l"  # best match first; the sensor still appears below
