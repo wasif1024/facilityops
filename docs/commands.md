@@ -57,7 +57,7 @@ work orders, admin reports and offline evals. Non-emergency requests go to human
 ### 1.2 Native setup
 
 Prerequisites: Python 3.13+, PostgreSQL 16+ (Homebrew or Postgres.app), Azure CLI. Install commands for macOS,
-Windows and Linux: [README, What to install first](../README.md#what-to-install-first).
+Windows and Linux: [Getting started, What to install first](getting-started.md#what-to-install-first).
 
 ```bash
 # 1. Python environment and dependencies
@@ -459,7 +459,11 @@ work order, pending approval or human review), and modal-answer fairness for lab
 versions tell bias (a group member differs systematically) apart from sampling noise (one unlucky draw).
 
 The command exits with code 1 when a gate fails (emergency recall below 1.0, or category accuracy below the given
-threshold), which is what fails CI. An admin can also start a run with the
+threshold), which is what fails CI. CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs the unit tests
+and the offline recall gate on every pull request. The live eval runs on manual dispatch and needs these settings in
+a `foundry-eval` environment: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` (an Entra app with a
+federated credential for this repository and access to the Foundry project), plus `FOUNDRY_ENDPOINT`. An admin can
+also start a run with the
 `EvaluationService/StartEvaluationRun` RPC.
 
 ## 9. Troubleshooting
