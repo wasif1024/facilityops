@@ -11,6 +11,7 @@ from typing import Any
 from cryptography.fernet import Fernet
 
 from backend.app.core.config import Settings
+from backend.app.domain.decision_trail import note
 from backend.app.domain.intake import (
     MAX_DOCUMENT_PAGES,
     Classification,
@@ -58,6 +59,15 @@ class AzureLanguagePiiRedactor:
         if len(results) != len(parts) or any(getattr(r, "is_error", False) for r in results):
             raise RuntimeError("Azure AI Language could not redact the request")
 
+        entities = [entity for result in results for entity in result.entities]
+        note(
+            service="Azure AI Language",
+            version="PII detection",
+            entities=len(entities),
+            # Categories only (for example "Person", "PhoneNumber"); never the values.
+            categories=sorted({str(entity.category) for entity in entities}),
+            attachment_redacted=bool(attachment),
+        )
         mapping: dict[str, str] = {}
         redacted_parts = [
             _replace_entities(part, result.entities, mapping)
@@ -164,6 +174,12 @@ class AzureMediaTranscriber:
 
         parts = []
         caption = result.get("captionResult") or {}
+        note(
+            service="Azure AI Vision",
+            version=f"Image Analysis {self._VISION_API_VERSION}",
+            caption_confidence=round(caption.get("confidence", 0), 3),
+            ocr_lines=sum(len(b.get("lines", [])) for b in (result.get("readResult") or {}).get("blocks", [])),
+        )
         if caption.get("text") and caption.get("confidence", 0) >= self._MIN_CAPTION_CONFIDENCE:
             parts.append(f"Photo shows: {caption['text']}.")
         lines = [
@@ -205,7 +221,14 @@ class AzureMediaTranscriber:
                 submitted.raise_for_status()
                 result = submitted.json()
                 if result.get("status") == "succeeded":
-                    return (result.get("analyzeResult") or {}).get("content", "")
+                    analysis = result.get("analyzeResult") or {}
+                    note(
+                        service="Azure AI Document Intelligence",
+                        version=f"prebuilt-read {self._DOCUMENT_API_VERSION}",
+                        pages_read=len(analysis.get("pages", [])),
+                        page_limit=MAX_DOCUMENT_PAGES,
+                    )
+                    return analysis.get("content", "")
                 if result.get("status") == "failed":
                     raise RuntimeError("Document Intelligence could not read the document")
                 if time.monotonic() > deadline:
@@ -230,6 +253,12 @@ class AzureMediaTranscriber:
             )
         response.raise_for_status()
         phrases = response.json().get("combinedPhrases") or []
+        note(
+            service="Azure AI Speech",
+            version=f"fast transcription {self._SPEECH_API_VERSION}",
+            locales=locales,
+            duration_ms=(response.json().get("durationMilliseconds")),
+        )
         return " ".join(phrase.get("text", "") for phrase in phrases).strip()
 
 
@@ -266,6 +295,7 @@ class AzureTranslator:
                 json=[{"text": text}],
             )
         response.raise_for_status()
+        note(service="Azure AI Translator", version=f"Text {self._API_VERSION}", target_language=target)
         return _parse_translation(response.json(), text, source_language, target)
 
 
@@ -326,6 +356,16 @@ class AzureContentSafetyInspector:
             shield_response.raise_for_status()
             shield: dict[str, Any] = shield_response.json()
 
+        note(
+            service="Azure AI Content Safety",
+            version=f"Prompt Shields {self._SHIELD_API_VERSION}",
+            harm_severities={str(c.category): c.severity or 0 for c in (text_result.categories_analysis or [])}
+            if text_result
+            else None,
+            user_prompt_attack=(shield.get("userPromptAnalysis") or {}).get("attackDetected"),
+            document_attacks=[bool(d.get("attackDetected")) for d in shield.get("documentsAnalysis") or []],
+            blocking_severity=self._BLOCKING_SEVERITY,
+        )
         if redacted_text:
             attack = (shield.get("userPromptAnalysis") or {}).get("attackDetected")
             if attack is None:
@@ -355,6 +395,12 @@ class AzureContentSafetyInspector:
             )
         if result is None or not result.categories_analysis:
             raise RuntimeError("Azure AI Content Safety returned an empty image result")
+        note(
+            service="Azure AI Content Safety",
+            version="image analysis",
+            image_severities={str(c.category): c.severity or 0 for c in result.categories_analysis},
+            blocking_severity=self._BLOCKING_SEVERITY,
+        )
         for category in result.categories_analysis:
             if (category.severity or 0) >= self._BLOCKING_SEVERITY:
                 return f"harmful_image_{str(category.category).lower()}"[:64]
@@ -414,6 +460,7 @@ class FoundryMaintenanceClassifier:
         self._cached_agent: Any = None
 
     async def classify(self, redacted_text: str) -> Classification:
+        note(service="Microsoft Foundry", version=self._settings.foundry_model, prompt_sha=self.prompt_sha)
         response = await self._agent().run(
             redacted_text, options={"response_format": Classification}
         )
@@ -452,6 +499,8 @@ class FoundryMaintenanceClassifier:
                             self._recorder,
                             model=self._settings.foundry_model,
                             prompt_sha=self.prompt_sha,
+                            instructions=self._instructions,
+                            capture_content=self._settings.capture_model_content,
                         )
                     ]
                     if self._recorder

@@ -5,6 +5,7 @@
     python -m backend.app.cli list-users
     python -m backend.app.cli remove-demo-accounts [--force]
     python -m backend.app.cli add-demo-accounts
+    python -m backend.app.cli purge-expired
 
 ``grant-role`` is how the first administrator is created; after that, use the admin API.
 """
@@ -15,9 +16,11 @@ import argparse
 import asyncio
 import sys
 
+from backend.app.core.config import get_settings
 from backend.app.db.session import SessionLocal
 from backend.app.domain.rbac import IdentityProvider
 from backend.app.services.demo_accounts import add_demo_accounts, remove_demo_accounts
+from backend.app.services.retention import purge_expired
 from backend.app.services.users import UserDirectory, UserDirectoryError
 
 
@@ -68,6 +71,19 @@ async def _add_demo(_: argparse.Namespace) -> int:
     return 0
 
 
+async def _purge(_: argparse.Namespace) -> int:
+    settings = get_settings()
+    async with SessionLocal() as session:
+        report = await purge_expired(session, settings)
+    print(
+        f"retention: model content {settings.model_content_retention_days} days, "
+        f"audit {settings.audit_retention_days} days"
+    )
+    for table, count in report.deleted.items():
+        print(f"  {table}: {count} row(s) deleted")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m backend.app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -96,6 +112,11 @@ def main(argv: list[str] | None = None) -> int:
 
     add = commands.add_parser("add-demo-accounts", help="Create the demo accounts again")
     add.set_defaults(handler=_add_demo)
+
+    purge = commands.add_parser(
+        "purge-expired", help="Delete model content and audit records past their retention period"
+    )
+    purge.set_defaults(handler=_purge)
 
     args = parser.parse_args(argv)
     return asyncio.run(args.handler(args))

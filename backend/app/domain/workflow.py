@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
 from opentelemetry import trace
 
 from backend.app.domain.classification_policy import ClassificationPolicy, Route
+from backend.app.domain.decision_trail import (
+    DecisionStep,
+    StepOutcome,
+    current_trail,
+    decision_trail,
+    open_step,
+)
 from backend.app.domain.emergency import detect_emergency
 from backend.app.domain.intake import (
     ATTACHMENT_HEADROOM_CHARS,
@@ -26,21 +34,40 @@ from backend.app.domain.media import check_media, is_image
 
 # No-op unless telemetry is configured. Spans carry ids and reason codes, never text.
 _tracer = trace.get_tracer("facilityops.intake")
+_log = logging.getLogger("facilityops.intake")
 _TRANSLATION_TIMEOUT_SECONDS = 10
 T = TypeVar("T")
 
 
-async def _step(name: str, awaitable: Awaitable[T]) -> T:
-    """Trace one pipeline step. Exception messages are not recorded, only the type,
-    because they can contain request text."""
+async def _step(
+    name: str,
+    awaitable: Awaitable[T],
+    *,
+    flag: Callable[[T], str | None] | None = None,
+    describe: Callable[[T], dict[str, Any]] | None = None,
+) -> T:
+    """Trace one pipeline step and record it on the decision trail.
+
+    ``flag`` turns a result into a reason code when the step rerouted the request;
+    ``describe`` adds non-personal details (labels, scores, counts). Exception messages are
+    never recorded, only the type, because they can contain request text.
+    """
     with _tracer.start_as_current_span(
         name, record_exception=False, set_status_on_exception=False
-    ) as span:
+    ) as span, open_step(name) as step:
         try:
-            return await awaitable
+            result = await awaitable
         except Exception as error:
             span.set_status(trace.Status(trace.StatusCode.ERROR, type(error).__name__))
+            step.details["error"] = type(error).__name__
             raise
+        if describe is not None:
+            step.details.update(describe(result))
+        if flag is not None and (reason := flag(result)) is not None:
+            step.outcome, step.reason_code = StepOutcome.FLAGGED, reason
+            span.set_attribute("facilityops.reason_code", reason)
+        span.set_attribute("facilityops.outcome", step.outcome.value)
+        return result
 
 
 class PiiRedactor(Protocol):
@@ -112,6 +139,7 @@ class IntakeDecisionWriter(Protocol):
         redacted_text: str | None,
         encrypted_mapping: bytes | None,
         translation: Translation | None = None,
+        decision_steps: Sequence[DecisionStep] = (),
     ) -> None: ...
 
 
@@ -157,14 +185,15 @@ class IntakeCoordinator:
         with _tracer.start_as_current_span("intake.process") as span:
             span.set_attribute("facilityops.request_id", str(command.request_id))
             span.set_attribute("facilityops.source", command.source.value)
-            result = await self._run(command)
+            with decision_trail():
+                result = await self._run(command)
             span.set_attribute("facilityops.status", result.status.value)
             span.set_attribute("facilityops.reason_code", result.reason_code)
             return result
 
     async def _run(self, command: IntakeCommand) -> IntakeResult:
         # Screen what the tenant typed first: no network call can delay an emergency.
-        if (emergency_reason := self._emergency_reason(command.text)) is not None:
+        if (emergency_reason := self._screen(command.text, "typed_text")) is not None:
             return await self._hand_off(command, emergency_reason)
 
         user_text = command.text.strip()
@@ -185,7 +214,7 @@ class IntakeCoordinator:
                 return await self._finish(command, self._human_review(command, reason))
             # The whole extracted text is screened, before anything is shortened.
             full_text = "\n".join(part for part in (user_text, attachment) if part)
-            if (emergency_reason := self._emergency_reason(full_text)) is not None:
+            if (emergency_reason := self._screen(full_text, "all_text")) is not None:
                 return await self._hand_off(command, emergency_reason)
 
         try:
@@ -204,6 +233,9 @@ class IntakeCoordinator:
 
         redacted_text = redaction.redacted_text
         if not redacted_text.strip():
+            current_trail().record(
+                "intake.pii_redaction_result", StepOutcome.FLAGGED, reason_code="pii_redaction_empty_result"
+            )
             return await self._finish(
                 command,
                 self._human_review(command, "pii_redaction_empty_result"),
@@ -228,6 +260,7 @@ class IntakeCoordinator:
             safety_reason = await _step(
                 "intake.content_safety",
                 self._safety_inspector.assess(user_part, documents=documents),
+                flag=lambda reason: reason,
             )
         except Exception:
             return await self._finish(
@@ -246,7 +279,9 @@ class IntakeCoordinator:
 
         try:
             classification = await _step(
-                "intake.classification", self._classifier.classify(redacted_text)
+                "intake.classification",
+                self._classifier.classify(redacted_text),
+                describe=_describe_classification,
             )
         except Exception:
             return await self._finish(
@@ -259,9 +294,23 @@ class IntakeCoordinator:
         confirmations: list[Classification | None] = []
         if self._policy.needs_confirmation(classification):
             confirmations = await _step(
-                "intake.classification_confirmation", self._confirm(redacted_text)
+                "intake.classification_confirmation",
+                self._confirm(redacted_text),
+                describe=lambda answers: {
+                    "answers": [_describe_classification(a) if a else None for a in answers]
+                },
             )
         decision = self._policy.decide(classification, confirmations)
+        current_trail().record(
+            "intake.routing",
+            StepOutcome.DECIDED,
+            reason_code=decision.reason_code,
+            route=decision.route.value,
+            band_low=self._policy.band_low,
+            band_high=self._policy.band_high,
+            confirmations=self._policy.confirmations,
+            approval_priority_threshold=self._policy.approval_threshold,
+        )
         if decision.route is Route.HUMAN_REVIEW:
             return await self._finish(
                 command,
@@ -315,7 +364,16 @@ class IntakeCoordinator:
         result when the file can't be processed.
         """
         media, media_type = command.media or b"", command.media_type or ""
-        if (file_problem := check_media(command.source, media, media_type)) is not None:
+        file_problem = check_media(command.source, media, media_type)
+        current_trail().record(
+            "intake.file_check",
+            StepOutcome.FLAGGED if file_problem else StepOutcome.PASSED,
+            reason_code=file_problem,
+            source=command.source.value,
+            media_type=media_type,
+            size_kb=round(len(media) / 1024),
+        )
+        if file_problem is not None:
             return await self._finish(command, self._human_review(command, file_problem))
         if self._media_transcriber is None:
             return await self._finish(
@@ -332,8 +390,13 @@ class IntakeCoordinator:
                     media_type=media_type,
                     language=command.language,
                 ),
+                describe=lambda text: {"characters": len(text)},
             ),
-            _step("intake.image_safety", self._safety_inspector.assess_image(media))
+            _step(
+                "intake.image_safety",
+                self._safety_inspector.assess_image(media),
+                flag=lambda reason: reason,
+            )
             if check_picture
             else _none(),
             return_exceptions=True,
@@ -375,12 +438,30 @@ class IntakeCoordinator:
         redacted_text: str | None = None,
         encrypted_mapping: bytes | None = None,
     ) -> IntakeResult:
+        translation = await self._collect_translation(command)
+        trail = current_trail()
+        trail.record(
+            "intake.outcome", StepOutcome.DECIDED, reason_code=result.reason_code, status=result.status.value
+        )
+        # One structured line per step: codes and durations only, never text.
+        for step in trail.ordered():
+            _log.info(
+                "intake step",
+                extra={
+                    "step": step.step,
+                    "outcome": step.outcome.value,
+                    "reason_code": step.reason_code,
+                    "duration_ms": step.duration_ms,
+                    "service": step.service,
+                },
+            )
         await self._decision_writer.record_result(
             command=command,
             result=result,
             redacted_text=redacted_text,
             encrypted_mapping=encrypted_mapping,
-            translation=await self._collect_translation(command),
+            translation=translation,
+            decision_steps=trail.ordered(),
         )
         return result
 
@@ -396,6 +477,7 @@ class IntakeCoordinator:
             _step(
                 "intake.translation",
                 self._translator.translate(redacted_text, source_language=command.language),
+                describe=lambda t: {"source_language": t.source_language} if t else {"needed": False},
             )
         )
 
@@ -410,9 +492,18 @@ class IntakeCoordinator:
             return None
 
     @staticmethod
-    def _emergency_reason(text: str) -> str | None:
+    def _screen(text: str, scope: str) -> str | None:
+        """The local emergency screen, recorded on the trail (no network, no AI)."""
         emergency_type = detect_emergency(text)
-        return f"emergency_{emergency_type}" if emergency_type else None
+        reason = f"emergency_{emergency_type}" if emergency_type else None
+        current_trail().record(
+            "intake.emergency_screen",
+            StepOutcome.FLAGGED if reason else StepOutcome.PASSED,
+            reason_code=reason,
+            scope=scope,
+            service="local rules",
+        )
+        return reason
 
     @staticmethod
     def _human_review(
@@ -438,3 +529,13 @@ def _fit_attachment(attachment: str, user_text: str) -> str:
     """Attachment text shortened to what the classifier needs and the database can store."""
     room = MAX_STORED_TEXT_CHARS - len(user_text) - ATTACHMENT_HEADROOM_CHARS
     return attachment[: max(0, min(MAX_ATTACHMENT_CHARS, room))]
+
+
+def _describe_classification(classification: Classification) -> dict[str, Any]:
+    return {
+        "category": classification.category.value,
+        "priority": classification.priority,
+        "confidence": classification.confidence,
+        "model_reason_code": classification.reason_code,
+        "model_requested_review": classification.requires_human_review,
+    }

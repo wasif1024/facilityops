@@ -16,6 +16,7 @@
 #   remove-demo-accounts  Delete the demo accounts (alice, fm, tech, local-developer); do this
 #                         before using the project for real. Add --force if no other admin exists
 #   add-demo-accounts   Create the demo accounts again
+#   purge-expired       Delete model inputs/answers and audit records past their retention period
 #   help                Show this summary
 #
 # DATABASE_URL comes from the environment or .env. Destructive commands refuse to run
@@ -191,6 +192,11 @@ cmd_add_demo_accounts() {
   "$PYTHON" -m backend.app.cli add-demo-accounts
 }
 
+cmd_purge_expired() {
+  info "purging expired transparency records from $(safe_url)"
+  "$PYTHON" -m backend.app.cli purge-expired
+}
+
 cmd_sql() {
   "$ALEMBIC" upgrade "${1:-base:head}" --sql
 }
@@ -211,6 +217,7 @@ case "$command" in
   sql) cmd_sql "$@" ;;
   remove-demo-accounts) cmd_remove_demo_accounts "$@" ;;
   add-demo-accounts) cmd_add_demo_accounts ;;
+  purge-expired) cmd_purge_expired ;;
   help | -h | --help) usage 0 ;;
   *) echo "unknown command: $command" >&2; usage 1 ;;
 esac

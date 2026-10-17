@@ -16,7 +16,7 @@ from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, DE
 from protobuf import DescService
 
 from . import intake_pb
-from .intake_pb import GetRequestRequest, GetRequestResponse, ListMyRequestsRequest, ListMyRequestsResponse, ListRequestsRequest, ListRequestsResponse, RevealRequestDetailsRequest, RevealRequestDetailsResponse, SubmitIntakeRequest, SubmitIntakeResponse
+from .intake_pb import GetDecisionTrailRequest, GetDecisionTrailResponse, GetRequestRequest, GetRequestResponse, ListMyRequestsRequest, ListMyRequestsResponse, ListRequestsRequest, ListRequestsResponse, RevealRequestDetailsRequest, RevealRequestDetailsResponse, SubmitIntakeRequest, SubmitIntakeResponse
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Iterable, Mapping
@@ -62,6 +62,14 @@ class IntakeService(Protocol):
         """
         The original values behind the [PII_nnnn] placeholders. Every call is audited.
         Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def get_decision_trail(self, request: GetDecisionTrailRequest, ctx: RequestContext[GetDecisionTrailRequest, GetDecisionTrailResponse], /) -> GetDecisionTrailResponse:
+        """
+        Why the AI did what it did: every pipeline step, every model call and every human action
+        for one request. Requires decisions:read. Model inputs and answers (redacted text) are
+        included only with intake:read_all; viewing them is audited.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -132,6 +140,16 @@ class IntakeServiceASGIApplication(ConnectASGIApplication[IntakeService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.reveal_request_details,
+                ),
+                "/facilityops.v1.IntakeService/GetDecisionTrail": Endpoint.unary(
+                    method=MethodInfo(
+                        name="GetDecisionTrail",
+                        service_name="facilityops.v1.IntakeService",
+                        input=GetDecisionTrailRequest,
+                        output=GetDecisionTrailResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.get_decision_trail,
                 ),
             },
             interceptors=interceptors,
@@ -269,6 +287,31 @@ class IntakeServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def get_decision_trail(
+        self,
+        request: GetDecisionTrailRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> GetDecisionTrailResponse:
+        """
+        Why the AI did what it did: every pipeline step, every model call and every human action
+        for one request. Requires decisions:read. Model inputs and answers (redacted text) are
+        included only with intake:read_all; viewing them is audited.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetDecisionTrail",
+                service_name="facilityops.v1.IntakeService",
+                input=GetDecisionTrailRequest,
+                output=GetDecisionTrailResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 class IntakeServiceSync(Protocol):
     """
     Maintenance request intake. Every request runs the deterministic workflow:
@@ -304,6 +347,14 @@ class IntakeServiceSync(Protocol):
         """
         The original values behind the [PII_nnnn] placeholders. Every call is audited.
         Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def get_decision_trail(self, request: GetDecisionTrailRequest, ctx: RequestContext[GetDecisionTrailRequest, GetDecisionTrailResponse], /) -> GetDecisionTrailResponse:
+        """
+        Why the AI did what it did: every pipeline step, every model call and every human action
+        for one request. Requires decisions:read. Model inputs and answers (redacted text) are
+        included only with intake:read_all; viewing them is audited.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -372,6 +423,16 @@ class IntakeServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.reveal_request_details,
+                ),
+                "/facilityops.v1.IntakeService/GetDecisionTrail": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="GetDecisionTrail",
+                        service_name="facilityops.v1.IntakeService",
+                        input=GetDecisionTrailRequest,
+                        output=GetDecisionTrailResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.get_decision_trail,
                 ),
             },
             interceptors=interceptors,
@@ -499,6 +560,30 @@ class IntakeServiceClientSync(ConnectClientSync):
                 service_name="facilityops.v1.IntakeService",
                 input=RevealRequestDetailsRequest,
                 output=RevealRequestDetailsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def get_decision_trail(
+        self,
+        request: GetDecisionTrailRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> GetDecisionTrailResponse:
+        """
+        Why the AI did what it did: every pipeline step, every model call and every human action
+        for one request. Requires decisions:read. Model inputs and answers (redacted text) are
+        included only with intake:read_all; viewing them is audited.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetDecisionTrail",
+                service_name="facilityops.v1.IntakeService",
+                input=GetDecisionTrailRequest,
+                output=GetDecisionTrailResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

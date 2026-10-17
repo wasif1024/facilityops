@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -7,12 +8,14 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.models import (
+    DecisionStepRecord,
     HumanReviewCase,
     IntakeAuditEvent,
     IntakeRequestRecord,
     PiiMappingRecord,
     WorkOrderRecord,
 )
+from backend.app.domain.decision_trail import DecisionStep
 from backend.app.domain.intake import Classification, IntakeCommand, IntakeResult, Translation
 
 
@@ -120,6 +123,7 @@ class SqlIntakeRepository:
         redacted_text: str | None,
         encrypted_mapping: bytes | None,
         translation: Translation | None = None,
+        decision_steps: Sequence[DecisionStep] = (),
     ) -> None:
         request = await self._session.scalar(
             select(IntakeRequestRecord).where(
@@ -148,6 +152,24 @@ class SqlIntakeRepository:
                 reason_code=result.reason_code,
             )
         )
+
+        for sequence, step in enumerate(decision_steps, start=1):
+            self._session.add(
+                DecisionStepRecord(
+                    id=uuid4(),
+                    request_id=command.request_id,
+                    sequence=sequence,
+                    step=step.step,
+                    outcome=step.outcome.value,
+                    reason_code=step.reason_code,
+                    service=step.service,
+                    version=step.version,
+                    duration_ms=step.duration_ms,
+                    details=step.details,
+                    trace_id=step.trace_id,
+                    started_at=step.started_at,
+                )
+            )
 
         if encrypted_mapping:
             await self._store_mapping(command.request_id, encrypted_mapping)

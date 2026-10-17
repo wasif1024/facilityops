@@ -30,6 +30,9 @@ class Permission(StrEnum):
     EVALUATIONS_READ = "evaluations:read"
     EVALUATIONS_RUN = "evaluations:run"
     MONITORING_READ = "monitoring:read"
+    # The decision trail of a request: steps, outcomes, model versions. The prompts and model
+    # answers inside it additionally need intake:read_all (they contain the redacted request).
+    DECISIONS_READ = "decisions:read"
 
 
 class SystemRole(StrEnum):
@@ -62,6 +65,7 @@ SYSTEM_ROLE_PERMISSIONS: dict[SystemRole, frozenset[Permission]] = {
             Permission.PII_REVEAL_ALL,
             Permission.EVALUATIONS_READ,
             Permission.MONITORING_READ,
+            Permission.DECISIONS_READ,
         }
     ),
     SystemRole.ADMIN: frozenset(
@@ -73,6 +77,7 @@ SYSTEM_ROLE_PERMISSIONS: dict[SystemRole, frozenset[Permission]] = {
             Permission.EVALUATIONS_READ,
             Permission.EVALUATIONS_RUN,
             Permission.MONITORING_READ,
+            Permission.DECISIONS_READ,
         }
     ),
 }

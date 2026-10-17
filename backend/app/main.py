@@ -20,6 +20,7 @@ from backend.app.api.rpc.operations import ReviewQueueRpc, WorkOrderRpc
 from backend.app.api.rpc.reports import EvaluationRpc, MonitoringRpc
 from backend.app.api.rpc.users import AccountRpc, UserAdminRpc
 from backend.app.core.config import Settings, get_settings
+from backend.app.core.logs import configure_logging
 from backend.app.core.telemetry import configure_telemetry
 from backend.app.gen.facilityops.v1.account_connect import AccountServiceASGIApplication
 from backend.app.gen.facilityops.v1.evaluations_connect import (
@@ -87,6 +88,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     app_settings = settings or get_settings()
     _check_production_settings(app_settings)
     # Before the app object exists, so the distro can instrument it.
+    configure_logging(app_settings)
     configure_telemetry(app_settings)
     services = container or Container.default(app_settings)
 

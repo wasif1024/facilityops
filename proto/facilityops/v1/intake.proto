@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package facilityops.v1;
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 // Maintenance request intake. Every request runs the deterministic workflow:
@@ -20,6 +21,10 @@ service IntakeService {
   // The original values behind the [PII_nnnn] placeholders. Every call is audited.
   // Requires pii:reveal_all, or pii:reveal_assigned for a work order assigned to you.
   rpc RevealRequestDetails(RevealRequestDetailsRequest) returns (RevealRequestDetailsResponse);
+  // Why the AI did what it did: every pipeline step, every model call and every human action
+  // for one request. Requires decisions:read. Model inputs and answers (redacted text) are
+  // included only with intake:read_all; viewing them is audited.
+  rpc GetDecisionTrail(GetDecisionTrailRequest) returns (GetDecisionTrailResponse);
 }
 
 enum RequestSource {
@@ -153,4 +158,66 @@ message RevealRequestDetailsResponse {
   string translated_description = 4;
   // Placeholder (for example "[PII_0001]") to original value. Do not cache or log.
   map<string, string> values = 3;
+}
+
+message GetDecisionTrailRequest {
+  string request_id = 1;
+}
+
+// One step of the intake pipeline. Details hold labels, scores and counts, never text.
+message DecisionStep {
+  // For example "intake.emergency_screen", "intake.content_safety", "intake.classification".
+  string step = 1;
+  // "passed", "flagged", "failed", "skipped" or "decided".
+  string outcome = 2;
+  string reason_code = 3;
+  // The service that ran it, for example "Azure AI Content Safety" or "Microsoft Foundry".
+  string service = 4;
+  // Model, API or prompt version, for example "gpt-5.2" or "Prompt Shields 2024-09-01".
+  string version = 5;
+  int32 duration_ms = 6;
+  google.protobuf.Struct details = 7;
+  // OpenTelemetry trace id: find the step in Application Insights.
+  string trace_id = 8;
+  google.protobuf.Timestamp started_at = 9;
+}
+
+// One call to a language model, with what it was sent and what it answered.
+message ModelCall {
+  string id = 1;
+  string agent_name = 2;
+  string model = 3;
+  // Hash of the system instructions; the full text is in instructions.
+  string prompt_sha = 4;
+  // "succeeded" or "failed".
+  string status = 5;
+  string error_type = 6;
+  int32 duration_ms = 7;
+  optional int32 input_tokens = 8;
+  optional int32 output_tokens = 9;
+  string trace_id = 10;
+  google.protobuf.Timestamp started_at = 11;
+  // Content: empty unless the caller has intake:read_all. Redacted text only.
+  string input_text = 12;
+  string output_text = 13;
+  string instructions = 14;
+}
+
+// A person's action on the request: review resolution, approval, assignment, completion.
+message HumanAction {
+  string event_type = 1;
+  string reason_code = 2;
+  string actor_user_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message GetDecisionTrailResponse {
+  string request_id = 1;
+  repeated DecisionStep steps = 2;
+  repeated ModelCall model_calls = 3;
+  repeated HumanAction human_actions = 4;
+  // Whether model inputs and answers are included (the caller may read requests).
+  bool content_included = 5;
+  // Days that model inputs and answers are kept before they are purged.
+  int32 content_retention_days = 6;
 }

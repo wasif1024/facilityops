@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     # Demo accounts (alice, fm, tech, local-developer) created by migration 0004 for local
     # development. Never created when APP_ENV=production. Remove: scripts/db.sh remove-demo-accounts.
     seed_demo_accounts: bool = True
+    # Transparency. What was sent to each model and what it answered is stored (redacted text
+    # only) for people who can read requests, and purged after this many days.
+    capture_model_content: bool = True
+    model_content_retention_days: int = Field(default=90, ge=1)
+    # Decision trail and audit records are kept this long (spec section 8: two years).
+    audit_retention_days: int = Field(default=730, ge=30)
+    # Application logs: "json" (one object per line, for Azure Monitor) or "text" (local reading).
+    log_format: Literal["json", "text"] = "text"
+    log_level: str = "INFO"
     rate_limit_requests: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
     rate_limit_hmac_secret: str = "development-only-change-me"

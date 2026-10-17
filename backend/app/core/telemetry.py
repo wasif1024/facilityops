@@ -23,6 +23,7 @@ def configure_telemetry(settings: Settings) -> bool:
         return True
     # Tests and unconfigured environments never export.
     if settings.app_env == "test" or not settings.applicationinsights_connection_string:
+        _local_tracing()
         return False
 
     from agent_framework.observability import enable_instrumentation
@@ -43,3 +44,13 @@ def configure_telemetry(settings: Settings) -> bool:
     _configured = True
     logger.info("OpenTelemetry export to Application Insights enabled")
     return True
+
+
+def _local_tracing() -> None:
+    """Without Application Insights, still create real trace and span ids (nothing is exported),
+    so logs, agent runs and the decision trail can be correlated in local development too."""
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+
+    if not isinstance(trace.get_tracer_provider(), TracerProvider):
+        trace.set_tracer_provider(TracerProvider())

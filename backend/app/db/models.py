@@ -302,6 +302,66 @@ class AgentRunRecord(Base):
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # OpenTelemetry trace id: find this call in Application Insights.
+    trace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class DecisionStepRecord(Base):
+    """One step of the decision trail for a request: what ran, what it found, how long it took.
+
+    Append-only (a database trigger refuses updates and deletes outside the retention purge).
+    Details hold labels, scores and counts only; never request text or personal data.
+    """
+
+    __tablename__ = "decision_steps"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    request_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    step: Mapped[str] = mapped_column(String(64))
+    outcome: Mapped[str] = mapped_column(String(16))
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    service: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)
+    trace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class AgentRunContentRecord(Base):
+    """What was sent to a model and what it answered, for one agent run.
+
+    Models only ever receive redacted text, so this holds no personal data. Readable only by
+    roles that can read requests, and purged after MODEL_CONTENT_RETENTION_DAYS.
+    """
+
+    __tablename__ = "agent_run_contents"
+
+    agent_run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("agent_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    input_text: Mapped[str] = mapped_column(Text)
+    output_text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class PromptVersionRecord(Base):
+    """The exact system instructions behind each prompt hash, so any run can be explained."""
+
+    __tablename__ = "prompt_versions"
+
+    prompt_sha: Mapped[str] = mapped_column(String(16), primary_key=True)
+    agent_name: Mapped[str] = mapped_column(String(64))
+    instructions: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
