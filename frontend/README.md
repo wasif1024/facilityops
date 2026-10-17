@@ -1,7 +1,7 @@
 # FacilityOps AI — Web app
 
 The Phase 1 frontend: React 19, TypeScript, Vite, Tailwind CSS 4 and shadcn/ui, talking to the backend over
-**Connect RPC** with a client generated from the shared protobuf contracts in [`../proto`](../proto).
+**gRPC-Web** (via Connect for Web) with a client generated from the shared protobuf contracts in [`../proto`](../proto).
 
 What it does, screen by screen, is specified in
 [docs/frontend-specification.md](../docs/frontend-specification.md).
@@ -41,7 +41,7 @@ python -m backend.app.cli grant-role --provider development --external-id tech -
 
 - **API:** `src/gen` holds generated messages and service descriptors; screens call them through
   Connect-Query hooks (`useQuery(WorkOrderService.method.listWorkOrders, …)`), so requests and responses are
-  typed end to end. The transport sends binary protobuf and adds the identity header.
+  typed end to end. The transport speaks gRPC-Web with binary protobuf and adds the identity header.
 - **Access:** the session is `AccountService.GetMe`. Navigation, routes and buttons appear only with the
   required permission (`src/navigation.ts`, `src/routes.tsx`); the backend enforces everything again.
 - **Personal data:** placeholders such as `[PII_0001]` render as chips. Revealing calls the audited

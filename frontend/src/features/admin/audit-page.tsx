@@ -104,7 +104,7 @@ export function AuditPage() {
                   <TableCell className="hidden font-mono text-xs md:table-cell">
                     {humanize(event.targetType)} {shortId(event.targetId)}
                   </TableCell>
-                  <TableCell className="text-sm">{describeDetails(event)}</TableCell>
+                  <TableCell className="min-w-48 text-sm whitespace-normal">{describeDetails(event)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

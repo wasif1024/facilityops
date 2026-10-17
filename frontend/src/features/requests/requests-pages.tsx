@@ -84,7 +84,7 @@ function RequestList({ requests, audience }: { requests: IntakeRequestSummary[];
               <TableCell>
                 <TimeAgo value={request.createdAt} />
               </TableCell>
-              <TableCell className="max-w-md">
+              <TableCell className="max-w-md min-w-48 whitespace-normal">
                 <Link to={detail(request)} className="hover:underline">
                   <RedactedText text={describeRequest(request)} />
                 </Link>

@@ -10,10 +10,16 @@ async function start() {
   applyInitialTheme()
   const root = createRoot(document.getElementById("root")!)
   if (authMode === "entra") {
-    // Finish or start the Entra redirect sign-in before rendering anything that calls the API.
-    const { ensureSignedIn } = await import("@/auth/msal")
+    // Finish a redirect sign-in if one is in progress; otherwise show the sign-in page.
+    const [{ completeSignIn }, { SignInPage }] = await Promise.all([
+      import("@/auth/msal"),
+      import("@/auth/sign-in-page"),
+    ])
     root.render(<p className="p-10 text-center">Signing in…</p>)
-    if (!(await ensureSignedIn())) return // the browser is redirecting to Microsoft sign-in
+    if (!(await completeSignIn())) {
+      root.render(<SignInPage />)
+      return
+    }
   }
   root.render(
     <StrictMode>

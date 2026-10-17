@@ -12,6 +12,55 @@ checks for prompt injection and counterfactual fairness. All data in the reposit
 >
 > **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Frontend specification](docs/frontend-specification.md) · [Architecture and agent orchestration](docs/architecture.md)
 
+## What it looks like
+
+One web app, four workspaces: each person sees only what their role allows. Screenshots use the synthetic demo
+data from `python scripts/seed_demo.py`; every name and address is invented.
+
+### Tenant: report a problem and follow it
+
+Report by text, photo or voice, in English, Spanish or French. Emergencies (gas, fire, flooding) skip the AI and
+go straight to the on-call team. Names and phone numbers are redacted before any AI sees them, shown here as
+"personal detail".
+
+| Report a problem | My requests |
+|---|---|
+| ![Report a problem](docs/images/tenant-report.png) | ![My requests](docs/images/tenant-my-requests.png) |
+
+<p align="center"><img src="docs/images/tenant-mobile-voice.png" alt="Recording a voice note on a phone" width="300"></p>
+
+### Facility manager: review queue, approvals and assignment
+
+Everything the workflow won't decide alone lands in the review queue, emergencies first, with the reason in plain
+words. Managers approve high-priority work, assign technicians, and can reveal the redacted details of a
+request; every reveal is recorded in the audit log.
+
+| Review queue | Work orders |
+|---|---|
+| ![Review queue](docs/images/manager-review-queue.png) | ![Work orders](docs/images/manager-work-orders.png) |
+
+![Revealing personal details on a work order](docs/images/manager-work-order-reveal.png)
+
+### Technician: my work orders
+
+Technicians see only their own assignments, reveal details only for work assigned to them, and mark jobs done.
+
+![Technician work orders](docs/images/technician-work-orders.png)
+
+### Administrator: access, quality and monitoring
+
+Administrators manage users and roles but can't read personal data or approve work (separation of duties). They
+track evaluation results over time and watch how the intake pipeline and its AI agents behave: counts and
+timings only, never request content.
+
+| Users and roles | Evaluations |
+|---|---|
+| ![Users](docs/images/admin-users.png) | ![Evaluations](docs/images/admin-evaluations.png) |
+
+| Intake monitoring | Agent monitoring (dark mode) |
+|---|---|
+| ![Intake monitoring](docs/images/admin-monitoring.png) | ![Agent monitoring](docs/images/admin-monitoring-dark.png) |
+
 ## How a request flows
 
 ```mermaid
@@ -87,9 +136,15 @@ your own Azure AI resources, copy `.env.docker.example` to `.env.docker`. Detail
 
 **Web app** ([`frontend/`](frontend), React + TypeScript + Tailwind + shadcn/ui, Node 24): with the backend
 running, `cd frontend && npm install && npm run dev`, then open http://localhost:5173 and pick an identity in the
-header. Tenants report problems by text, photo or voice; facility managers work the review queue and approvals;
+header. `python scripts/seed_demo.py` fills the database with synthetic demo data like the screenshots above. Tenants report problems by text, photo or voice; facility managers work the review queue and approvals;
 technicians complete their work orders; admins manage users and watch monitoring and evaluations. See
 [Developer commands §4.1](docs/commands.md#41-run-the-frontend).
+
+**Sign-in:** locally there's an identity switcher; in production, residents sign up and sign in with
+**Microsoft Entra External ID** and staff use their **work account** (workforce Entra ID). Passwords,
+email verification and password reset stay with Microsoft. See [Identity setup](docs/identity-setup.md).
+
+<p align="center"><img src="docs/images/sign-in.png" alt="Sign-in page: residents and staff" width="560"></p>
 
 **Native setup** (to develop and run the tests) requires Python 3.13+, PostgreSQL 16+ and the Azure CLI signed
 in with `az login`. Authentication to Azure uses Entra ID via `DefaultAzureCredential`, not API keys.

@@ -59,7 +59,7 @@ def test_body_size_limit_applies_to_chunked_requests() -> None:
 
 
 def test_production_requires_entra_authentication() -> None:
-    with pytest.raises(ValueError, match="Entra authentication"):
+    with pytest.raises(ValueError, match="Production requires authentication"):
         create_app(Settings(app_env="production"))
 
 

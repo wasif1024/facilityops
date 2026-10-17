@@ -66,8 +66,13 @@ _CONNECT_EXPOSED_HEADERS = [
 def _check_production_settings(settings: Settings) -> None:
     if settings.app_env != "production":
         return
-    if not settings.auth_enabled or not settings.entra_tenant_id or not settings.entra_api_audience:
-        raise ValueError("Production requires Entra authentication settings")
+    from backend.app.api.token_validation import trusted_directories
+
+    if not settings.auth_enabled or not trusted_directories(settings):
+        raise ValueError(
+            "Production requires authentication: configure the workforce Entra ID tenant, "
+            "Entra External ID, or both"
+        )
     if settings.rate_limit_hmac_secret == "development-only-change-me":
         raise ValueError("Production requires a dedicated rate-limit HMAC secret")
     if "*" in settings.frontend_origins or "*" in settings.allowed_hosts:

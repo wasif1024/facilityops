@@ -11,6 +11,9 @@ user management + DB-backed RBAC (Entra authenticates, DB authorizes), security 
 agent-run monitoring middleware, stored eval runs, admin report API. See docs/ for spec and architecture.
 photo/voice intake (Vision caption+OCR, Speech), review queue, work-order lifecycle, audited PII reveal,
 OpenTelemetry to App Insights (no content). Next: Phase 2 (Magentic incident team).
+Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
+Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
+scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport).
 Frontend: `frontend/` (React 19 + TS + Vite + Tailwind 4 + shadcn/ui, Node 24 via .nvmrc), spec in
 docs/frontend-specification.md. UI shows actions by permission from GetMe; revealed PII only in component
 state; after a .proto change run `npm run generate` in frontend/ too.

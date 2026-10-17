@@ -128,7 +128,7 @@ export function WorkOrdersPage() {
                   <TableCell>
                     <PriorityBadge priority={wo.priority} />
                   </TableCell>
-                  <TableCell className="max-w-md">
+                  <TableCell className="max-w-md min-w-48 whitespace-normal">
                     <Link to={`/work-orders/${wo.id}`} className="hover:underline">
                       <RedactedText text={excerpt(wo.redactedDescription) || "(no text)"} />
                     </Link>

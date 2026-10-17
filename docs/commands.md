@@ -325,6 +325,10 @@ python -m backend.app.cli grant-role --provider development --external-id tech -
 # any other name, e.g. "alice", starts as a tenant automatically
 ```
 
+**Demo data:** with the backend running, `python scripts/seed_demo.py` drives the API as tenants, a facility
+manager and technicians (synthetic requests in three languages, an emergency, approvals, assignments, a completed
+job). Safe to re-run.
+
 | Command (in `frontend/`) | What it does |
 |---|---|
 | `npm run dev` | Dev server with hot reload |

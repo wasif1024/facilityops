@@ -10,18 +10,17 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from contextvars import ContextVar
-from functools import lru_cache
 from typing import Any
 from uuid import UUID
 
 import jwt
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
-from jwt import PyJWKClient
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.concurrency import run_in_threadpool
 
+from backend.app.api.token_validation import TokenValidator, TrustedDirectory, trusted_directories
 from backend.app.core.config import Settings
 from backend.app.domain.rbac import IdentityProvider, Permission, UserStatus
 from backend.app.services.users import UserDirectory
@@ -44,6 +43,8 @@ class Identity(BaseModel):
     external_id: str
     display_name: str | None = None
     email: str | None = None
+    # Role for a first sign-in, decided by where the user signed in.
+    default_role: str | None = None
 
 
 _current_principal: ContextVar[Principal | None] = ContextVar("current_principal", default=None)
@@ -57,25 +58,15 @@ def current_principal() -> Principal:
     return principal
 
 
-@lru_cache(maxsize=8)
-def _jwks_client(tenant_id: str) -> PyJWKClient:
-    return PyJWKClient(f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys")
+# One validator per directory configuration: it caches discovery documents and signing keys.
+_validators: dict[tuple[TrustedDirectory, ...], TokenValidator] = {}
 
 
-def _validate_token(token: str, settings: Settings) -> dict[str, Any]:
-    if not settings.entra_tenant_id or not settings.entra_api_audience:
-        raise RuntimeError("Entra token validation is not configured")
-
-    signing_key = _jwks_client(settings.entra_tenant_id).get_signing_key_from_jwt(token)
-    issuer = f"https://login.microsoftonline.com/{settings.entra_tenant_id}/v2.0"
-    return jwt.decode(
-        token,
-        signing_key.key,
-        algorithms=["RS256"],
-        audience=settings.entra_api_audience,
-        issuer=issuer,
-        options={"require": ["exp", "iat", "iss", "aud", "sub"]},
-    )
+def _validator(settings: Settings) -> TokenValidator:
+    directories = tuple(trusted_directories(settings))
+    if directories not in _validators:
+        _validators[directories] = TokenValidator(list(directories))
+    return _validators[directories]
 
 
 async def authenticate(headers: Mapping[str, str], settings: Settings) -> Identity:
@@ -90,14 +81,20 @@ async def authenticate(headers: Mapping[str, str], settings: Settings) -> Identi
                 f"{DEV_USER_HEADER} must match {_DEV_USER_PATTERN.pattern}",
             )
         return Identity(
-            provider=IdentityProvider.DEVELOPMENT, external_id=dev_user, display_name=dev_user
+            provider=IdentityProvider.DEVELOPMENT,
+            external_id=dev_user,
+            display_name=dev_user,
+            default_role=settings.default_user_role or None,
         )
 
     scheme, _, token = (headers.get("authorization") or "").partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise ConnectError(Code.UNAUTHENTICATED, "Bearer token required")
+    validator = _validator(settings)
+    if not validator.configured:
+        raise ConnectError(Code.UNAVAILABLE, "Entra token validation is not configured")
     try:
-        claims = await run_in_threadpool(_validate_token, token, settings)
+        directory, claims = await run_in_threadpool(validator.validate, token)
     except jwt.PyJWTError as error:
         raise ConnectError(Code.UNAUTHENTICATED, "Invalid bearer token") from error
     except Exception as error:
@@ -105,10 +102,11 @@ async def authenticate(headers: Mapping[str, str], settings: Settings) -> Identi
 
     # oid is the user's stable object id in the tenant; sub is per-application.
     return Identity(
-        provider=IdentityProvider.ENTRA,
+        provider=directory.provider,
         external_id=str(claims.get("oid") or claims["sub"]),
         display_name=claims.get("name"),
         email=claims.get("email") or claims.get("preferred_username"),
+        default_role=directory.default_role,
     )
 
 
@@ -124,7 +122,7 @@ async def resolve_principal(
                 external_id=identity.external_id,
                 display_name=identity.display_name,
                 email=identity.email,
-                default_role=settings.default_user_role,
+                default_role=identity.default_role,
             )
     except Exception as error:
         raise ConnectError(Code.UNAVAILABLE, "User directory is unavailable") from error

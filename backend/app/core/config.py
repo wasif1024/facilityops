@@ -29,10 +29,17 @@ class Settings(BaseSettings):
     # Large enough for an 8 MiB photo or voice note sent as base64 JSON.
     max_request_body_bytes: int = Field(default=12_582_912, ge=1_024, le=16_777_216)
     auth_enabled: bool = False
+    # Staff sign in with the workforce Entra ID tenant.
     entra_tenant_id: str | None = None
     entra_api_audience: str | None = None
-    # Role granted on first sign-in. Leave empty to give new users no access until
-    # an administrator assigns a role.
+    # Staff get no role on first sign-in; an administrator assigns one.
+    entra_workforce_default_role: str | None = None
+    # Residents sign up and sign in with Entra External ID (https://<subdomain>.ciamlogin.com).
+    entra_external_tenant_id: str | None = None
+    entra_external_tenant_subdomain: str | None = None
+    entra_external_api_audience: str | None = None
+    # Role granted on first sign-in to residents (External ID) and development identities.
+    # Leave empty to give new users no access until an administrator assigns a role.
     default_user_role: str | None = "tenant"
     rate_limit_requests: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)

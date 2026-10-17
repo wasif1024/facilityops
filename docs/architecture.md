@@ -131,7 +131,7 @@ flowchart LR
 
 | Design point | Choice |
 |---|---|
-| Browser transport | Connect protocol or gRPC-Web from `@connectrpc/connect-web`; no Envoy proxy |
+| Browser transport | **gRPC-Web** (`createGrpcWebTransport` from `@connectrpc/connect-web`, binary protobuf); no Envoy proxy. The same endpoints also accept the Connect protocol, used by `curl` and `buf curl` |
 | Authorization | One table maps every RPC to required permissions; missing entries are denied, and a unit test fails if any generated RPC lacks one |
 | Errors | Connect codes (`permission_denied`, `invalid_argument`, …). Unexpected exceptions become a generic `internal` error, because the library would otherwise send `str(exception)`, which can contain SQL parameters or request text |
 | Contract safety | CI runs `buf lint`, checks generated code is current and runs `buf breaking` against `main` on pull requests |
@@ -466,6 +466,12 @@ erDiagram
 | Every provisioning and access change writes a `security_audit_events` row, without email addresses | `UserDirectory._audit` |
 | Replaying a `request_id` only returns the stored result to the user who submitted it | `SqlIntakeRepository.begin_request` |
 | First admin is bootstrapped from the CLI, not the API | `python -m backend.app.cli grant-role` |
+
+Two directories are trusted. **Residents** sign up and sign in with **Entra External ID** (`ciamlogin.com`) and
+get the `tenant` role; **staff** use the organisation's **workforce Entra ID** and get no role until an admin
+assigns one. Each directory's issuer and signing keys come from its OpenID discovery document; the token's
+tenant picks the directory, and signature, audience, issuer and tenant are all verified, so a resident token
+can't pose as staff. See [identity setup](identity-setup.md).
 
 In local development (`AUTH_ENABLED=false`) the `X-Dev-User` header selects an identity, so different roles can be
 tried without Entra. Production refuses to start with authentication disabled.

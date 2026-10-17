@@ -1,13 +1,16 @@
 import type { Interceptor } from "@connectrpc/connect"
-import { createConnectTransport } from "@connectrpc/connect-web"
+import { createGrpcWebTransport } from "@connectrpc/connect-web"
 
 export const apiBaseUrl: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"
 
 /**
- * The single Connect transport for the app.
+ * The single transport for the app: gRPC-Web, the browser form of gRPC.
  *
- * Binary protobuf keeps photo and voice uploads small (JSON would base64 them).
- * Identity headers come from a callback, so switching user never rebuilds the transport.
+ * Browsers can't speak native gRPC (they can't read HTTP/2 trailers), so gRPC-Web
+ * carries the trailers in the response body instead. The backend's Connect services
+ * serve gRPC-Web directly, with no Envoy proxy in between. Messages are binary protobuf,
+ * which also keeps photo and voice uploads small. Identity headers come from a callback,
+ * so switching user never rebuilds the transport.
  */
 export function createApiTransport(getAuthHeaders: () => Promise<Record<string, string>>) {
   const identity: Interceptor = (next) => async (request) => {
@@ -19,7 +22,7 @@ export function createApiTransport(getAuthHeaders: () => Promise<Record<string, 
     return next(request)
   }
 
-  return createConnectTransport({
+  return createGrpcWebTransport({
     baseUrl: apiBaseUrl,
     useBinaryFormat: true,
     interceptors: [identity],

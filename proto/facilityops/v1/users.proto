@@ -25,9 +25,12 @@ service UserAdminService {
 
 enum IdentityProvider {
   IDENTITY_PROVIDER_UNSPECIFIED = 0;
+  // Workforce Microsoft Entra ID: staff.
   IDENTITY_PROVIDER_ENTRA = 1;
   // Local development only (X-Dev-User header).
   IDENTITY_PROVIDER_DEVELOPMENT = 2;
+  // Microsoft Entra External ID: residents who sign up themselves.
+  IDENTITY_PROVIDER_ENTRA_EXTERNAL = 3;
 }
 
 enum UserStatus {

@@ -79,7 +79,10 @@ SYSTEM_ROLE_PERMISSIONS: dict[SystemRole, frozenset[Permission]] = {
 
 
 class IdentityProvider(StrEnum):
+    # Workforce Entra ID: staff.
     ENTRA = "entra"
+    # Entra External ID: residents who sign up themselves.
+    ENTRA_EXTERNAL = "entra_external"
     DEVELOPMENT = "development"
 
 
