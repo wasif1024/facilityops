@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "${AZURE_ENV_NAME}" },
+    "location": { "value": "${AZURE_LOCATION}" },
+    "aiServicesName": { "value": "${AZURE_AI_SERVICES_NAME}" },
+    "aiResourceGroupName": { "value": "${AZURE_AI_RESOURCE_GROUP}" },
+    "searchServiceName": { "value": "${AZURE_SEARCH_SERVICE_NAME=}" },
+    "foundryEndpoint": { "value": "${FOUNDRY_ENDPOINT=}" },
+    "entraWorkforceTenantId": { "value": "${ENTRA_TENANT_ID}" },
+    "entraWorkforceApiAudience": { "value": "${ENTRA_API_AUDIENCE}" },
+    "entraExternalTenantId": { "value": "${ENTRA_EXTERNAL_TENANT_ID=}" },
+    "entraExternalTenantSubdomain": { "value": "${ENTRA_EXTERNAL_TENANT_SUBDOMAIN=}" },
+    "entraExternalApiAudience": { "value": "${ENTRA_EXTERNAL_API_AUDIENCE=}" },
+    "piiMappingEncryptionKey": { "value": "${PII_MAPPING_ENCRYPTION_KEY}" },
+    "rateLimitHmacSecret": { "value": "${RATE_LIMIT_HMAC_SECRET}" }
+  }
+}

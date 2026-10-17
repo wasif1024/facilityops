@@ -32,8 +32,14 @@ def configure_telemetry(settings: Settings) -> bool:
     from azure.monitor.opentelemetry import configure_azure_monitor
     from opentelemetry.sdk.resources import Resource
 
+    credential = None
+    if settings.applicationinsights_entra_auth:
+        from azure.identity import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()  # needs Monitoring Metrics Publisher on the component
     configure_azure_monitor(
         connection_string=settings.applicationinsights_connection_string,
+        credential=credential,
         resource=Resource.create(
             {
                 "service.name": "facilityops-api",

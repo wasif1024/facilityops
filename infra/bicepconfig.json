@@ -1,0 +1,14 @@
+{
+  "analyzers": {
+    "core": {
+      "enabled": true,
+      "rules": {
+        "use-recent-api-versions": { "level": "warning", "maxAllowedAgeInDays": 730 },
+        "no-hardcoded-env-urls": { "level": "warning" },
+        "outputs-should-not-contain-secrets": { "level": "error" },
+        "secure-secrets-in-params": { "level": "error" },
+        "use-secure-value-for-secure-inputs": { "level": "error" }
+      }
+    }
+  }
+}

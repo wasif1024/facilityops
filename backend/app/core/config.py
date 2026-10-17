@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     # Without a user, libpq connects as the current OS user (local trust auth).
     database_url: str = "postgresql+psycopg://localhost:5432/facilityops"
+    # Azure: sign in to PostgreSQL with the managed identity's Entra token instead of a password.
+    # DATABASE_URL then names the identity as the user and holds no password.
+    database_entra_auth: bool = False
     foundry_endpoint: str | None = Field(
         default=None,
         validation_alias=AliasChoices("FOUNDRY_PROJECT_ENDPOINT", "FOUNDRY_ENDPOINT"),
@@ -70,11 +73,17 @@ class Settings(BaseSettings):
     incident_specialist_model: str = "gpt-5.4-mini"
     # Incident worker: seconds between outbox polls when idle.
     worker_poll_seconds: float = Field(default=2.0, gt=0, le=60)
+    # Azure Service Bus (spec 6.2): set to the namespace (for example "facilityops-sb.servicebus.windows.net")
+    # and events go through the topic, one subscription per consumer. Unset: the in-process bus.
+    service_bus_namespace: str | None = None
+    service_bus_topic: str = "facilityops-events"
     rate_limit_requests: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
     rate_limit_hmac_secret: str = "development-only-change-me"
     pii_mapping_encryption_key: str | None = None
     applicationinsights_connection_string: str | None = None
+    # Azure: Application Insights accepts Entra-authenticated telemetry only (local auth off in Bicep).
+    applicationinsights_entra_auth: bool = False
     # Used only when confirmation is disabled (CLASSIFICATION_CONFIRMATIONS=0).
     minimum_classification_confidence: float = Field(default=0.75, ge=0, le=1)
     # Borderline band: answers in [low, high) are re-classified and must agree to be automated.

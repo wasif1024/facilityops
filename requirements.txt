@@ -26,6 +26,7 @@ azure-ai-textanalytics>=5.3,<6.0
 azure-ai-contentsafety>=1.0,<2.0
 # Incident team knowledge: Foundry IQ knowledge base (Azure AI Search agentic retrieval, GA 2026-04-01)
 azure-search-documents>=12.0,<13.0
+azure-servicebus>=7.15,<8.0
 azure-ai-evaluation>=1.18,<2.0
 PyJWT[crypto]>=2.10,<3.0
 cryptography>=44,<51

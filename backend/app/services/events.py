@@ -5,8 +5,8 @@
   failure is retried on the next pass; after ``MAX_DELIVERY_ATTEMPTS`` the event is
   dead-lettered and ``on_dead_letter`` sends its incident to people.
 - ``EventBus`` is the port. ``InProcessEventBus`` delivers to subscribers in this process (local
-  development, tests, a single worker). An Azure Service Bus topic implements the same port in
-  Azure (Phase 3), with one subscription per consumer.
+  development, tests, a single worker). In Azure, ``services/service_bus.py`` publishes to a
+  Service Bus topic instead, with one subscription per consumer, and runs the same consumers.
 - Consumers are idempotent: a consumer records the event id in ``processed_events`` in the same
   transaction as its work, so a redelivered event changes nothing.
 """
@@ -59,27 +59,30 @@ class InProcessEventBus:
     async def publish(self, event: OutboxEventRecord) -> None:
         for subscription in self._subscriptions:
             if subscription.event_type == event.event_type:
-                await self._consume(subscription, event)
+                await consume(self._session_factory, subscription, event)
 
-    async def _consume(self, subscription: Subscription, event: OutboxEventRecord) -> None:
-        with _tracer.start_as_current_span(
-            f"event.consume {event.event_type}", record_exception=False, set_status_on_exception=False
-        ) as span:
-            span.set_attribute("facilityops.event_id", str(event.id))
-            span.set_attribute("facilityops.consumer", subscription.consumer)
-            async with self._session_factory() as session:
-                claimed = await session.execute(
-                    insert(ProcessedEventRecord)
-                    .values(consumer=subscription.consumer, event_id=event.id)
-                    .on_conflict_do_nothing()
-                    .returning(ProcessedEventRecord.event_id)
-                )
-                if claimed.first() is None:
-                    _log.info("event already handled", extra={"step": event.event_type, "status": "duplicate"})
-                    return
-                # The work and the processed marker commit together, or neither does.
-                await subscription.handler(session, event)
-                await session.commit()
+
+async def consume(
+    session_factory: async_sessionmaker[AsyncSession], subscription: Subscription, event: OutboxEventRecord
+) -> None:
+    """Run one consumer on one event, at most once: the work and its processed marker commit together."""
+    with _tracer.start_as_current_span(
+        f"event.consume {event.event_type}", record_exception=False, set_status_on_exception=False
+    ) as span:
+        span.set_attribute("facilityops.event_id", str(event.id))
+        span.set_attribute("facilityops.consumer", subscription.consumer)
+        async with session_factory() as session:
+            claimed = await session.execute(
+                insert(ProcessedEventRecord)
+                .values(consumer=subscription.consumer, event_id=event.id)
+                .on_conflict_do_nothing()
+                .returning(ProcessedEventRecord.event_id)
+            )
+            if claimed.first() is None:
+                _log.info("event already handled", extra={"step": event.event_type, "status": "duplicate"})
+                return
+            await subscription.handler(session, event)
+            await session.commit()
 
 
 class OutboxDispatcher:

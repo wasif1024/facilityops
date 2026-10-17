@@ -1,0 +1,48 @@
+# Azure Developer CLI: `azd up` provisions infra/ (Bicep) and deploys the three apps.
+# Step by step, with costs and prerequisites: docs/deployment.md.
+name: facilityops-ai
+metadata:
+  template: facilityops-ai@1.0.0
+infra:
+  provider: bicep
+  path: infra
+hooks:
+  # Checks the settings you must provide and generates the app secrets (stored in Key Vault).
+  preprovision:
+    posix: { shell: sh, run: infra/hooks/preprovision.sh, interactive: true }
+  # Prints the URLs and the one-time steps after the first deployment.
+  postdeploy:
+    posix: { shell: sh, run: infra/hooks/postdeploy.sh, interactive: true }
+services:
+  api:
+    project: .
+    language: python
+    host: containerapp
+    docker:
+      path: Dockerfile
+      remoteBuild: true # built in the container registry: no local Docker needed
+  worker:
+    project: .
+    language: python
+    host: containerapp
+    docker:
+      path: Dockerfile
+      remoteBuild: true
+  web:
+    project: frontend
+    language: js
+    host: containerapp
+    docker:
+      path: Dockerfile
+      remoteBuild: true
+      # Public sign-in settings baked into the web bundle (see frontend/Dockerfile).
+      buildArgs:
+        - VITE_API_BASE_URL=${API_BASE_URL}
+        - VITE_AUTH_MODE=entra
+        - VITE_ENTRA_CLIENT_ID=${VITE_ENTRA_CLIENT_ID}
+        - VITE_ENTRA_TENANT_ID=${ENTRA_TENANT_ID}
+        - VITE_ENTRA_API_SCOPE=${VITE_ENTRA_API_SCOPE}
+        - VITE_EXTERNAL_CLIENT_ID=${VITE_EXTERNAL_CLIENT_ID}
+        - VITE_EXTERNAL_TENANT_SUBDOMAIN=${ENTRA_EXTERNAL_TENANT_SUBDOMAIN}
+        - VITE_EXTERNAL_TENANT_ID=${ENTRA_EXTERNAL_TENANT_ID}
+        - VITE_EXTERNAL_API_SCOPE=${VITE_EXTERNAL_API_SCOPE}

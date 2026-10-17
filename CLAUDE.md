@@ -34,7 +34,10 @@ plan actions carry technician_id / part_sku / quantity). Incident screens done: 
 Tenant notices done (FR-61): services/tenant_notices.py, tenant_notices table, SendTenantNotice; plan.tenant_notice is
 the communicator's draft; AzureTranslator.translate(target_language=...). FR-62: `run_eval --translate-first`, measured, not adopted (spec §10).
 Live incident eval built (evals/incidents/live.py, `run_incident_scenarios --mode live [--store]`), not yet run in
-full (cost; owner deferred it). Agents run with store=False. Next: Phase 3; FR-26 checkpoint resume is a follow-up.
+full (cost; owner deferred it). Agents run with store=False. Phase 3 in progress: web views FR-30/31/33 done; infra/ (azd + Bicep, validated with `az deployment sub validate`,
+NOT deployed: needs the owner's go-ahead, creates paid resources; docs/deployment.md), db/engine.py (Entra token
+DB auth), services/service_bus.py (SERVICE_BUS_NAMESPACE), RESPONSIBLE_AI.md done. Next: azd up (approval), red-team
+scan (cost, approval), demo GIF. FR-26 checkpoint resume is a follow-up.
 Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
 Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
 scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport).

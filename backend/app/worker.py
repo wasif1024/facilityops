@@ -3,9 +3,10 @@
     python -m backend.app.worker            # run until Ctrl+C (scripts/dev.sh starts it for you)
     python -m backend.app.worker --once     # deliver what is pending, then exit
 
-Locally the event bus is PostgreSQL itself (the outbox table); in Azure an Azure Service Bus
-topic takes its place (spec 6.2). Several workers can run side by side: each event is claimed
-by exactly one of them.
+Locally the event bus is PostgreSQL itself (the outbox table). With SERVICE_BUS_NAMESPACE set (in
+Azure), the dispatcher publishes the outbox to a Service Bus topic and this worker receives each
+consumer's subscription (spec 6.2). Several workers can run side by side either way: each event
+is claimed, or each message locked, by exactly one of them.
 """
 
 from __future__ import annotations
@@ -15,12 +16,14 @@ import asyncio
 import logging
 import signal
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.app.core.config import get_settings
 from backend.app.core.logs import configure_logging
 from backend.app.core.telemetry import configure_telemetry
-from backend.app.services.incident_worker import build_dispatcher
+from backend.app.db.engine import create_engine
+from backend.app.services.events import OutboxDispatcher
+from backend.app.services.incident_worker import all_subscriptions, build_dispatcher, on_dead_letter
 
 _log = logging.getLogger("facilityops.worker")
 
@@ -48,9 +51,25 @@ async def run(*, once: bool) -> None:
     settings = get_settings()
     configure_logging(settings)
     configure_telemetry(settings)
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_engine(settings)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    dispatcher = build_dispatcher(session_factory, incident_team(settings, session_factory))
+    team = incident_team(settings, session_factory)
+    service_bus = None
+    if settings.service_bus_namespace:
+        from azure.identity.aio import DefaultAzureCredential
+        from azure.servicebus.aio import ServiceBusClient
+
+        from backend.app.services.service_bus import ServiceBusConsumers, ServiceBusEventBus
+
+        service_bus = ServiceBusClient(settings.service_bus_namespace, DefaultAzureCredential())
+        topic = settings.service_bus_topic
+        passes = [
+            OutboxDispatcher(session_factory, ServiceBusEventBus(service_bus, topic), on_dead_letter=on_dead_letter),
+            ServiceBusConsumers(service_bus, topic, session_factory, all_subscriptions(team), on_dead_letter=on_dead_letter),
+        ]
+        _log.info("events via Azure Service Bus", extra={"step": topic})
+    else:
+        passes = [build_dispatcher(session_factory, team)]
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -60,11 +79,12 @@ async def run(*, once: bool) -> None:
     _log.info("incident worker started")
     try:
         while not stop.is_set():
-            try:
-                handled = await dispatcher.run_once()
-            except Exception as error:  # noqa: BLE001 - keep the worker alive; log the type only
-                _log.error("delivery pass failed", extra={"error_type": type(error).__name__})
-                handled = 0
+            handled = 0
+            for delivery in passes:
+                try:
+                    handled += await delivery.run_once()
+                except Exception as error:  # noqa: BLE001 - keep the worker alive; log the type only
+                    _log.error("delivery pass failed", extra={"error_type": type(error).__name__})
             if once and handled == 0:
                 break
             if handled == 0:
@@ -73,6 +93,8 @@ async def run(*, once: bool) -> None:
                 except TimeoutError:
                     pass
     finally:
+        if service_bus is not None:
+            await service_bus.close()
         await engine.dispose()
         _log.info("incident worker stopped")
 

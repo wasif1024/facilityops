@@ -160,10 +160,10 @@ answered, and who acted on it.
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-30 | Tenant web view: submit (text, photo, voice, document), track status, read notices in their language. | ⬜ |
-| FR-31 | Manager web view: review queue, approvals, incident plans with citations, PII reveal. | ⬜ |
-| FR-33 | Admin web view: users and roles, audit log, evaluation history and trends, agent and intake dashboards (API: FR-40–49). | ⬜ |
-| FR-32 | Infrastructure as code (`azd` + Bicep) using managed identity and Key Vault. | ⬜ |
+| FR-30 | Tenant web view: submit (text, photo, voice, document), track status, read notices in their language. | ✅ |
+| FR-31 | Manager web view: review queue, approvals, incident plans with citations, PII reveal. | ✅ |
+| FR-33 | Admin web view: users and roles, audit log, evaluation history and trends, agent and intake dashboards (API: FR-40–49). | ✅ |
+| FR-32 | Infrastructure as code (`azd` + Bicep) using managed identity and Key Vault. *Built ([`infra/`](../infra), [deployment guide](deployment.md)): one user-assigned identity with least-privilege roles, PostgreSQL with Entra-only sign-in (`DATABASE_ENTRA_AUTH`), Service Bus topic with a filtered subscription per consumer (`services/service_bus.py`), Key Vault references, Entra-only Application Insights, Container Apps for the API, worker and web app; existing AI resources reused. Compiles and lints clean in CI and passes `az deployment sub validate`; not yet deployed (it creates paid resources).* | 🚧 |
 
 ## 5. Agents
 
@@ -533,7 +533,7 @@ python -m evals.run_incident_scenarios --mode live --scenario live-boiler-blocke
 | Claims with a citation | ≥ 0.95 | Report |
 | Cost and latency per incident | tracked | Report |
 
-Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note).
+Phase 3 adds a PyRIT red-team report (planned) and [`RESPONSIBLE_AI.md`](../RESPONSIBLE_AI.md), the transparency note (done).
 
 ## 11. Phases
 

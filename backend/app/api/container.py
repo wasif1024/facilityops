@@ -9,10 +9,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.api.auth import Identity, Principal, resolve_principal
 from backend.app.core.config import Settings
+from backend.app.db.engine import create_engine
 from backend.app.domain.classification_policy import ClassificationPolicy
 from backend.app.domain.workflow import IntakeCoordinator
 from backend.app.services.agent_monitoring import SqlAgentRunRecorder
@@ -63,7 +64,7 @@ class Container:
         session_factory: async_sessionmaker[AsyncSession] | None = None,
     ) -> Container:
         if session_factory is None:
-            engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+            engine = create_engine(settings)
             session_factory = async_sessionmaker(engine, expire_on_commit=False)
         recorder = SqlAgentRunRecorder(session_factory)
 

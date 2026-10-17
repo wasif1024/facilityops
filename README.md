@@ -14,9 +14,11 @@
 
 </div>
 
-| Tenant: report a problem | Facility manager: review queue |
-|---|---|
-| ![Report a problem](docs/images/tenant-report.png) | ![Review queue](docs/images/manager-review-queue.png) |
+<p align="center">
+  <img src="docs/images/demo.gif" width="900" alt="Demo, about 70 seconds: a tenant reports a dripping tap, which is redacted, checked and classified into a work order automatically; a facility manager opens an AI incident plan for a boiler fault where every claim cites a manual, procedure or record, and approval is blocked because the gas permit has expired; on the revised, approved plan the application has assigned the technician; the manager approves a notice for the tenant; the decision trail shows every check, model call and decision; the technician sees the assigned work order and the tenant reads the notice.">
+</p>
+
+<p align="center"><sub>A 70-second walkthrough of the running app (synthetic data). More in <a href="docs/screenshots.md">Screenshots</a>.</sub></p>
 
 ## Overview
 
@@ -29,8 +31,9 @@ privacy, human oversight, evaluation, identity and access control. **New to AI?*
 [Enterprise AI concepts](docs/enterprise-ai-concepts.md), which explains each one in plain words. All data in the
 repository is synthetic.
 
-> **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team): every feature is built and tested; the
-> live incident evaluation is built but not yet run (it uses paid model calls). See [Roadmap](#roadmap).
+> **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team): every feature built and tested, live
+> incident evaluation not yet run · 🚧 Phase 3: web app, Azure infrastructure as code and the transparency note
+> done; deployment and red-team scan pending (both use paid resources). See [Roadmap](#roadmap).
 
 ## Features
 
@@ -131,6 +134,14 @@ the app opens on **Choose a demo account**.
 > real, remove them** with `scripts/db.sh remove-demo-accounts` (create your own administrator first). They are
 > never created when `APP_ENV=production`. [Why and how](docs/getting-started.md#demo-accounts).
 
+### Deploy to Azure
+
+`azd up` creates the Azure resources from [`infra/`](infra) (Bicep) and deploys the API, the incident worker and the
+web app to Container Apps. Every service is reached with one managed identity: PostgreSQL with Entra sign-in and no
+password, Service Bus for events, Key Vault for secrets. It reuses your existing AI Services and AI Search resources.
+It creates paid resources (roughly $60–75 a month before model usage): read [Deploying to Azure](docs/deployment.md)
+first.
+
 ## Responsible AI
 
 The project applies Microsoft's six Responsible AI principles:
@@ -141,8 +152,11 @@ The project applies Microsoft's six Responsible AI principles:
 | Reliability and safety | Emergency bypass, fail closed, human approval, emergency-recall gate on every pull request |
 | Privacy and security | Redaction before AI, encrypted role-gated reveal, no stored media, no API keys, deny-by-default access |
 | Inclusiveness | Three languages; report by voice or photo; works on a phone |
-| Transparency | A "Why this decision" trail for every request, the exact model input and answer, published metrics and [known limitations](docs/enterprise-ai-concepts.md#known-limitations) |
+| Transparency | A "Why this decision" trail for every request, the exact model input and answer, published metrics and known limitations in the [transparency note](RESPONSIBLE_AI.md) |
 | Accountability | People approve risky actions; every decision and data reveal is audited |
+
+The [Responsible AI transparency note](RESPONSIBLE_AI.md) sets out what the AI does and doesn't do, how well it
+works, its known limitations and how people stay in control.
 
 ## Evaluation
 
@@ -167,6 +181,8 @@ The project applies Microsoft's six Responsible AI principles:
 | [Specification](docs/specification.md) | Requirements, guardrails, privacy, evaluation targets, phases |
 | [Developer commands](docs/commands.md) | Every command: database, backend, frontend, tests, evals, troubleshooting |
 | [Identity setup](docs/identity-setup.md) | Entra External ID for residents, workforce Entra ID for staff |
+| [Deploying to Azure](docs/deployment.md) | `azd up`: what is created and why, roles, steps, cost, removal |
+| [Responsible AI transparency note](RESPONSIBLE_AI.md) | Intended uses, safeguards, performance, known limitations |
 | [Frontend specification](docs/frontend-specification.md) | Screens per role, API usage, accessibility |
 | [Screenshots](docs/screenshots.md) | Every workspace: tenant, facility manager, technician, administrator |
 
@@ -177,6 +193,7 @@ backend/      Python API: domain logic, Azure adapters, RPC handlers, migrations
 frontend/     React web app
 proto/        API contracts (protobuf)
 evals/        golden set and evaluation runners
+infra/        Azure infrastructure (Bicep) for azd, with its hooks
 scripts/      db.sh (database), dev.sh (run locally), setup scripts
 docs/         documentation and diagrams
 ```
@@ -219,7 +236,14 @@ docs/         documentation and diagrams
 
 **Phase 3, production**
 
-- [ ] `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md` transparency note
+- [x] Web views for tenants, technicians, facility managers and administrators
+- [x] `azd` + Bicep infrastructure: Container Apps, PostgreSQL with Entra-only sign-in, Service Bus topic, Key Vault,
+  Application Insights, one managed identity with least-privilege roles; validated against Azure, not yet deployed
+- [x] Service Bus event transport (same consumers and idempotency as locally; retries and dead letters by Service Bus)
+- [x] `RESPONSIBLE_AI.md` transparency note
+- [ ] Deploy with `azd up` (creates paid resources)
+- [ ] Red-team scan and report (Azure AI Red Teaming Agent, PyRIT)
+- [x] Demo GIF of the web app
 
 ## Contributing
 

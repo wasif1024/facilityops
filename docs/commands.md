@@ -9,7 +9,7 @@ Contents: [First-time setup](#1-first-time-setup) · [Daily start](#2-daily-star
 [Database and migrations](#3-database-and-migrations) · [Run the backend](#4-run-the-backend) ·
 [Run the frontend](#41-run-the-frontend) · [API contracts (protobuf)](#5-api-contracts-protobuf) ·
 [Users and roles](#6-users-and-roles) · [Tests](#7-tests) · [Evaluation](#8-evaluation) ·
-[Troubleshooting](#9-troubleshooting)
+[Deploy to Azure](#9-deploy-to-azure) · [Troubleshooting](#10-troubleshooting)
 
 ## 1. First-time setup
 
@@ -494,7 +494,24 @@ federated credential for this repository and access to the Foundry project), plu
 also start a run with the
 `EvaluationService/StartEvaluationRun` RPC.
 
-## 9. Troubleshooting
+## 9. Deploy to Azure
+
+Full guide, costs and prerequisites: [Deploying to Azure](deployment.md). These create **paid** resources.
+
+```bash
+azd auth login
+azd env new facilityops-dev && azd env set AZURE_LOCATION eastus
+azd env set AZURE_AI_SERVICES_NAME <name>     # plus the other settings in deployment.md, step 2
+azd provision --preview                       # what would be created, without creating it (free)
+azd up                                        # provision and deploy (about 15 minutes the first time)
+azd deploy                                    # later: rebuild and deploy the apps only
+azd down                                      # delete everything this created
+
+# Check the templates without Azure (CI runs this on every pull request)
+az bicep build --file infra/main.bicep --stdout > /dev/null && az bicep lint --file infra/main.bicep
+```
+
+## 10. Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|

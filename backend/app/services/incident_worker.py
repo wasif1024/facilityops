@@ -221,10 +221,13 @@ async def on_dead_letter(session: AsyncSession, event: OutboxEventRecord) -> Non
         await _needs_review(session, incident, "event_delivery_failed")
 
 
+def all_subscriptions(team: IncidentTeam | None = None) -> list[Subscription]:
+    return subscriptions(team or UnavailableIncidentTeam()) + incident_actions.subscriptions()
+
+
 def build_dispatcher(
     session_factory: async_sessionmaker[AsyncSession], team: IncidentTeam | None = None
 ) -> OutboxDispatcher:
-    bus = InProcessEventBus(
-        session_factory, subscriptions(team or UnavailableIncidentTeam()) + incident_actions.subscriptions()
-    )
+    """Local transport: the dispatcher delivers each event to its consumers in this process."""
+    bus = InProcessEventBus(session_factory, all_subscriptions(team))
     return OutboxDispatcher(session_factory, bus, on_dead_letter=on_dead_letter)

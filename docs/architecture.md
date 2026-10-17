@@ -4,7 +4,7 @@ How requests flow, how agents are orchestrated, where humans stay in control, an
 development skills guide the code that implements all of this. Requirement ids (FR-x) refer to the
 [specification](specification.md).
 
-Diagram legend: solid boxes exist today; boxes marked *Phase 2* or *Phase 3* are designed but not built yet.
+Diagram legend: boxes marked *in Azure* are used when deployed ([deployment](deployment.md)); locally PostgreSQL stands in for Service Bus and `.env` for Key Vault.
 
 1. [System context](#1-system-context)
 2. [Backend structure](#2-backend-structure) (including the [Connect RPC API](#21-api-connect-rpc))
@@ -28,7 +28,7 @@ flowchart LR
     oncall(["On-call responder"])
 
     subgraph app["FacilityOps AI"]
-        ui["Web UI<br/><i>Phase 3</i>"]
+        ui["Web UI<br/>React"]
         api["Backend<br/>Connect RPC · modular monolith"]
         db[("PostgreSQL")]
     end
@@ -38,13 +38,13 @@ flowchart LR
         lang["AI Language<br/>PII detection"]
         cs["AI Content Safety<br/>+ Prompt Shields"]
         foundry["Foundry project<br/>model deployments"]
-        search["Foundry IQ<br/>knowledge base on AI Search<br/><i>Phase 2</i>"]
-        sb["Service Bus topic<br/><i>Phase 3</i>"]
+        search["Foundry IQ<br/>knowledge base on AI Search"]
+        sb["Service Bus topic<br/><i>in Azure</i>"]
         appi["Application Insights"]
-        kv["Key Vault<br/><i>Phase 3</i>"]
+        kv["Key Vault<br/><i>in Azure</i>"]
     end
 
-    worker["Incident worker<br/><i>Phase 2</i>"]
+    worker["Incident worker"]
 
     tenant & tech & fm --> ui
     ui -- "Connect / gRPC-Web<br/>protobuf" --> api
@@ -110,7 +110,7 @@ Because the coordinator only knows the ports, unit tests run the whole workflow 
 ### 2.1 API: Connect RPC
 
 The frontend↔backend contract is protobuf, in [`proto/facilityops/v1/`](../proto/facilityops/v1). `buf` generates
-the server stubs (Python, committed in `backend/app/gen/`) and, for the Phase 3 web UI, typed TypeScript clients.
+the server stubs (Python, committed in `backend/app/gen/`) and typed TypeScript clients for the web UI.
 The services are [Connect RPC](https://connectrpc.com) applications mounted in the ASGI host, so a single port
 speaks three wire protocols.
 
@@ -118,7 +118,7 @@ speaks three wire protocols.
 flowchart LR
     proto[("proto/facilityops/v1/*.proto")]
     proto -- "buf generate" --> pygen["backend/app/gen<br/>messages + service stubs"]
-    proto -. "buf generate (Phase 3)" .-> tsgen["frontend/src/gen<br/>TypeScript clients"]
+    proto -. "buf generate" .-> tsgen["frontend/src/gen<br/>TypeScript clients"]
 
     browser["Browser<br/>connect-web"] -- "Connect or gRPC-Web<br/>HTTP/1.1, no proxy" --> host
     curl["curl / buf curl"] -- "Connect + JSON" --> host
@@ -441,7 +441,7 @@ sequenceDiagram
     Note over T,W: 3 failed deliveries → dead letter → human review
 ```
 
-| | Local and tests | Azure (Phase 3) |
+| | Local and tests | Azure ([infra/](../infra)) |
 |---|---|---|
 | Bus | PostgreSQL outbox, polled with `SKIP LOCKED` | Azure Service Bus topic `facilityops-events`, one subscription per consumer, filtered by event type |
 | Worker | `scripts/dev.sh worker` (`python -m backend.app.worker`), or the Compose `worker` service | Container App scaled on subscription length |
