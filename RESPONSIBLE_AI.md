@@ -48,6 +48,7 @@ Translator (translations for staff and residents).
 | Safeguard | How it works |
 |---|---|
 | Emergency bypass | Local rules run first; emergencies go to a person, never to a model |
+| Declared emergency | The tenant can say "this is an emergency" on the report form: on-call immediately, no rule, check or model in between |
 | Routing in code | Category and priority are suggestions; code applies the confidence thresholds and sends uncertain, flagged or failed cases to the review queue (fail closed) |
 | Approval for high priority | Priority 4 and 5 work orders wait for a facility manager |
 | Plan approval gate in code | A plan with a **safety block** can't be approved; a plan above the **cost threshold** needs explicit confirmation; rejections use fixed reasons |
@@ -114,9 +115,16 @@ not model quality: see the limitations below.
   evidence, not a measurement.
 - **Not red-teamed yet.** An automated red-team scan (Azure AI Red Teaming Agent, PyRIT) is planned; until it is run
   and reported, resistance to attacks beyond the golden set's injection cases is unmeasured.
-- **Emergency rules are rules.** They catch the phrasings in the golden set (including indirect ones such as
-  "smells like rotten eggs"); an unusual description could be missed. A missed emergency still goes through
-  classification and, if rated high priority, waits for a person, but it would not reach on-call immediately.
+- **Emergency rules are rules, and rules can miss.** The screen is a list of phrase patterns in English, Spanish
+  and French. Measured on a held-out set of 60 emergency descriptions written without tuning to it (5 types × 3
+  languages, direct and indirect), the original rules caught only **37%** (direct phrasings 77%, indirect ones such
+  as carbon-monoxide symptoms only 6%), even though they scored 100% on the golden set they were written against.
+  The rules were then extended and now catch all 60 with no false alarms on 24 near-misses, but that set has
+  informed the fixes, so it no longer measures how the rules generalise; only new, independently written cases
+  can. Expect real descriptions to be missed sometimes. That is why the report form lets the tenant **declare an
+  emergency**: it goes to on-call straight away, before any check or model, whatever the text says. A missed
+  emergency that isn't declared still goes through classification and, if rated high priority, waits for a person,
+  but it would not reach on-call immediately.
 - **Models are not deterministic.** The same request can get a different answer. The confirmation policy (classify
   again and require agreement when confidence is borderline) reduces this; about 11–17% of identical requests can
   still take a different route between runs, which is why uncertain cases go to a person.
@@ -127,6 +135,7 @@ not model quality: see the limitations below.
 | What | How | When |
 |---|---|---|
 | Golden set (classification, fairness, injection, emergencies) | `python -m evals.run_eval` | Offline on every pull request (emergency recall is a hard gate); live on demand |
+| Emergency screen coverage by language and type (held-out phrasings and near-misses) | `python -m evals.run_emergency_eval` | Every pull request (report; the cases are also regression tests) |
 | Media intake | `python -m evals.run_media_eval` | On demand (live) |
 | Incident scenarios, scripted | `python -m evals.run_incident_scenarios` | Every pull request |
 | Incident scenarios, live (Foundry evaluators) | `python -m evals.run_incident_scenarios --mode live` | On demand; not yet run in full |

@@ -149,4 +149,27 @@ describe("report a problem", () => {
     await user.click(screen.getByRole("button", { name: "I understand" }))
     await waitFor(() => expect(screen.getByRole("button", { name: "Report another problem" })).toBeInTheDocument())
   })
+
+  it("lets the tenant declare an emergency, even without typing anything", async () => {
+    const sent: { declared: boolean; text: string }[] = []
+    const transport = fakeBackend("tenant", (router) =>
+      router.service(IntakeService, {
+        submitIntake: (request) => {
+          sent.push({ declared: request.declaredEmergency, text: request.text })
+          return {
+            result: { requestId: request.requestId, status: IntakeStatus.EMERGENCY_HANDOFF, reasonCode: "emergency_declared" },
+          }
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp(transport, "/report")
+
+    expect(await screen.findByRole("button", { name: "Send report" })).toBeDisabled()
+    await user.click(screen.getByLabelText(/This is an emergency/))
+    await user.click(screen.getByRole("button", { name: "Send to the on-call team now" }))
+
+    expect(await screen.findByText(/You told us this is an emergency/)).toBeInTheDocument()
+    expect(sent).toEqual([{ declared: true, text: "" }])
+  })
 })

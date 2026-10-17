@@ -66,7 +66,7 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 |---|---|---|
 | FR-1 | Accept a request as text via the `IntakeService/SubmitIntake` RPC with a client-supplied `request_id`. | ✅ |
 | FR-2 | Accept photo and voice requests and normalize them to text before the pipeline: photo caption + OCR (Azure AI Vision), voice transcription (Azure AI Speech, optional `en`/`es`/`fr` hint). The typed caption is screened for emergencies before any network call, and the combined text again after transcription. | ✅ |
-| FR-3 | Screen raw text for emergency signals **before** any redaction or model call; on a match, hand off to on-call and stop. | ✅ |
+| FR-3 | Screen raw text for emergency signals **before** any redaction or model call; on a match, hand off to on-call and stop. A tenant can also **declare an emergency** (`SubmitIntakeRequest.declared_emergency`, a checkbox on the report form): the request goes to on-call before any check or model, whatever the text says (`emergency_declared`), because phrase rules can miss an unusual description (§10). | ✅ |
 | FR-4 | Redact PII with Azure AI Language; store the reversible mapping encrypted and separately. | ✅ |
 | FR-5 | Check redacted text with Azure AI Content Safety (harm categories) and Prompt Shields (injection; attachment text as documents, FR-19). | ✅ |
 | FR-6 | Classify category (`hvac`, `plumbing`, `electrical`, `security`, `structural`, `cleaning`, `other`) and priority 1–5 with a schema-validated model response. | ✅ |
@@ -285,6 +285,12 @@ loop limit caps tool calls.
 
 Defaults are starting points to be tuned with evaluation data and cost per incident.
 
+**Missing usage can't switch the token budget off.** Tokens are read from each response's usage (the total, or
+input plus output). A response with no usage is charged a deliberate overestimate (the characters sent and
+received divided by 3, and at least 2,000 tokens per call) and counted as `tokens_estimated_calls` on the run's
+`team.finished` trail step, so it is visible rather than silent (`tests/unit/test_token_meter.py`, and an
+integration test where no response reports usage).
+
 **Tuned from the first live runs (2026-10-17).** With 60k tokens and 120 s, a real boiler incident stopped after four
 of six specialists (65k tokens, 74 s): the manager's context grows every round, and each specialist resends its prompt
 and tool results on each tool step. A complete run then took **7 rounds, 11 tool calls, 119k tokens and 110 s**
@@ -457,6 +463,29 @@ gain in label consistency, intake keeps classifying the original text; reports a
 | Label consistency (modal) | 0.75, 0.75 | 0.75, 0.75 |
 | Accuracy of automated requests | 0.958, 0.944 | 0.928, 0.944 |
 | Same route on identical input | 0.83, 0.89 | 0.87, 0.84 |
+
+**Emergency screen coverage** ([`evals/run_emergency_eval.py`](../evals/run_emergency_eval.py), offline, free).
+The golden set's emergency cases are the ones the rules were written against, so its recall of 1.00 shows fit, not
+generalisation. A held-out set ([`emergency_holdout_v1.jsonl`](../evals/datasets/emergency_holdout_v1.jsonl), 2026-10-18)
+has four descriptions of each emergency type in each language (direct and indirect, such as symptoms of carbon
+monoxide) and 24 near-misses that must not trigger. It was written by the author of the rules, aiming at how
+tenants phrase things rather than at the patterns.
+
+| Recall on the held-out set | gas | CO | fire | electrical | flood | all |
+|---|---|---|---|---|---|---|
+| English, original rules | 1/4 | 2/4 | 2/4 | 0/4 | 0/4 | 0.25 |
+| Spanish, original rules | 1/4 | 0/4 | 4/4 | 1/4 | 1/4 | 0.35 |
+| French, original rules | 2/4 | 1/4 | 4/4 | 1/4 | 2/4 | 0.50 |
+| All languages, extended rules | 12/12 | 12/12 | 12/12 | 12/12 | 12/12 | 1.00 |
+
+The original rules caught 37% (direct 77%, indirect 6%) and raised 3 false alarms (Spanish and French smoke-detector
+batteries, a French fire door). The extended rules add each language's words for leaks, smells, shocks, exposed
+wires, scorched sockets, moving water and burst heaters; carbon-monoxide symptoms or a yellow or orange flame
+together with a fuel-burning appliance; and the Spanish and French benign phrases. They catch all 60, with no false
+alarms on the 24 near-misses and golden-set recall and precision still 1.00. **The extended result is not a
+generalisation measure:** the set informed the fixes, and now serves as a regression test
+(`tests/unit/test_emergency.py`). An independent measure needs new cases written by someone else; until then,
+assume real descriptions will sometimes be missed, which is what the declared-emergency path (FR-3) is for.
 
 **Media intake** ([`evals/run_media_eval.py`](../evals/run_media_eval.py), live): synthetic scans and photos drawn
 in code, through the real services. 6/6 pass on 2026-10-17: a scanned form is read and classified, and the fake

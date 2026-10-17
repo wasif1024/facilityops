@@ -214,3 +214,25 @@ async def test_high_priority_work_order_is_created_pending_approval(dependencies
 
     assert result.status is IntakeStatus.PENDING_APPROVAL
     assert work_orders.calls[0]["approval_required"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_declared_emergency_goes_to_on_call_before_any_check_or_model(dependencies):
+    coordinator, redactor, safety, classifier, work_orders, handoffs, decision_writer = dependencies
+    # Text the rules don't recognise as an emergency, and even no text at all: the tenant's word is enough.
+    for text in ("Please come quickly, something is very wrong in the plant room", ""):
+        command = IntakeCommand(text=text, declared_emergency=True)
+
+        result = await coordinator.process(command)
+
+        assert result.status is IntakeStatus.EMERGENCY_HANDOFF
+        assert result.reason_code == "emergency_declared"
+        assert handoffs[-1] == (command.request_id, "emergency_declared")
+    assert redactor.calls == [] and safety.calls == [] and classifier.calls == []
+    assert work_orders.calls == []
+
+
+def test_text_is_still_required_unless_an_emergency_is_declared():
+    with pytest.raises(ValueError, match="text is required"):
+        IntakeCommand(text="  ")
+    assert IntakeCommand(text="", declared_emergency=True).declared_emergency

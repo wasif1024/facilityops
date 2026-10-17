@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -68,6 +69,8 @@ export function ReportPage() {
   const [fileError, setFileError] = useState<string | null>(null)
   const [requestId, setRequestId] = useState(() => crypto.randomUUID())
   const [result, setResult] = useState<IntakeResult | null>(null)
+  // The tenant says someone is in danger: on-call straight away, whatever the text says (or without any).
+  const [danger, setDanger] = useState(false)
 
   const submit = useMutation(IntakeService.method.submitIntake, {
     onSuccess: (response) => {
@@ -127,19 +130,23 @@ export function ReportPage() {
     setText("")
     setMedia(null)
     setRequestId(crypto.randomUUID())
+    setDanger(false)
     submit.reset()
   }
 
   const canSubmit =
-    !submit.isPending && (mode === "text" ? text.trim().length > 0 && text.length <= MAX_TEXT : media !== null)
+    !submit.isPending &&
+    (danger || (mode === "text" ? text.trim().length > 0 && text.length <= MAX_TEXT : media !== null))
 
   const send = () => {
     submit.mutate({
       requestId,
-      source: SOURCES[mode],
+      // Declared emergencies go as text: nothing to upload or read stands in the way.
+      source: danger ? SOURCES.text : SOURCES[mode],
       text: text.trim(),
       language,
-      ...(media ? { media: media.bytes, mediaType: media.mediaType } : {}),
+      declaredEmergency: danger,
+      ...(media && !danger ? { media: media.bytes, mediaType: media.mediaType } : {}),
     })
   }
 
@@ -279,12 +286,20 @@ export function ReportPage() {
             </Select>
           </div>
 
-          <Alert>
+          <Alert variant={danger ? "destructive" : "default"}>
             <Siren aria-hidden />
             <AlertTitle>Is anyone in danger?</AlertTitle>
-            <AlertDescription>
-              For fire, gas smells or flooding, call your local emergency number first. Reports mentioning them go
-              straight to the on-call team.
+            <AlertDescription className="space-y-3">
+              <p>
+                For fire, gas smells, flooding or an electric shock, call your local emergency number first. Reports
+                mentioning them go straight to the on-call team.
+              </p>
+              <div className="flex items-start gap-2">
+                <Checkbox id="danger" checked={danger} onCheckedChange={(value) => setDanger(value === true)} />
+                <Label htmlFor="danger" className="leading-snug font-medium">
+                  This is an emergency: send it to the on-call team now, without any automated checks
+                </Label>
+              </div>
             </AlertDescription>
           </Alert>
 
@@ -297,9 +312,21 @@ export function ReportPage() {
             </Alert>
           )}
 
-          <Button className="w-full" size="lg" disabled={!canSubmit} onClick={send}>
+          <Button
+            className="w-full"
+            size="lg"
+            variant={danger ? "destructive" : "default"}
+            disabled={!canSubmit}
+            onClick={send}
+          >
             {submit.isPending && <Loader2 aria-hidden className="animate-spin" />}
-            {submit.isPending ? "Sending…" : error?.retryable ? "Send again" : "Send report"}
+            {submit.isPending
+              ? "Sending…"
+              : danger
+                ? "Send to the on-call team now"
+                : error?.retryable
+                  ? "Send again"
+                  : "Send report"}
           </Button>
         </CardContent>
       </Card>
@@ -320,7 +347,9 @@ function ResultPanel({ result, onReportAnother }: { result: IntakeResult; onRepo
               <Siren aria-hidden /> We've alerted the on-call team
             </CardTitle>
             <CardDescription className="text-red-900/80 dark:text-red-100/80">
-              Your report mentions a possible emergency, so it went straight to a person, not to our automated system.
+              {result.reasonCode === "emergency_declared"
+                ? "You told us this is an emergency, so it went straight to a person, not to our automated system."
+                : "Your report mentions a possible emergency, so it went straight to a person, not to our automated system."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-red-950 dark:text-red-50">

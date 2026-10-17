@@ -163,6 +163,7 @@ class IntakeRpc:
                 language=request.language or None,
                 media=request.media or None,
                 media_type=request.media_type or None,
+                declared_emergency=request.declared_emergency,
             )
         except ValidationError as error:
             raise ConnectError(Code.INVALID_ARGUMENT, _describe(error)) from None

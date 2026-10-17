@@ -142,6 +142,16 @@ async def test_the_token_budget_stops_the_run(world, session_factory):
 
 
 @pytest.mark.asyncio
+async def test_the_token_budget_holds_when_responses_report_no_usage(world, session_factory):
+    manager, specialists = GROUNDED_RUN
+    scripted = {name: ScriptedChatClient(c._replies, usage=None) for name, c in clients(manager, specialists).items()}
+    outcome = await team(session_factory, scripted, max_tokens=5_000).investigate(context())
+    finished = outcome.steps[-1].details
+    assert outcome.plan is None and outcome.reason_code == "token_budget_exhausted"
+    assert finished["tokens"] >= 5_000 and finished["tokens_estimated_calls"] >= 1
+
+
+@pytest.mark.asyncio
 async def test_the_time_budget_stops_the_run(world, session_factory):
     class Slow(ScriptedChatClient):
         def _next(self, messages):

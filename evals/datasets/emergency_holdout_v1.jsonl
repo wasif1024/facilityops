@@ -1,0 +1,84 @@
+{"id": "H-en-gas-1", "text": "There's a really strong smell like eggs gone bad coming from the boiler cupboard.", "language": "en", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-en-gas-2", "text": "I can hear a hissing noise behind the cooker and the kitchen smells odd, even though the hob is off.", "language": "en", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-en-gas-3", "text": "My neighbour says the whole stairwell has smelled of gas since this morning.", "language": "en", "emergency": true, "emergency_type": "gas", "tags": ["direct"]}
+{"id": "H-en-gas-4", "text": "The pilot light keeps going out and there's a weird chemical smell near the meter.", "language": "en", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-en-carb-1", "text": "The detector in the hall is beeping loudly and the screen says CO.", "language": "en", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["direct"]}
+{"id": "H-en-carb-2", "text": "Since the boiler was serviced we all get headaches and feel dizzy when the heating is on.", "language": "en", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["indirect"]}
+{"id": "H-en-carb-3", "text": "The alarm next to the boiler that says carbon monoxide won't stop beeping.", "language": "en", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["direct"]}
+{"id": "H-en-carb-4", "text": "My kids feel sick and sleepy every evening, and the gas fire burns with an orange flame.", "language": "en", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["indirect"]}
+{"id": "H-en-fire-1", "text": "Something is burning in the bin room, I can see an orange glow and it's getting hot.", "language": "en", "emergency": true, "emergency_type": "fire", "tags": ["indirect"]}
+{"id": "H-en-fire-2", "text": "The tumble dryer in the laundry room caught fire.", "language": "en", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-en-fire-3", "text": "There is black smoke coming out of the vent above unit 3C.", "language": "en", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-en-fire-4", "text": "The extractor hood over the hob is glowing red and crackling.", "language": "en", "emergency": true, "emergency_type": "fire", "tags": ["indirect"]}
+{"id": "H-en-elec-1", "text": "The light switch gives me a jolt every time I touch it.", "language": "en", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-en-elec-2", "text": "The socket behind the TV has gone black and smells hot.", "language": "en", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-en-elec-3", "text": "There's a cable hanging from the corridor ceiling with the copper showing.", "language": "en", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-en-elec-4", "text": "The fuse box is buzzing loudly and it's hot to the touch.", "language": "en", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-en-floo-1", "text": "Water is dripping from the light fitting in my bathroom and the ceiling is bulging.", "language": "en", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-en-floo-2", "text": "The washing machine hose came off and the kitchen is ankle deep in water.", "language": "en", "emergency": true, "emergency_type": "flood", "tags": ["direct"]}
+{"id": "H-en-floo-3", "text": "Water keeps coming up through the floor drain in the basement and it won't stop.", "language": "en", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-en-floo-4", "text": "The tank in the loft has split and water is running down the walls.", "language": "en", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-es-gas-1", "text": "Huele muy fuerte a gas en la cocina.", "language": "es", "emergency": true, "emergency_type": "gas", "tags": ["direct"]}
+{"id": "H-es-gas-2", "text": "Hay un olor como a huevo podrido en el pasillo.", "language": "es", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-es-gas-3", "text": "Se escucha un silbido en la tubería del gas y huele raro.", "language": "es", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-es-gas-4", "text": "Los vecinos dicen que hay una fuga en el contador del gas.", "language": "es", "emergency": true, "emergency_type": "gas", "tags": ["direct"]}
+{"id": "H-es-carb-1", "text": "La alarma de monóxido no para de sonar.", "language": "es", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["direct"]}
+{"id": "H-es-carb-2", "text": "El detector de CO del pasillo está pitando.", "language": "es", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["direct"]}
+{"id": "H-es-carb-3", "text": "Desde que encendemos la calefacción todos tenemos dolor de cabeza y mareos.", "language": "es", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["indirect"]}
+{"id": "H-es-carb-4", "text": "Mi hijo se desmayó y la caldera hace una llama amarilla.", "language": "es", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["indirect"]}
+{"id": "H-es-fire-1", "text": "Se está quemando algo en el cuarto de basura, sale mucho humo.", "language": "es", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-es-fire-2", "text": "La secadora se prendió fuego.", "language": "es", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-es-fire-3", "text": "Hay llamas saliendo del cuadro de luz.", "language": "es", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-es-fire-4", "text": "El pasillo está lleno de humo negro.", "language": "es", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-es-elec-1", "text": "El enchufe del dormitorio echa chispas.", "language": "es", "emergency": true, "emergency_type": "electrical", "tags": ["direct"]}
+{"id": "H-es-elec-2", "text": "Me dio una descarga al tocar el interruptor.", "language": "es", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-es-elec-3", "text": "Hay cables sueltos colgando del techo en la escalera.", "language": "es", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-es-elec-4", "text": "El cuadro eléctrico huele a quemado y está muy caliente.", "language": "es", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-es-floo-1", "text": "Se reventó una tubería y el baño está inundado.", "language": "es", "emergency": true, "emergency_type": "flood", "tags": ["direct"]}
+{"id": "H-es-floo-2", "text": "Sale agua por el techo de la cocina sin parar.", "language": "es", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-es-floo-3", "text": "El agua está entrando por debajo de la puerta del sótano.", "language": "es", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-es-floo-4", "text": "Se rompió el calentador y hay agua por todo el piso.", "language": "es", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-fr-gas-1", "text": "Ça sent fort le gaz dans la cage d'escalier.", "language": "fr", "emergency": true, "emergency_type": "gas", "tags": ["direct"]}
+{"id": "H-fr-gas-2", "text": "Il y a une odeur d'œuf pourri près de la chaudière.", "language": "fr", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-fr-gas-3", "text": "J'entends un sifflement au niveau du compteur de gaz.", "language": "fr", "emergency": true, "emergency_type": "gas", "tags": ["indirect"]}
+{"id": "H-fr-gas-4", "text": "Il y a une fuite de gaz dans la cuisine.", "language": "fr", "emergency": true, "emergency_type": "gas", "tags": ["direct"]}
+{"id": "H-fr-carb-1", "text": "Le détecteur de monoxyde de carbone sonne sans arrêt.", "language": "fr", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["direct"]}
+{"id": "H-fr-carb-2", "text": "L'alarme CO du couloir bipe.", "language": "fr", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["direct"]}
+{"id": "H-fr-carb-3", "text": "Toute la famille a mal à la tête et des vertiges quand le chauffage est allumé.", "language": "fr", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["indirect"]}
+{"id": "H-fr-carb-4", "text": "Ma fille s'est évanouie et la flamme de la chaudière est orange.", "language": "fr", "emergency": true, "emergency_type": "carbon_monoxide", "tags": ["indirect"]}
+{"id": "H-fr-fire-1", "text": "Quelque chose brûle dans le local poubelles, il y a de la fumée.", "language": "fr", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-fr-fire-2", "text": "Le sèche-linge a pris feu.", "language": "fr", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-fr-fire-3", "text": "Des flammes sortent du tableau électrique.", "language": "fr", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-fr-fire-4", "text": "Le couloir est rempli de fumée noire.", "language": "fr", "emergency": true, "emergency_type": "fire", "tags": ["direct"]}
+{"id": "H-fr-elec-1", "text": "La prise de la chambre fait des étincelles.", "language": "fr", "emergency": true, "emergency_type": "electrical", "tags": ["direct"]}
+{"id": "H-fr-elec-2", "text": "J'ai pris une décharge en touchant l'interrupteur.", "language": "fr", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-fr-elec-3", "text": "Des câbles dénudés pendent du plafond dans l'escalier.", "language": "fr", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-fr-elec-4", "text": "Le tableau électrique sent le brûlé et chauffe beaucoup.", "language": "fr", "emergency": true, "emergency_type": "electrical", "tags": ["indirect"]}
+{"id": "H-fr-floo-1", "text": "Un tuyau a éclaté et la salle de bain est inondée.", "language": "fr", "emergency": true, "emergency_type": "flood", "tags": ["direct"]}
+{"id": "H-fr-floo-2", "text": "L'eau coule du plafond de la cuisine sans arrêt.", "language": "fr", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-fr-floo-3", "text": "L'eau rentre sous la porte de la cave.", "language": "fr", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-fr-floo-4", "text": "Le chauffe-eau a lâché et il y a de l'eau partout dans l'appartement.", "language": "fr", "emergency": true, "emergency_type": "flood", "tags": ["indirect"]}
+{"id": "H-en-safe-1", "text": "The smoke alarm battery is chirping, please replace it.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-2", "text": "Please service the gas boiler, it's due next month.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-3", "text": "The fire door on level 2 doesn't close properly.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-4", "text": "The bathroom tap drips slowly.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-5", "text": "The kitchen light flickers sometimes.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-6", "text": "The fire extinguisher in the hall has expired.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-7", "text": "The radiator in my bedroom is cold.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-en-safe-8", "text": "There's a small damp patch on the ceiling that hasn't changed in weeks.", "language": "en", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-1", "text": "La pila del detector de humo pita, hay que cambiarla.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-2", "text": "Hay que hacer la revisión anual de la caldera de gas.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-3", "text": "La puerta cortafuegos del segundo piso no cierra bien.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-4", "text": "El grifo del baño gotea un poco.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-5", "text": "La luz de la cocina parpadea a veces.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-6", "text": "El extintor del pasillo está caducado.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-7", "text": "El radiador del dormitorio está frío.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-es-safe-8", "text": "Hay una pequeña mancha de humedad en el techo.", "language": "es", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-1", "text": "La pile du détecteur de fumée bipe, il faut la changer.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-2", "text": "Il faut faire l'entretien annuel de la chaudière à gaz.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-3", "text": "La porte coupe-feu du 2e étage ferme mal.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-4", "text": "Le robinet de la salle de bain goutte un peu.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-5", "text": "La lumière de la cuisine clignote parfois.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-6", "text": "L'extincteur du couloir est périmé.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-7", "text": "Le radiateur de la chambre est froid.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}
+{"id": "H-fr-safe-8", "text": "Il y a une petite tache d'humidité au plafond.", "language": "fr", "emergency": false, "emergency_type": null, "tags": ["near_miss"]}

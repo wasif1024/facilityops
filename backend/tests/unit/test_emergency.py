@@ -49,3 +49,22 @@ def test_any_carbon_monoxide_mention_escalates():
         detect_emergency("carbon monoxide detector battery is low")
         is EmergencyType.CARBON_MONOXIDE
     )
+
+
+# The held-out set (evals/datasets/emergency_holdout_v1.jsonl) measured the rules before they were extended;
+# now that it informed the fixes it is a regression set: every case must keep its result.
+def _holdout():
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[3] / "evals" / "datasets" / "emergency_holdout_v1.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+@pytest.mark.parametrize("case", _holdout(), ids=lambda c: c["id"])
+def test_holdout_regression(case):
+    detected = detect_emergency(case["text"])
+    if case["emergency"]:
+        assert detected is not None and detected.value == case["emergency_type"], case["text"]
+    else:
+        assert detected is None, f"false alarm ({detected}): {case['text']}"

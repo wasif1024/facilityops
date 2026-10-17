@@ -148,6 +148,7 @@ const reasonCodeLabels: Record<string, string> = {
   emergency_fire: "Emergency: fire or smoke",
   emergency_electrical: "Emergency: electrical hazard",
   emergency_flood: "Emergency: flooding",
+  emergency_declared: "Emergency: reported by the tenant",
 }
 
 export function reasonLabel(code: string): string {

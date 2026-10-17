@@ -76,6 +76,9 @@ message SubmitIntakeRequest {
   string media_type = 5;
   // Optional ISO 639-1 language hint: "en", "es" or "fr".
   string language = 6;
+  // The tenant says someone is in danger right now. The request goes straight to the on-call team, before any
+  // check or model, whatever the text says (reason "emergency_declared"). Text is then optional.
+  bool declared_emergency = 7;
 }
 
 message SubmitIntakeResponse {

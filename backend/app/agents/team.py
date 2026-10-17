@@ -68,14 +68,39 @@ class TokenBudgetExceeded(RuntimeError):
     pass
 
 
+# When a response carries no token usage, charge an estimate that errs high: real text averages about
+# 4 characters per token, so characters / 3 overcounts; and never less than a call's fixed cost (every
+# agent call resends its instructions, about 2k tokens for the shortest prompt file).
+ESTIMATE_CHARS_PER_TOKEN = 3
+ESTIMATE_MIN_TOKENS_PER_CALL = 2_000
+
+
 @dataclass
 class _TokenMeter:
     limit: int
     used: int = 0
+    # Agent calls whose usage was missing and had to be estimated: recorded on the trail, never silent.
+    estimated_calls: int = 0
 
-    def add(self, response: Any) -> None:
+    def add(self, response: Any, *, sent_chars: int = 0) -> None:
         usage = getattr(response, "usage_details", None) or {}
-        self.used += int(usage.get("total_token_count") or 0)
+        total = usage.get("total_token_count")
+        if not total:
+            parts = [usage.get("input_token_count"), usage.get("output_token_count")]
+            total = sum(int(p) for p in parts if p) if any(parts) else None
+        if not total:
+            # Missing usage must not switch the budget off: charge a conservative estimate.
+            received = len(getattr(response, "text", "") or "")
+            total = max(ESTIMATE_MIN_TOKENS_PER_CALL, (sent_chars + received) // ESTIMATE_CHARS_PER_TOKEN)
+            self.estimated_calls += 1
+            _log.warning("model response without token usage; charged an estimate", extra={"status": "estimated"})
+        self.used += int(total)
+
+
+def _chars(messages: Any) -> int:
+    if isinstance(messages, str):
+        return len(messages)
+    return sum(len(getattr(m, "text", "") or (m if isinstance(m, str) else "")) for m in messages or [])
 
 
 class TokenBudgetMiddleware(AgentMiddleware):
@@ -87,15 +112,16 @@ class TokenBudgetMiddleware(AgentMiddleware):
     async def process(self, context: AgentContext, call_next) -> None:
         if self._meter.used >= self._meter.limit:
             raise TokenBudgetExceeded(f"{self._meter.used} tokens used")
+        sent = _chars(context.messages)
         await call_next()
         if isinstance(context.result, ResponseStream):
             def count(final: Any) -> Any:
-                self._meter.add(final)
+                self._meter.add(final, sent_chars=sent)
                 return final
 
             context.result = context.result.with_result_hook(count)
         else:
-            self._meter.add(context.result)
+            self._meter.add(context.result, sent_chars=sent)
 
 
 def _description(name: str) -> str:
@@ -300,6 +326,7 @@ class MagenticIncidentTeam:
                 reason,
                 rounds=rounds,
                 tokens=meter.used,
+                tokens_estimated_calls=meter.estimated_calls,
                 tool_calls=sum(ctx.calls.values()),
                 seconds=round((datetime.now(UTC) - started).total_seconds(), 1),
             )

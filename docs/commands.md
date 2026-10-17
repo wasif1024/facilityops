@@ -476,6 +476,9 @@ python -m evals.run_incident_scenarios --report evals/reports/incidents.json
 python -m evals.run_incident_scenarios --mode live --store
 python -m evals.run_incident_scenarios --mode live --scenario live-electrical-permitted   # one scenario
 
+# Emergency screen coverage by language (en/es/fr) and type, on held-out phrasings and near-misses. Offline, free.
+python -m evals.run_emergency_eval
+
 # Photo and scanned-document intake: synthetic files drawn in code, sent through the real services
 # (Vision, Document Intelligence, Content Safety image + Prompt Shields, Language, classifier). ~1 min.
 python -m evals.run_media_eval --report evals/reports/media.json

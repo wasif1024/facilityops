@@ -84,13 +84,16 @@ class IntakeCommand(BaseModel):
     language: Literal["en", "es", "fr"] | None = None
     media: bytes | None = Field(default=None, repr=False, max_length=MAX_MEDIA_BYTES)
     media_type: str | None = Field(default=None, max_length=64)
+    # The tenant says someone is in danger: on-call, before any check or model (the emergency screen's
+    # rules can miss an unusual description; the tenant's own judgement can't be missed).
+    declared_emergency: bool = False
 
     @model_validator(mode="after")
     def _check_source_matches_content(self) -> IntakeCommand:
         if self.source is RequestSource.TEXT:
             if self.media is not None:
                 raise ValueError("text requests cannot carry media")
-            if not self.text.strip():
+            if not self.text.strip() and not self.declared_emergency:
                 raise ValueError("text is required")
             return self
         allowed = MEDIA_TYPES_BY_SOURCE[self.source]

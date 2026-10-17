@@ -37,6 +37,8 @@ from backend.app.domain.media import check_media, is_image
 _tracer = trace.get_tracer("facilityops.intake")
 _log = logging.getLogger("facilityops.intake")
 _TRANSLATION_TIMEOUT_SECONDS = 10
+# The reason code when the tenant says someone is in danger (always on-call, never the AI).
+DECLARED_EMERGENCY = "emergency_declared"
 T = TypeVar("T")
 
 
@@ -199,6 +201,16 @@ class IntakeCoordinator:
             return result
 
     async def _run(self, command: IntakeCommand) -> IntakeResult:
+        if command.declared_emergency:
+            # The tenant's word is enough: no rule, check or model stands between them and on-call.
+            current_trail().record(
+                "intake.emergency_screen",
+                StepOutcome.FLAGGED,
+                reason_code=DECLARED_EMERGENCY,
+                scope="declared_by_tenant",
+                service="tenant",
+            )
+            return await self._hand_off(command, DECLARED_EMERGENCY)
         # Screen what the tenant typed first: no network call can delay an emergency.
         if (emergency_reason := self._screen(command.text, "typed_text")) is not None:
             return await self._hand_off(command, emergency_reason)

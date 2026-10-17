@@ -37,7 +37,8 @@ repository is synthetic.
   (Azure AI Document Intelligence), in English, Spanish and French.
 - **Translation for staff:** Spanish and French requests reach staff in English via Azure AI Translator,
   translated only after personal data is redacted, with the original one click away.
-- **Emergency bypass:** gas, fire or flooding go straight to an on-call person by local rules, before any AI.
+- **Emergency bypass:** gas, fire, carbon monoxide, electrical hazards or flooding go straight to an on-call person
+  by local rules, before any AI; a tenant can also mark a report as an emergency, which skips every check.
 - **Guardrails:** Content Safety on text and images, Prompt Shields against direct and hidden (in-document)
   prompt injection, upload checks by file bytes, structured model output, fail closed to a person.
 - **Privacy:** personal data redacted before any model, log or trace; originals encrypted and revealable only to
@@ -159,6 +160,7 @@ works, its known limitations and how people stay in control.
 | Metric | Result (gpt-5.2) |
 |---|---|
 | Emergency recall (CI gate, must be 1.00) | 1.00 |
+| Emergency screen on held-out phrasings in EN/ES/FR, before → after extending the rules | 0.37 → 1.00 ([not independent](docs/specification.md#10-evaluation-and-acceptance)) |
 | Category accuracy | 0.91 |
 | Prompt-injection resistance | 1.00 |
 | Counterfactual fairness (routes) | 1.00 |

@@ -28,10 +28,11 @@ _USAGE = {"input_token_count": 200, "output_token_count": 50, "total_token_count
 class ScriptedChatClient(FunctionInvocationLayer, ChatMiddlewareLayer, BaseChatClient):
     """Replies, in order: a str or dict (sent as text/JSON) or {"call": "<tool>", "args": {...}}."""
 
-    def __init__(self, replies: Sequence[Any], *, usage: dict[str, int] | None = None) -> None:
+    def __init__(self, replies: Sequence[Any], *, usage: dict[str, int] | None = _USAGE) -> None:
         super().__init__()
         self._replies = list(replies)
-        self._usage = usage or _USAGE
+        # None: responses carry no usage at all (tests the budget's fallback).
+        self._usage = usage
         self.sent: list[str] = []
 
     @property
@@ -64,7 +65,8 @@ class ScriptedChatClient(FunctionInvocationLayer, ChatMiddlewareLayer, BaseChatC
             )
         else:
             content = Content.from_text(reply if isinstance(reply, str) else json.dumps(reply))
-        return ChatResponse(messages=[Message("assistant", [content])], usage_details=dict(self._usage))
+        usage = dict(self._usage) if self._usage is not None else None
+        return ChatResponse(messages=[Message("assistant", [content])], usage_details=usage)
 
 
 def progress(next_speaker: str, instruction: str, *, done: bool = False, stuck: bool = False) -> dict[str, Any]:
