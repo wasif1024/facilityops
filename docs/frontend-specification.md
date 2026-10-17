@@ -29,7 +29,7 @@ Markers: ✅ built · ⬜ planned · 🔧 needs a backend change (listed in §11
 
 **Non-goals (Phase 1)**
 
-- Phase 2 incident plans and Magentic runs, push notifications, offline mode, native mobile apps.
+- Push notifications, offline mode, native mobile apps. (Phase 2 incident plans are in §6.3.)
 - Translating the interface itself (tenants can *report* in English, Spanish or French; the UI text is English
   and structured for later translation, §9.4).
 - Server-side rendering. This is a static single-page app served by any static host.
@@ -233,6 +233,29 @@ query string so views can be shared and survive reloads.
   are allowed to read; today only `UserAdminService.ListUsers` returns users, and it requires `users:read`, which
   managers don't have. See §11.
 - Assigned technicians are shown by name (from the same list), not by id.
+
+**Incident team panel** (on the request and work order pages) · `ListIncidents(request_id)`, `GetIncident`,
+`DecideIncidentPlan`, `EscalateRequest` ✅
+
+- Shown with `incidents:read`. While the team works (escalated, investigating, revising) the panel says so and
+  refreshes every few seconds; the worker runs off the request path.
+- The latest plan: summary, review flags (safety block, high cost, unverified claims), a red alert with the safety
+  notes, the evidence (each claim with its specialist and citations, or "Unverified: no source cited"), the proposed
+  actions with their targets and costs, open questions, and earlier versions with their feedback.
+- **Approve plan** opens a confirmation that says what the application will then do; a high-cost plan needs the cost
+  ticked first; a safety-blocked plan can't be approved (the button is disabled and says why). **Ask for a revision**
+  takes a note for the team; **Reject** takes a reason from the fixed list.
+- After approval each action shows what the application did (Done, Requested, Queued, Recorded, or Needs a person
+  with the reason).
+- **Send to incident team** (`incidents:manage`) on requests without an incident and on review-queue cards, never on
+  emergencies.
+- Tenants never see the plan: their request shows "Being investigated" while the team has it
+  (`IntakeRequestSummary.incident_status`).
+- **Notice to the tenant** (after approval, `SendTenantNotice`): the communicator's English draft in editable
+  fields, a note naming the language it will be machine-translated into, and **Approve and send** (disabled while
+  the text holds a `[PII_…]` placeholder). Sent notices are listed. Tenants see them on their request page under
+  **Messages from facility management**, in their language with a *Machine translation from English* note and the
+  original one click away (`GetRequestResponse.notices`).
 
 **All requests** (`/requests`) · `ListRequests`, `GetRequest`, `RevealRequestDetails` ✅
 

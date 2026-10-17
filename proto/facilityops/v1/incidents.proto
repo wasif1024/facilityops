@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package facilityops.v1;
 
+import "facilityops/v1/intake.proto";
 import "google/protobuf/timestamp.proto";
 
 // Incidents investigated by the Phase 2 incident team. A request is escalated automatically
@@ -18,6 +19,9 @@ service IncidentService {
   // approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
   // application carries out approved actions. Requires incidents:manage.
   rpc DecideIncidentPlan(DecideIncidentPlanRequest) returns (DecideIncidentPlanResponse);
+  // Approve the English notice for the tenant (edited or as drafted) once the plan is approved.
+  // The application translates it into the tenant's language. Requires incidents:manage.
+  rpc SendTenantNotice(SendTenantNoticeRequest) returns (SendTenantNoticeResponse);
 }
 
 enum IncidentStatus {
@@ -56,6 +60,8 @@ message ListIncidentsRequest {
   // 1 to 100; defaults to 20.
   int32 limit = 2;
   int32 offset = 3;
+  // Only the incident of this request (there is at most one).
+  string request_id = 4;
 }
 
 message ListIncidentsResponse {
@@ -71,6 +77,12 @@ message GetIncidentResponse {
   Incident incident = 1;
   // Every plan version, newest first.
   repeated PlanVersion plans = 2;
+  // What the application did for approved plans, in order.
+  repeated ExecutedAction actions = 3;
+  // Notices sent to the tenant, newest first.
+  repeated TenantNotice notices = 4;
+  // The language a notice will be translated into ("en" when none is needed).
+  string tenant_language = 5;
 }
 
 message Citation {
@@ -94,6 +106,32 @@ message ProposedAction {
   string type = 1;
   string description = 2;
   optional double estimated_cost = 3;
+  // What the application uses to carry the action out after approval: a technician profile id
+  // (for example "tech-001") for dispatch_technician, a part sku and quantity for order_part.
+  string technician_id = 4;
+  string part_sku = 5;
+  optional int32 quantity = 6;
+}
+
+// What the application did with one action of an approved plan. The model only proposes; the
+// application does each action with its own rules (FR-25).
+message ExecutedAction {
+  string id = 1;
+  string plan_id = 2;
+  // The action's place in the plan's action list.
+  int32 position = 3;
+  string action_type = 4;
+  // "done", "requested", "queued", "recorded" or "failed".
+  string status = 5;
+  // What happened or why it failed, for example "assigned" or "technician_inactive".
+  string reason_code = 6;
+  string technician_id = 7;
+  string part_sku = 8;
+  optional int32 quantity = 9;
+  // Priced by the application from the parts table, not taken from the model's estimate.
+  optional double cost = 10;
+  string approved_by_user_id = 11;
+  google.protobuf.Timestamp created_at = 12;
 }
 
 message PlanVersion {
@@ -115,6 +153,13 @@ message PlanVersion {
   string decided_by_user_id = 14;
   google.protobuf.Timestamp decided_at = 15;
   google.protobuf.Timestamp created_at = 16;
+  // The communicator's English draft for the tenant; empty when none was written.
+  NoticeDraft tenant_notice = 17;
+}
+
+message NoticeDraft {
+  string subject = 1;
+  string body = 2;
 }
 
 enum PlanDecision {
@@ -139,6 +184,17 @@ message DecideIncidentPlanRequest {
 message DecideIncidentPlanResponse {
   Incident incident = 1;
   repeated PlanVersion plans = 2;
+}
+
+message SendTenantNoticeRequest {
+  string incident_id = 1;
+  // The English text a facility manager approves: the draft as written, or edited. No personal data.
+  string subject = 2;
+  string body = 3;
+}
+
+message SendTenantNoticeResponse {
+  TenantNotice notice = 1;
 }
 
 message EscalateRequestRequest {

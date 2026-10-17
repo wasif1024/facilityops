@@ -468,6 +468,66 @@ class IncidentPlanRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+
+class IncidentActionRecord(Base):
+    """What the application did with one action of an approved plan (FR-25).
+
+    The model only proposes; after a facility manager approves, the action executor carries out
+    each action with the application's own rules and records the result here. Ids and codes
+    only: the action's wording stays in the plan.
+    """
+
+    __tablename__ = "incident_actions"
+    __table_args__ = (UniqueConstraint("plan_id", "position"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), index=True)
+    plan_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("incident_plans.id", ondelete="CASCADE"))
+    # The action's place in the plan, so each one runs once.
+    position: Mapped[int] = mapped_column(Integer)
+    action_type: Mapped[str] = mapped_column(String(32))
+    # done | requested | queued | recorded | failed
+    status: Mapped[str] = mapped_column(String(16))
+    # Why it failed or what it did, for example "technician_unavailable" or "assigned".
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Targets and the cost the application computed (sku, quantity, unit_cost, technician_id...).
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)
+    approved_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantNoticeRecord(Base):
+    """A notice to the resident about their incident (FR-61).
+
+    The communicator drafts it in English; a facility manager approves (and may edit) the English
+    text; the application translates the approved text into the tenant's language. Both are kept:
+    the English is what a person approved, the translation is what the tenant reads.
+    """
+
+    __tablename__ = "tenant_notices"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), index=True)
+    request_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("intake_requests.request_id", ondelete="CASCADE"), index=True
+    )
+    subject: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text)
+    # ISO 639-1 language the tenant reads it in; "en" when no translation was needed or possible.
+    language: Mapped[str] = mapped_column(String(8))
+    translated_subject: Mapped[str | None] = mapped_column(Text, nullable=True)
+    translated_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # "translation_failed" when the tenant gets the English text instead.
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # True when the manager changed the communicator's draft before approving it.
+    edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    approved_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
 # ---- Facility data used by the incident team's read-only tools (Phase 2) ----
 # Filled from backend/app/fixtures/synthetic_world.json in development and evals; every row is invented.
 

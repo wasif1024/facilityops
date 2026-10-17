@@ -12,7 +12,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file facilityops/v1/intake.proto.
  */
 export const file_facilityops_v1_intake: GenFile = /*@__PURE__*/
-  fileDesc("ChtmYWNpbGl0eW9wcy92MS9pbnRha2UucHJvdG8SDmZhY2lsaXR5b3BzLnYxIpsBChNTdWJtaXRJbnRha2VSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSLQoGc291cmNlGAIgASgOMh0uZmFjaWxpdHlvcHMudjEuUmVxdWVzdFNvdXJjZRIMCgR0ZXh0GAMgASgJEg0KBW1lZGlhGAQgASgMEhIKCm1lZGlhX3R5cGUYBSABKAkSEAoIbGFuZ3VhZ2UYBiABKAkiRAoUU3VibWl0SW50YWtlUmVzcG9uc2USLAoGcmVzdWx0GAEgASgLMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVzdWx0Iv8BCgxJbnRha2VSZXN1bHQSEgoKcmVxdWVzdF9pZBgBIAEoCRIsCgZzdGF0dXMYAiABKA4yHC5mYWNpbGl0eW9wcy52MS5JbnRha2VTdGF0dXMSEwoLcmVhc29uX2NvZGUYAyABKAkSNQoIY2F0ZWdvcnkYBCABKA4yIy5mYWNpbGl0eW9wcy52MS5NYWludGVuYW5jZUNhdGVnb3J5EhUKCHByaW9yaXR5GAUgASgFSACIAQESFwoKY29uZmlkZW5jZRgGIAEoAUgBiAEBEhUKDXdvcmtfb3JkZXJfaWQYByABKAlCCwoJX3ByaW9yaXR5Qg0KC19jb25maWRlbmNlItgDChRJbnRha2VSZXF1ZXN0U3VtbWFyeRISCgpyZXF1ZXN0X2lkGAEgASgJEi0KBnNvdXJjZRgCIAEoDjIdLmZhY2lsaXR5b3BzLnYxLlJlcXVlc3RTb3VyY2USLAoGc3RhdHVzGAMgASgOMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlU3RhdHVzEhMKC3JlYXNvbl9jb2RlGAQgASgJEjUKCGNhdGVnb3J5GAUgASgOMiMuZmFjaWxpdHlvcHMudjEuTWFpbnRlbmFuY2VDYXRlZ29yeRIVCghwcmlvcml0eRgGIAEoBUgAiAEBEhcKCmNvbmZpZGVuY2UYByABKAFIAYgBARIVCg13b3JrX29yZGVyX2lkGAggASgJEhkKEXdvcmtfb3JkZXJfc3RhdHVzGAkgASgJEhwKFHJlZGFjdGVkX2Rlc2NyaXB0aW9uGAogASgJEi4KCmNyZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEh4KFnRyYW5zbGF0ZWRfZGVzY3JpcHRpb24YDCABKAkSFwoPc291cmNlX2xhbmd1YWdlGA0gASgJQgsKCV9wcmlvcml0eUINCgtfY29uZmlkZW5jZSI2ChVMaXN0TXlSZXF1ZXN0c1JlcXVlc3QSDQoFbGltaXQYASABKAUSDgoGb2Zmc2V0GAIgASgFIl8KFkxpc3RNeVJlcXVlc3RzUmVzcG9uc2USNgoIcmVxdWVzdHMYASADKAsyJC5mYWNpbGl0eW9wcy52MS5JbnRha2VSZXF1ZXN0U3VtbWFyeRINCgV0b3RhbBgCIAEoBSJiChNMaXN0UmVxdWVzdHNSZXF1ZXN0EiwKBnN0YXR1cxgBIAEoDjIcLmZhY2lsaXR5b3BzLnYxLkludGFrZVN0YXR1cxINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiXQoUTGlzdFJlcXVlc3RzUmVzcG9uc2USNgoIcmVxdWVzdHMYASADKAsyJC5mYWNpbGl0eW9wcy52MS5JbnRha2VSZXF1ZXN0U3VtbWFyeRINCgV0b3RhbBgCIAEoBSInChFHZXRSZXF1ZXN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIksKEkdldFJlcXVlc3RSZXNwb25zZRI1CgdyZXF1ZXN0GAEgASgLMiQuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVxdWVzdFN1bW1hcnkiMQobUmV2ZWFsUmVxdWVzdERldGFpbHNSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAki6QEKHFJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2USEgoKcmVxdWVzdF9pZBgBIAEoCRIcChRyZWRhY3RlZF9kZXNjcmlwdGlvbhgCIAEoCRIeChZ0cmFuc2xhdGVkX2Rlc2NyaXB0aW9uGAQgASgJEkgKBnZhbHVlcxgDIAMoCzI4LmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2UuVmFsdWVzRW50cnkaLQoLVmFsdWVzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASItChdHZXREZWNpc2lvblRyYWlsUmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIuUBCgxEZWNpc2lvblN0ZXASDAoEc3RlcBgBIAEoCRIPCgdvdXRjb21lGAIgASgJEhMKC3JlYXNvbl9jb2RlGAMgASgJEg8KB3NlcnZpY2UYBCABKAkSDwoHdmVyc2lvbhgFIAEoCRITCgtkdXJhdGlvbl9tcxgGIAEoBRIoCgdkZXRhaWxzGAcgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIQCgh0cmFjZV9pZBgIIAEoCRIuCgpzdGFydGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLiAgoJTW9kZWxDYWxsEgoKAmlkGAEgASgJEhIKCmFnZW50X25hbWUYAiABKAkSDQoFbW9kZWwYAyABKAkSEgoKcHJvbXB0X3NoYRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSEgoKZXJyb3JfdHlwZRgGIAEoCRITCgtkdXJhdGlvbl9tcxgHIAEoBRIZCgxpbnB1dF90b2tlbnMYCCABKAVIAIgBARIaCg1vdXRwdXRfdG9rZW5zGAkgASgFSAGIAQESEAoIdHJhY2VfaWQYCiABKAkSLgoKc3RhcnRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKaW5wdXRfdGV4dBgMIAEoCRITCgtvdXRwdXRfdGV4dBgNIAEoCRIUCgxpbnN0cnVjdGlvbnMYDiABKAlCDwoNX2lucHV0X3Rva2Vuc0IQCg5fb3V0cHV0X3Rva2VucyJ9CgtIdW1hbkFjdGlvbhISCgpldmVudF90eXBlGAEgASgJEhMKC3JlYXNvbl9jb2RlGAIgASgJEhUKDWFjdG9yX3VzZXJfaWQYAyABKAkSLgoKY3JlYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi+QEKGEdldERlY2lzaW9uVHJhaWxSZXNwb25zZRISCgpyZXF1ZXN0X2lkGAEgASgJEisKBXN0ZXBzGAIgAygLMhwuZmFjaWxpdHlvcHMudjEuRGVjaXNpb25TdGVwEi4KC21vZGVsX2NhbGxzGAMgAygLMhkuZmFjaWxpdHlvcHMudjEuTW9kZWxDYWxsEjIKDWh1bWFuX2FjdGlvbnMYBCADKAsyGy5mYWNpbGl0eW9wcy52MS5IdW1hbkFjdGlvbhIYChBjb250ZW50X2luY2x1ZGVkGAUgASgIEh4KFmNvbnRlbnRfcmV0ZW50aW9uX2RheXMYBiABKAUqmQEKDVJlcXVlc3RTb3VyY2USHgoaUkVRVUVTVF9TT1VSQ0VfVU5TUEVDSUZJRUQQABIXChNSRVFVRVNUX1NPVVJDRV9URVhUEAESGAoUUkVRVUVTVF9TT1VSQ0VfUEhPVE8QAhIYChRSRVFVRVNUX1NPVVJDRV9WT0lDRRADEhsKF1JFUVVFU1RfU09VUkNFX0RPQ1VNRU5UEAQq2QEKDEludGFrZVN0YXR1cxIdChlJTlRBS0VfU1RBVFVTX1VOU1BFQ0lGSUVEEAASIwofSU5UQUtFX1NUQVRVU19FTUVSR0VOQ1lfSEFORE9GRhABEh4KGklOVEFLRV9TVEFUVVNfSFVNQU5fUkVWSUVXEAISIgoeSU5UQUtFX1NUQVRVU19QRU5ESU5HX0FQUFJPVkFMEAMSJAogSU5UQUtFX1NUQVRVU19XT1JLX09SREVSX0NSRUFURUQQBBIbChdJTlRBS0VfU1RBVFVTX0RJU01JU1NFRBAFKq0CChNNYWludGVuYW5jZUNhdGVnb3J5EiQKIE1BSU5URU5BTkNFX0NBVEVHT1JZX1VOU1BFQ0lGSUVEEAASHQoZTUFJTlRFTkFOQ0VfQ0FURUdPUllfSFZBQxABEiEKHU1BSU5URU5BTkNFX0NBVEVHT1JZX1BMVU1CSU5HEAISIwofTUFJTlRFTkFOQ0VfQ0FURUdPUllfRUxFQ1RSSUNBTBADEiEKHU1BSU5URU5BTkNFX0NBVEVHT1JZX1NFQ1VSSVRZEAQSIwofTUFJTlRFTkFOQ0VfQ0FURUdPUllfU1RSVUNUVVJBTBAFEiEKHU1BSU5URU5BTkNFX0NBVEVHT1JZX0NMRUFOSU5HEAYSHgoaTUFJTlRFTkFOQ0VfQ0FURUdPUllfT1RIRVIQBzLVBAoNSW50YWtlU2VydmljZRJZCgxTdWJtaXRJbnRha2USIy5mYWNpbGl0eW9wcy52MS5TdWJtaXRJbnRha2VSZXF1ZXN0GiQuZmFjaWxpdHlvcHMudjEuU3VibWl0SW50YWtlUmVzcG9uc2USXwoOTGlzdE15UmVxdWVzdHMSJS5mYWNpbGl0eW9wcy52MS5MaXN0TXlSZXF1ZXN0c1JlcXVlc3QaJi5mYWNpbGl0eW9wcy52MS5MaXN0TXlSZXF1ZXN0c1Jlc3BvbnNlElkKDExpc3RSZXF1ZXN0cxIjLmZhY2lsaXR5b3BzLnYxLkxpc3RSZXF1ZXN0c1JlcXVlc3QaJC5mYWNpbGl0eW9wcy52MS5MaXN0UmVxdWVzdHNSZXNwb25zZRJTCgpHZXRSZXF1ZXN0EiEuZmFjaWxpdHlvcHMudjEuR2V0UmVxdWVzdFJlcXVlc3QaIi5mYWNpbGl0eW9wcy52MS5HZXRSZXF1ZXN0UmVzcG9uc2UScQoUUmV2ZWFsUmVxdWVzdERldGFpbHMSKy5mYWNpbGl0eW9wcy52MS5SZXZlYWxSZXF1ZXN0RGV0YWlsc1JlcXVlc3QaLC5mYWNpbGl0eW9wcy52MS5SZXZlYWxSZXF1ZXN0RGV0YWlsc1Jlc3BvbnNlEmUKEEdldERlY2lzaW9uVHJhaWwSJy5mYWNpbGl0eW9wcy52MS5HZXREZWNpc2lvblRyYWlsUmVxdWVzdBooLmZhY2lsaXR5b3BzLnYxLkdldERlY2lzaW9uVHJhaWxSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_struct, file_google_protobuf_timestamp]);
+  fileDesc("ChtmYWNpbGl0eW9wcy92MS9pbnRha2UucHJvdG8SDmZhY2lsaXR5b3BzLnYxIpsBChNTdWJtaXRJbnRha2VSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSLQoGc291cmNlGAIgASgOMh0uZmFjaWxpdHlvcHMudjEuUmVxdWVzdFNvdXJjZRIMCgR0ZXh0GAMgASgJEg0KBW1lZGlhGAQgASgMEhIKCm1lZGlhX3R5cGUYBSABKAkSEAoIbGFuZ3VhZ2UYBiABKAkiRAoUU3VibWl0SW50YWtlUmVzcG9uc2USLAoGcmVzdWx0GAEgASgLMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVzdWx0Iv8BCgxJbnRha2VSZXN1bHQSEgoKcmVxdWVzdF9pZBgBIAEoCRIsCgZzdGF0dXMYAiABKA4yHC5mYWNpbGl0eW9wcy52MS5JbnRha2VTdGF0dXMSEwoLcmVhc29uX2NvZGUYAyABKAkSNQoIY2F0ZWdvcnkYBCABKA4yIy5mYWNpbGl0eW9wcy52MS5NYWludGVuYW5jZUNhdGVnb3J5EhUKCHByaW9yaXR5GAUgASgFSACIAQESFwoKY29uZmlkZW5jZRgGIAEoAUgBiAEBEhUKDXdvcmtfb3JkZXJfaWQYByABKAlCCwoJX3ByaW9yaXR5Qg0KC19jb25maWRlbmNlIvEDChRJbnRha2VSZXF1ZXN0U3VtbWFyeRISCgpyZXF1ZXN0X2lkGAEgASgJEi0KBnNvdXJjZRgCIAEoDjIdLmZhY2lsaXR5b3BzLnYxLlJlcXVlc3RTb3VyY2USLAoGc3RhdHVzGAMgASgOMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlU3RhdHVzEhMKC3JlYXNvbl9jb2RlGAQgASgJEjUKCGNhdGVnb3J5GAUgASgOMiMuZmFjaWxpdHlvcHMudjEuTWFpbnRlbmFuY2VDYXRlZ29yeRIVCghwcmlvcml0eRgGIAEoBUgAiAEBEhcKCmNvbmZpZGVuY2UYByABKAFIAYgBARIVCg13b3JrX29yZGVyX2lkGAggASgJEhkKEXdvcmtfb3JkZXJfc3RhdHVzGAkgASgJEhwKFHJlZGFjdGVkX2Rlc2NyaXB0aW9uGAogASgJEi4KCmNyZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEh4KFnRyYW5zbGF0ZWRfZGVzY3JpcHRpb24YDCABKAkSFwoPc291cmNlX2xhbmd1YWdlGA0gASgJEhcKD2luY2lkZW50X3N0YXR1cxgOIAEoCUILCglfcHJpb3JpdHlCDQoLX2NvbmZpZGVuY2UiNgoVTGlzdE15UmVxdWVzdHNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBSJfChZMaXN0TXlSZXF1ZXN0c1Jlc3BvbnNlEjYKCHJlcXVlc3RzGAEgAygLMiQuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVxdWVzdFN1bW1hcnkSDQoFdG90YWwYAiABKAUiYgoTTGlzdFJlcXVlc3RzUmVxdWVzdBIsCgZzdGF0dXMYASABKA4yHC5mYWNpbGl0eW9wcy52MS5JbnRha2VTdGF0dXMSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFIl0KFExpc3RSZXF1ZXN0c1Jlc3BvbnNlEjYKCHJlcXVlc3RzGAEgAygLMiQuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVxdWVzdFN1bW1hcnkSDQoFdG90YWwYAiABKAUiJwoRR2V0UmVxdWVzdFJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCSJ6ChJHZXRSZXF1ZXN0UmVzcG9uc2USNQoHcmVxdWVzdBgBIAEoCzIkLmZhY2lsaXR5b3BzLnYxLkludGFrZVJlcXVlc3RTdW1tYXJ5Ei0KB25vdGljZXMYAiADKAsyHC5mYWNpbGl0eW9wcy52MS5UZW5hbnROb3RpY2Ui8gEKDFRlbmFudE5vdGljZRIKCgJpZBgBIAEoCRIPCgdzdWJqZWN0GAIgASgJEgwKBGJvZHkYAyABKAkSEAoIbGFuZ3VhZ2UYBCABKAkSGgoSdHJhbnNsYXRlZF9zdWJqZWN0GAUgASgJEhcKD3RyYW5zbGF0ZWRfYm9keRgGIAEoCRITCgtyZWFzb25fY29kZRgHIAEoCRIOCgZlZGl0ZWQYCCABKAgSGwoTYXBwcm92ZWRfYnlfdXNlcl9pZBgJIAEoCRIuCgpjcmVhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIxChtSZXZlYWxSZXF1ZXN0RGV0YWlsc1JlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCSLpAQocUmV2ZWFsUmVxdWVzdERldGFpbHNSZXNwb25zZRISCgpyZXF1ZXN0X2lkGAEgASgJEhwKFHJlZGFjdGVkX2Rlc2NyaXB0aW9uGAIgASgJEh4KFnRyYW5zbGF0ZWRfZGVzY3JpcHRpb24YBCABKAkSSAoGdmFsdWVzGAMgAygLMjguZmFjaWxpdHlvcHMudjEuUmV2ZWFsUmVxdWVzdERldGFpbHNSZXNwb25zZS5WYWx1ZXNFbnRyeRotCgtWYWx1ZXNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIi0KF0dldERlY2lzaW9uVHJhaWxSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAki5QEKDERlY2lzaW9uU3RlcBIMCgRzdGVwGAEgASgJEg8KB291dGNvbWUYAiABKAkSEwoLcmVhc29uX2NvZGUYAyABKAkSDwoHc2VydmljZRgEIAEoCRIPCgd2ZXJzaW9uGAUgASgJEhMKC2R1cmF0aW9uX21zGAYgASgFEigKB2RldGFpbHMYByABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EhAKCHRyYWNlX2lkGAggASgJEi4KCnN0YXJ0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIuICCglNb2RlbENhbGwSCgoCaWQYASABKAkSEgoKYWdlbnRfbmFtZRgCIAEoCRINCgVtb2RlbBgDIAEoCRISCgpwcm9tcHRfc2hhGAQgASgJEg4KBnN0YXR1cxgFIAEoCRISCgplcnJvcl90eXBlGAYgASgJEhMKC2R1cmF0aW9uX21zGAcgASgFEhkKDGlucHV0X3Rva2VucxgIIAEoBUgAiAEBEhoKDW91dHB1dF90b2tlbnMYCSABKAVIAYgBARIQCgh0cmFjZV9pZBgKIAEoCRIuCgpzdGFydGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgppbnB1dF90ZXh0GAwgASgJEhMKC291dHB1dF90ZXh0GA0gASgJEhQKDGluc3RydWN0aW9ucxgOIAEoCUIPCg1faW5wdXRfdG9rZW5zQhAKDl9vdXRwdXRfdG9rZW5zIn0KC0h1bWFuQWN0aW9uEhIKCmV2ZW50X3R5cGUYASABKAkSEwoLcmVhc29uX2NvZGUYAiABKAkSFQoNYWN0b3JfdXNlcl9pZBgDIAEoCRIuCgpjcmVhdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCL5AQoYR2V0RGVjaXNpb25UcmFpbFJlc3BvbnNlEhIKCnJlcXVlc3RfaWQYASABKAkSKwoFc3RlcHMYAiADKAsyHC5mYWNpbGl0eW9wcy52MS5EZWNpc2lvblN0ZXASLgoLbW9kZWxfY2FsbHMYAyADKAsyGS5mYWNpbGl0eW9wcy52MS5Nb2RlbENhbGwSMgoNaHVtYW5fYWN0aW9ucxgEIAMoCzIbLmZhY2lsaXR5b3BzLnYxLkh1bWFuQWN0aW9uEhgKEGNvbnRlbnRfaW5jbHVkZWQYBSABKAgSHgoWY29udGVudF9yZXRlbnRpb25fZGF5cxgGIAEoBSqZAQoNUmVxdWVzdFNvdXJjZRIeChpSRVFVRVNUX1NPVVJDRV9VTlNQRUNJRklFRBAAEhcKE1JFUVVFU1RfU09VUkNFX1RFWFQQARIYChRSRVFVRVNUX1NPVVJDRV9QSE9UTxACEhgKFFJFUVVFU1RfU09VUkNFX1ZPSUNFEAMSGwoXUkVRVUVTVF9TT1VSQ0VfRE9DVU1FTlQQBCrZAQoMSW50YWtlU3RhdHVzEh0KGUlOVEFLRV9TVEFUVVNfVU5TUEVDSUZJRUQQABIjCh9JTlRBS0VfU1RBVFVTX0VNRVJHRU5DWV9IQU5ET0ZGEAESHgoaSU5UQUtFX1NUQVRVU19IVU1BTl9SRVZJRVcQAhIiCh5JTlRBS0VfU1RBVFVTX1BFTkRJTkdfQVBQUk9WQUwQAxIkCiBJTlRBS0VfU1RBVFVTX1dPUktfT1JERVJfQ1JFQVRFRBAEEhsKF0lOVEFLRV9TVEFUVVNfRElTTUlTU0VEEAUqrQIKE01haW50ZW5hbmNlQ2F0ZWdvcnkSJAogTUFJTlRFTkFOQ0VfQ0FURUdPUllfVU5TUEVDSUZJRUQQABIdChlNQUlOVEVOQU5DRV9DQVRFR09SWV9IVkFDEAESIQodTUFJTlRFTkFOQ0VfQ0FURUdPUllfUExVTUJJTkcQAhIjCh9NQUlOVEVOQU5DRV9DQVRFR09SWV9FTEVDVFJJQ0FMEAMSIQodTUFJTlRFTkFOQ0VfQ0FURUdPUllfU0VDVVJJVFkQBBIjCh9NQUlOVEVOQU5DRV9DQVRFR09SWV9TVFJVQ1RVUkFMEAUSIQodTUFJTlRFTkFOQ0VfQ0FURUdPUllfQ0xFQU5JTkcQBhIeChpNQUlOVEVOQU5DRV9DQVRFR09SWV9PVEhFUhAHMtUECg1JbnRha2VTZXJ2aWNlElkKDFN1Ym1pdEludGFrZRIjLmZhY2lsaXR5b3BzLnYxLlN1Ym1pdEludGFrZVJlcXVlc3QaJC5mYWNpbGl0eW9wcy52MS5TdWJtaXRJbnRha2VSZXNwb25zZRJfCg5MaXN0TXlSZXF1ZXN0cxIlLmZhY2lsaXR5b3BzLnYxLkxpc3RNeVJlcXVlc3RzUmVxdWVzdBomLmZhY2lsaXR5b3BzLnYxLkxpc3RNeVJlcXVlc3RzUmVzcG9uc2USWQoMTGlzdFJlcXVlc3RzEiMuZmFjaWxpdHlvcHMudjEuTGlzdFJlcXVlc3RzUmVxdWVzdBokLmZhY2lsaXR5b3BzLnYxLkxpc3RSZXF1ZXN0c1Jlc3BvbnNlElMKCkdldFJlcXVlc3QSIS5mYWNpbGl0eW9wcy52MS5HZXRSZXF1ZXN0UmVxdWVzdBoiLmZhY2lsaXR5b3BzLnYxLkdldFJlcXVlc3RSZXNwb25zZRJxChRSZXZlYWxSZXF1ZXN0RGV0YWlscxIrLmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVxdWVzdBosLmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2USZQoQR2V0RGVjaXNpb25UcmFpbBInLmZhY2lsaXR5b3BzLnYxLkdldERlY2lzaW9uVHJhaWxSZXF1ZXN0GiguZmFjaWxpdHlvcHMudjEuR2V0RGVjaXNpb25UcmFpbFJlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_struct, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message facilityops.v1.SubmitIntakeRequest
@@ -217,6 +217,14 @@ export type IntakeRequestSummary = Message<"facilityops.v1.IntakeRequestSummary"
    * @generated from field: string source_language = 13;
    */
   sourceLanguage: string;
+
+  /**
+   * Incident status name when the incident team has the request, for example "investigating";
+   * empty otherwise. Tenants see only this, never the plan.
+   *
+   * @generated from field: string incident_status = 14;
+   */
+  incidentStatus: string;
 };
 
 /**
@@ -348,6 +356,13 @@ export type GetRequestResponse = Message<"facilityops.v1.GetRequestResponse"> & 
    * @generated from field: facilityops.v1.IntakeRequestSummary request = 1;
    */
   request?: IntakeRequestSummary | undefined;
+
+  /**
+   * Notices from facility management about this request, newest first (FR-61).
+   *
+   * @generated from field: repeated facilityops.v1.TenantNotice notices = 2;
+   */
+  notices: TenantNotice[];
 };
 
 /**
@@ -356,6 +371,81 @@ export type GetRequestResponse = Message<"facilityops.v1.GetRequestResponse"> & 
  */
 export const GetRequestResponseSchema: GenMessage<GetRequestResponse> = /*@__PURE__*/
   messageDesc(file_facilityops_v1_intake, 9);
+
+/**
+ * A notice to the resident (FR-61): drafted in English by the communicator, approved (and maybe
+ * edited) by a facility manager, then machine-translated by the application into the tenant's language.
+ *
+ * @generated from message facilityops.v1.TenantNotice
+ */
+export type TenantNotice = Message<"facilityops.v1.TenantNotice"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * The approved English text.
+   *
+   * @generated from field: string subject = 2;
+   */
+  subject: string;
+
+  /**
+   * @generated from field: string body = 3;
+   */
+  body: string;
+
+  /**
+   * ISO 639-1 language the tenant reads it in; "en" without a translation.
+   *
+   * @generated from field: string language = 4;
+   */
+  language: string;
+
+  /**
+   * Machine translation into language; empty when language is "en".
+   *
+   * @generated from field: string translated_subject = 5;
+   */
+  translatedSubject: string;
+
+  /**
+   * @generated from field: string translated_body = 6;
+   */
+  translatedBody: string;
+
+  /**
+   * "translation_failed" when the tenant got the English text instead.
+   *
+   * @generated from field: string reason_code = 7;
+   */
+  reasonCode: string;
+
+  /**
+   * Staff only: whether the manager edited the communicator's draft, and who approved it.
+   *
+   * @generated from field: bool edited = 8;
+   */
+  edited: boolean;
+
+  /**
+   * @generated from field: string approved_by_user_id = 9;
+   */
+  approvedByUserId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
+   */
+  createdAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.TenantNotice.
+ * Use `create(TenantNoticeSchema)` to create a new message.
+ */
+export const TenantNoticeSchema: GenMessage<TenantNotice> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_intake, 10);
 
 /**
  * @generated from message facilityops.v1.RevealRequestDetailsRequest
@@ -372,7 +462,7 @@ export type RevealRequestDetailsRequest = Message<"facilityops.v1.RevealRequestD
  * Use `create(RevealRequestDetailsRequestSchema)` to create a new message.
  */
 export const RevealRequestDetailsRequestSchema: GenMessage<RevealRequestDetailsRequest> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 10);
+  messageDesc(file_facilityops_v1_intake, 11);
 
 /**
  * @generated from message facilityops.v1.RevealRequestDetailsResponse
@@ -408,7 +498,7 @@ export type RevealRequestDetailsResponse = Message<"facilityops.v1.RevealRequest
  * Use `create(RevealRequestDetailsResponseSchema)` to create a new message.
  */
 export const RevealRequestDetailsResponseSchema: GenMessage<RevealRequestDetailsResponse> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 11);
+  messageDesc(file_facilityops_v1_intake, 12);
 
 /**
  * @generated from message facilityops.v1.GetDecisionTrailRequest
@@ -425,7 +515,7 @@ export type GetDecisionTrailRequest = Message<"facilityops.v1.GetDecisionTrailRe
  * Use `create(GetDecisionTrailRequestSchema)` to create a new message.
  */
 export const GetDecisionTrailRequestSchema: GenMessage<GetDecisionTrailRequest> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 12);
+  messageDesc(file_facilityops_v1_intake, 13);
 
 /**
  * One step of the intake pipeline. Details hold labels, scores and counts, never text.
@@ -494,7 +584,7 @@ export type DecisionStep = Message<"facilityops.v1.DecisionStep"> & {
  * Use `create(DecisionStepSchema)` to create a new message.
  */
 export const DecisionStepSchema: GenMessage<DecisionStep> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 13);
+  messageDesc(file_facilityops_v1_intake, 14);
 
 /**
  * One call to a language model, with what it was sent and what it answered.
@@ -584,7 +674,7 @@ export type ModelCall = Message<"facilityops.v1.ModelCall"> & {
  * Use `create(ModelCallSchema)` to create a new message.
  */
 export const ModelCallSchema: GenMessage<ModelCall> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 14);
+  messageDesc(file_facilityops_v1_intake, 15);
 
 /**
  * A person's action on the request: review resolution, approval, assignment, completion.
@@ -618,7 +708,7 @@ export type HumanAction = Message<"facilityops.v1.HumanAction"> & {
  * Use `create(HumanActionSchema)` to create a new message.
  */
 export const HumanActionSchema: GenMessage<HumanAction> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 15);
+  messageDesc(file_facilityops_v1_intake, 16);
 
 /**
  * @generated from message facilityops.v1.GetDecisionTrailResponse
@@ -664,7 +754,7 @@ export type GetDecisionTrailResponse = Message<"facilityops.v1.GetDecisionTrailR
  * Use `create(GetDecisionTrailResponseSchema)` to create a new message.
  */
 export const GetDecisionTrailResponseSchema: GenMessage<GetDecisionTrailResponse> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_intake, 16);
+  messageDesc(file_facilityops_v1_intake, 17);
 
 /**
  * @generated from enum facilityops.v1.RequestSource

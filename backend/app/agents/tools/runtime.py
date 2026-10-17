@@ -45,6 +45,9 @@ class ToolContext:
     steps: list[DecisionStep] = field(default_factory=list)
     # Every citation id a tool actually returned in this run: the plan may cite only these.
     returned_sources: set[str] = field(default_factory=set)
+    # Evaluation only (evals/incidents/live.py): full arguments and results, kept in memory for the
+    # groundedness and tool-call evaluators. Never set in production, where results aren't stored.
+    transcript: list[dict[str, Any]] | None = None
 
     def remaining(self, specialist: str) -> int:
         return self.max_calls_per_specialist - self.calls.get(specialist, 0)
@@ -80,6 +83,7 @@ async def run_tool(
             "detail": f"{specialist} has used its {ctx.max_calls_per_specialist} tool calls for this incident",
         }
         _record(ctx, specialist, name, kwargs, StepOutcome.FLAGGED, "tool_budget_exhausted", started, start, None)
+        _transcribe(ctx, specialist, name, kwargs, result)
         return result
 
     ctx.calls[specialist] = ctx.calls.get(specialist, 0) + 1
@@ -98,10 +102,17 @@ async def run_tool(
         except Exception as error:  # noqa: BLE001 - the model gets the type only
             span.set_status(trace.Status(trace.StatusCode.ERROR, type(error).__name__))
             _record(ctx, specialist, name, kwargs, StepOutcome.FAILED, None, started, start, None, type(error).__name__)
+            _transcribe(ctx, specialist, name, kwargs, {"error": type(error).__name__})
             return {"error": type(error).__name__}
     _collect_sources(result, ctx.returned_sources)
     _record(ctx, specialist, name, kwargs, StepOutcome.PASSED, None, started, start, _count(result))
+    _transcribe(ctx, specialist, name, kwargs, result)
     return result
+
+
+def _transcribe(ctx: ToolContext, specialist: str, name: str, kwargs: dict[str, Any], result: dict[str, Any]) -> None:
+    if ctx.transcript is not None:
+        ctx.transcript.append({"specialist": specialist, "name": name, "arguments": dict(kwargs), "result": result})
 
 
 def _collect_sources(value: Any, into: set[str]) -> None:

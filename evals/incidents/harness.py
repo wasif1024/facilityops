@@ -91,18 +91,24 @@ async def _manager(session_factory: async_sessionmaker[AsyncSession]) -> UUID:
     return access.user.id
 
 
-async def _escalated_request(session_factory: async_sessionmaker[AsyncSession]) -> UUID:
-    """A classified HVAC P4 request, stored exactly as the intake coordinator stores it."""
+SCENARIO_TEXT = "Boiler in plant room B shows E04; [PII_0001] says radiators are cold."
+
+
+async def escalated_request(
+    session_factory: async_sessionmaker[AsyncSession],
+    redacted_text: str = SCENARIO_TEXT,
+    category: MaintenanceCategory = MaintenanceCategory.HVAC,
+    priority: int = 4,
+) -> UUID:
+    """A classified, escalated request, stored exactly as the intake coordinator stores it."""
     command = IntakeCommand(text="Synthetic scenario request")
-    classification = Classification(
-        category=MaintenanceCategory.HVAC, priority=4, confidence=0.93, reason_code="scenario"
-    )
+    classification = Classification(category=category, priority=priority, confidence=0.93, reason_code="scenario")
     async with session_factory() as session:
         repository = SqlIntakeRepository(session)
         await repository.begin_request(command, submitted_by_user_id=None)
         work_order_id = await repository.create(
             request_id=command.request_id,
-            redacted_text="Boiler in plant room B shows E04; [PII_0001] says radiators are cold.",
+            redacted_text=redacted_text,
             classification=classification,
             approval_required=True,
             encrypted_mapping=b"",
@@ -115,7 +121,7 @@ async def _escalated_request(session_factory: async_sessionmaker[AsyncSession]) 
                 reason_code="approval_required",
                 work_order_id=work_order_id,
             ),
-            redacted_text="Boiler in plant room B shows E04; [PII_0001] says radiators are cold.",
+            redacted_text=redacted_text,
             encrypted_mapping=None,
             escalation_reason=HIGH_PRIORITY_EQUIPMENT,
         )
@@ -134,7 +140,7 @@ async def _emergency_request(session_factory: async_sessionmaker[AsyncSession]) 
     return request_id
 
 
-async def _drain(dispatcher, limit: int = 10) -> None:
+async def drain(dispatcher, limit: int = 10) -> None:
     for _ in range(limit):
         if await dispatcher.run_once() == 0:
             return
@@ -157,15 +163,15 @@ async def run_scenario(
                 await escalate_manually(session, request_id, manager)
             except InvalidTransition:
                 refused = True
-        await _drain(dispatcher)
+        await drain(dispatcher)
         result.checks["escalation_refused"] = refused == expect["escalation_refused"]
         result.gates["emergency_never_enters"] = refused and not team.contexts
         result.checks["team_calls"] = len(team.contexts) == expect["team_calls"]
         result.passed = all(result.checks.values()) and all(result.gates.values())
         return result
 
-    request_id = await _escalated_request(session_factory)
-    await _drain(dispatcher)
+    request_id = await escalated_request(session_factory)
+    await drain(dispatcher)
     errors: list[str] = []
     for decision in scenario["decisions"]:
         async with session_factory() as session:
@@ -192,7 +198,7 @@ async def run_scenario(
             except InvalidTransition as error:
                 if decision.get("expect_error", "\0") not in str(error):
                     errors.append(f"unexpected refusal: {error}")
-        await _drain(dispatcher)
+        await drain(dispatcher)
 
     async with session_factory() as session:
         incident = await session.scalar(select(IncidentRecord).where(IncidentRecord.request_id == request_id))

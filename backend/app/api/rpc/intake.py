@@ -20,11 +20,14 @@ from backend.app.api.rpc.convert import (
     to_proto_enum,
     viewer,
 )
+from backend.app.db.models import TenantNoticeRecord
+from backend.app.domain.rbac import Permission
 from backend.app.domain.intake import IntakeCommand, IntakeResult, IntakeStatus, RequestSource
 from backend.app.gen.facilityops.v1 import intake_pb as pb
 from backend.app.services.agent_monitoring import monitoring_scope
 from backend.app.services.decision_trail import DecisionTrailView, read_decision_trail
 from backend.app.services.operations import OperationsService, RequestView
+from backend.app.services.tenant_notices import list_notices
 from backend.app.services.intake_repository import (
     DuplicateRequestInProgress,
     RequestIdOwnedByAnotherUser,
@@ -74,7 +77,23 @@ def to_proto_summary(view: RequestView) -> pb.IntakeRequestSummary:
         redacted_description=text(request.redacted_description),
         translated_description=text(request.translated_description),
         source_language=text(request.source_language),
+        incident_status=text(view.incident_status),
         created_at=timestamp(request.created_at),
+    )
+
+
+def to_proto_notice(record: TenantNoticeRecord, *, staff: bool) -> pb.TenantNotice:
+    return pb.TenantNotice(
+        id=str(record.id),
+        subject=record.subject,
+        body=record.body,
+        language=record.language,
+        translated_subject=text(record.translated_subject),
+        translated_body=text(record.translated_body),
+        reason_code=text(record.reason_code),
+        edited=record.edited if staff else False,
+        approved_by_user_id=text(record.approved_by_user_id) if staff else "",
+        created_at=timestamp(record.created_at),
     )
 
 
@@ -217,7 +236,11 @@ class IntakeRpc:
         async with self._c.session_factory() as session:
             with operation_errors():
                 view = await OperationsService(session).get_request(request_id, viewer())
-        return pb.GetRequestResponse(request=to_proto_summary(view))
+            notices = await list_notices(session, request_id=request_id)
+        staff = viewer().can(Permission.INTAKE_READ_ALL)
+        return pb.GetRequestResponse(
+            request=to_proto_summary(view), notices=[to_proto_notice(n, staff=staff) for n in notices]
+        )
 
     async def get_decision_trail(
         self, request: pb.GetDecisionTrailRequest, ctx: RequestContext

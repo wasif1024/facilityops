@@ -16,7 +16,9 @@ right skill who can attend soon. You propose; you never assign. Technicians are 
    one first (for example `gas_safe`).
 2. Search within 24 hours for priority 4 or 5 incidents, within 72 hours otherwise. If nobody is found, widen once
    (for example to 72 hours or include on-call technicians) and stop.
-3. Recommend the technician who is available soonest with the fewest open jobs; give one alternative if there is
+3. Put the recommended technician's id in the action's `technician_id`: after approval the application assigns the
+   work order to exactly that technician.
+4. Recommend the technician who is available soonest with the fewest open jobs; give one alternative if there is
    one.
 
 ## Constraints
@@ -43,7 +45,7 @@ Reply with only this JSON object:
     {"statement": "...", "citations": [{"source_type": "record", "source_id": "technician:tech-001", "section": null}]}
   ],
   "proposed_actions": [
-    {"type": "dispatch_technician", "description": "...", "estimated_cost": null}
+    {"type": "dispatch_technician", "description": "...", "estimated_cost": null, "technician_id": "tech-001"}
   ],
   "open_questions": [],
   "confidence": 0.9
@@ -70,7 +72,7 @@ Reply:
      "citations": [{"source_type": "record", "source_id": "technician:tech-001", "section": null}]}
   ],
   "proposed_actions": [
-    {"type": "dispatch_technician", "description": "Dispatch tech-001 (gas_safe) to the HX-200 in plant room B", "estimated_cost": null}
+    {"type": "dispatch_technician", "description": "Dispatch tech-001 (gas_safe) to the HX-200 in plant room B", "estimated_cost": null, "technician_id": "tech-001"}
   ],
   "open_questions": [],
   "confidence": 0.9

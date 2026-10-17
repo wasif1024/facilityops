@@ -4,6 +4,8 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { TenantNotice } from "./intake_pb";
+import { file_facilityops_v1_intake } from "./intake_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
@@ -12,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file facilityops/v1/incidents.proto.
  */
 export const file_facilityops_v1_incidents: GenFile = /*@__PURE__*/
-  fileDesc("Ch5mYWNpbGl0eW9wcy92MS9pbmNpZGVudHMucHJvdG8SDmZhY2lsaXR5b3BzLnYxIp8CCghJbmNpZGVudBIKCgJpZBgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhUKDXdvcmtfb3JkZXJfaWQYAyABKAkSLgoGc3RhdHVzGAQgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSGQoRZXNjYWxhdGlvbl9yZWFzb24YBSABKAkSEwoLcmVhc29uX2NvZGUYBiABKAkSHAoUZXNjYWxhdGVkX2J5X3VzZXJfaWQYByABKAkSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiZQoUTGlzdEluY2lkZW50c1JlcXVlc3QSLgoGc3RhdHVzGAEgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFIlMKFUxpc3RJbmNpZGVudHNSZXNwb25zZRIrCglpbmNpZGVudHMYASADKAsyGC5mYWNpbGl0eW9wcy52MS5JbmNpZGVudBINCgV0b3RhbBgCIAEoBSIpChJHZXRJbmNpZGVudFJlcXVlc3QSEwoLaW5jaWRlbnRfaWQYASABKAkibQoTR2V0SW5jaWRlbnRSZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50EioKBXBsYW5zGAIgAygLMhsuZmFjaWxpdHlvcHMudjEuUGxhblZlcnNpb24iQwoIQ2l0YXRpb24SEwoLc291cmNlX3R5cGUYASABKAkSEQoJc291cmNlX2lkGAIgASgJEg8KB3NlY3Rpb24YAyABKAkibQoFQ2xhaW0SEQoJc3RhdGVtZW50GAEgASgJEhIKCnNwZWNpYWxpc3QYAiABKAkSKwoJY2l0YXRpb25zGAMgAygLMhguZmFjaWxpdHlvcHMudjEuQ2l0YXRpb24SEAoIdmVyaWZpZWQYBCABKAgiYwoOUHJvcG9zZWRBY3Rpb24SDAoEdHlwZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRIbCg5lc3RpbWF0ZWRfY29zdBgDIAEoAUgAiAEBQhEKD19lc3RpbWF0ZWRfY29zdCK7AwoLUGxhblZlcnNpb24SCgoCaWQYASABKAkSDwoHdmVyc2lvbhgCIAEoBRIPCgdzdW1tYXJ5GAMgASgJEiUKBmNsYWltcxgEIAMoCzIVLmZhY2lsaXR5b3BzLnYxLkNsYWltEi8KB2FjdGlvbnMYBSADKAsyHi5mYWNpbGl0eW9wcy52MS5Qcm9wb3NlZEFjdGlvbhIUCgxzYWZldHlfYmxvY2sYBiABKAgSFAoMc2FmZXR5X25vdGVzGAcgASgJEhYKDm9wZW5fcXVlc3Rpb25zGAggAygJEhwKFGVzdGltYXRlZF90b3RhbF9jb3N0GAkgASgBEg0KBWZsYWdzGAogAygJEg4KBnN0YXR1cxgLIAEoCRIQCghmZWVkYmFjaxgMIAEoCRIXCg9kZWNpc2lvbl9yZWFzb24YDSABKAkSGgoSZGVjaWRlZF9ieV91c2VyX2lkGA4gASgJEi4KCmRlY2lkZWRfYXQYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCmNyZWF0ZWRfYXQYECABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIrgBChlEZWNpZGVJbmNpZGVudFBsYW5SZXF1ZXN0EhMKC2luY2lkZW50X2lkGAEgASgJEg8KB3BsYW5faWQYAiABKAkSLgoIZGVjaXNpb24YAyABKA4yHC5mYWNpbGl0eW9wcy52MS5QbGFuRGVjaXNpb24SEAoIZmVlZGJhY2sYBCABKAkSGAoQcmVqZWN0aW9uX3JlYXNvbhgFIAEoCRIZChFjb25maXJtX2hpZ2hfY29zdBgGIAEoCCJ0ChpEZWNpZGVJbmNpZGVudFBsYW5SZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50EioKBXBsYW5zGAIgAygLMhsuZmFjaWxpdHlvcHMudjEuUGxhblZlcnNpb24iLAoWRXNjYWxhdGVSZXF1ZXN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIkUKF0VzY2FsYXRlUmVxdWVzdFJlc3BvbnNlEioKCGluY2lkZW50GAEgASgLMhguZmFjaWxpdHlvcHMudjEuSW5jaWRlbnQqqwIKDkluY2lkZW50U3RhdHVzEh8KG0lOQ0lERU5UX1NUQVRVU19VTlNQRUNJRklFRBAAEh0KGUlOQ0lERU5UX1NUQVRVU19FU0NBTEFURUQQARIhCh1JTkNJREVOVF9TVEFUVVNfSU5WRVNUSUdBVElORxACEh4KGklOQ0lERU5UX1NUQVRVU19QTEFOX1JFQURZEAMSIAocSU5DSURFTlRfU1RBVFVTX05FRURTX1JFVklFVxAEEhwKGElOQ0lERU5UX1NUQVRVU19BUFBST1ZFRBAFEhwKGElOQ0lERU5UX1NUQVRVU19SRUpFQ1RFRBAGEhoKFklOQ0lERU5UX1NUQVRVU19DTE9TRUQQBxIcChhJTkNJREVOVF9TVEFUVVNfUkVWSVNJTkcQCCp8CgxQbGFuRGVjaXNpb24SHQoZUExBTl9ERUNJU0lPTl9VTlNQRUNJRklFRBAAEhkKFVBMQU5fREVDSVNJT05fQVBQUk9WRRABEhgKFFBMQU5fREVDSVNJT05fUkVWSVNFEAISGAoUUExBTl9ERUNJU0lPTl9SRUpFQ1QQAzKYAwoPSW5jaWRlbnRTZXJ2aWNlElwKDUxpc3RJbmNpZGVudHMSJC5mYWNpbGl0eW9wcy52MS5MaXN0SW5jaWRlbnRzUmVxdWVzdBolLmZhY2lsaXR5b3BzLnYxLkxpc3RJbmNpZGVudHNSZXNwb25zZRJWCgtHZXRJbmNpZGVudBIiLmZhY2lsaXR5b3BzLnYxLkdldEluY2lkZW50UmVxdWVzdBojLmZhY2lsaXR5b3BzLnYxLkdldEluY2lkZW50UmVzcG9uc2USYgoPRXNjYWxhdGVSZXF1ZXN0EiYuZmFjaWxpdHlvcHMudjEuRXNjYWxhdGVSZXF1ZXN0UmVxdWVzdBonLmZhY2lsaXR5b3BzLnYxLkVzY2FsYXRlUmVxdWVzdFJlc3BvbnNlEmsKEkRlY2lkZUluY2lkZW50UGxhbhIpLmZhY2lsaXR5b3BzLnYxLkRlY2lkZUluY2lkZW50UGxhblJlcXVlc3QaKi5mYWNpbGl0eW9wcy52MS5EZWNpZGVJbmNpZGVudFBsYW5SZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("Ch5mYWNpbGl0eW9wcy92MS9pbmNpZGVudHMucHJvdG8SDmZhY2lsaXR5b3BzLnYxIp8CCghJbmNpZGVudBIKCgJpZBgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhUKDXdvcmtfb3JkZXJfaWQYAyABKAkSLgoGc3RhdHVzGAQgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSGQoRZXNjYWxhdGlvbl9yZWFzb24YBSABKAkSEwoLcmVhc29uX2NvZGUYBiABKAkSHAoUZXNjYWxhdGVkX2J5X3VzZXJfaWQYByABKAkSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAieQoUTGlzdEluY2lkZW50c1JlcXVlc3QSLgoGc3RhdHVzGAEgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEhIKCnJlcXVlc3RfaWQYBCABKAkiUwoVTGlzdEluY2lkZW50c1Jlc3BvbnNlEisKCWluY2lkZW50cxgBIAMoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50Eg0KBXRvdGFsGAIgASgFIikKEkdldEluY2lkZW50UmVxdWVzdBITCgtpbmNpZGVudF9pZBgBIAEoCSLmAQoTR2V0SW5jaWRlbnRSZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50EioKBXBsYW5zGAIgAygLMhsuZmFjaWxpdHlvcHMudjEuUGxhblZlcnNpb24SLwoHYWN0aW9ucxgDIAMoCzIeLmZhY2lsaXR5b3BzLnYxLkV4ZWN1dGVkQWN0aW9uEi0KB25vdGljZXMYBCADKAsyHC5mYWNpbGl0eW9wcy52MS5UZW5hbnROb3RpY2USFwoPdGVuYW50X2xhbmd1YWdlGAUgASgJIkMKCENpdGF0aW9uEhMKC3NvdXJjZV90eXBlGAEgASgJEhEKCXNvdXJjZV9pZBgCIAEoCRIPCgdzZWN0aW9uGAMgASgJIm0KBUNsYWltEhEKCXN0YXRlbWVudBgBIAEoCRISCgpzcGVjaWFsaXN0GAIgASgJEisKCWNpdGF0aW9ucxgDIAMoCzIYLmZhY2lsaXR5b3BzLnYxLkNpdGF0aW9uEhAKCHZlcmlmaWVkGAQgASgIIrABCg5Qcm9wb3NlZEFjdGlvbhIMCgR0eXBlGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEhsKDmVzdGltYXRlZF9jb3N0GAMgASgBSACIAQESFQoNdGVjaG5pY2lhbl9pZBgEIAEoCRIQCghwYXJ0X3NrdRgFIAEoCRIVCghxdWFudGl0eRgGIAEoBUgBiAEBQhEKD19lc3RpbWF0ZWRfY29zdEILCglfcXVhbnRpdHkirwIKDkV4ZWN1dGVkQWN0aW9uEgoKAmlkGAEgASgJEg8KB3BsYW5faWQYAiABKAkSEAoIcG9zaXRpb24YAyABKAUSEwoLYWN0aW9uX3R5cGUYBCABKAkSDgoGc3RhdHVzGAUgASgJEhMKC3JlYXNvbl9jb2RlGAYgASgJEhUKDXRlY2huaWNpYW5faWQYByABKAkSEAoIcGFydF9za3UYCCABKAkSFQoIcXVhbnRpdHkYCSABKAVIAIgBARIRCgRjb3N0GAogASgBSAGIAQESGwoTYXBwcm92ZWRfYnlfdXNlcl9pZBgLIAEoCRIuCgpjcmVhdGVkX2F0GAwgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEILCglfcXVhbnRpdHlCBwoFX2Nvc3Qi7wMKC1BsYW5WZXJzaW9uEgoKAmlkGAEgASgJEg8KB3ZlcnNpb24YAiABKAUSDwoHc3VtbWFyeRgDIAEoCRIlCgZjbGFpbXMYBCADKAsyFS5mYWNpbGl0eW9wcy52MS5DbGFpbRIvCgdhY3Rpb25zGAUgAygLMh4uZmFjaWxpdHlvcHMudjEuUHJvcG9zZWRBY3Rpb24SFAoMc2FmZXR5X2Jsb2NrGAYgASgIEhQKDHNhZmV0eV9ub3RlcxgHIAEoCRIWCg5vcGVuX3F1ZXN0aW9ucxgIIAMoCRIcChRlc3RpbWF0ZWRfdG90YWxfY29zdBgJIAEoARINCgVmbGFncxgKIAMoCRIOCgZzdGF0dXMYCyABKAkSEAoIZmVlZGJhY2sYDCABKAkSFwoPZGVjaXNpb25fcmVhc29uGA0gASgJEhoKEmRlY2lkZWRfYnlfdXNlcl9pZBgOIAEoCRIuCgpkZWNpZGVkX2F0GA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpjcmVhdGVkX2F0GBAgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg10ZW5hbnRfbm90aWNlGBEgASgLMhsuZmFjaWxpdHlvcHMudjEuTm90aWNlRHJhZnQiLAoLTm90aWNlRHJhZnQSDwoHc3ViamVjdBgBIAEoCRIMCgRib2R5GAIgASgJIrgBChlEZWNpZGVJbmNpZGVudFBsYW5SZXF1ZXN0EhMKC2luY2lkZW50X2lkGAEgASgJEg8KB3BsYW5faWQYAiABKAkSLgoIZGVjaXNpb24YAyABKA4yHC5mYWNpbGl0eW9wcy52MS5QbGFuRGVjaXNpb24SEAoIZmVlZGJhY2sYBCABKAkSGAoQcmVqZWN0aW9uX3JlYXNvbhgFIAEoCRIZChFjb25maXJtX2hpZ2hfY29zdBgGIAEoCCJ0ChpEZWNpZGVJbmNpZGVudFBsYW5SZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50EioKBXBsYW5zGAIgAygLMhsuZmFjaWxpdHlvcHMudjEuUGxhblZlcnNpb24iTQoXU2VuZFRlbmFudE5vdGljZVJlcXVlc3QSEwoLaW5jaWRlbnRfaWQYASABKAkSDwoHc3ViamVjdBgCIAEoCRIMCgRib2R5GAMgASgJIkgKGFNlbmRUZW5hbnROb3RpY2VSZXNwb25zZRIsCgZub3RpY2UYASABKAsyHC5mYWNpbGl0eW9wcy52MS5UZW5hbnROb3RpY2UiLAoWRXNjYWxhdGVSZXF1ZXN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIkUKF0VzY2FsYXRlUmVxdWVzdFJlc3BvbnNlEioKCGluY2lkZW50GAEgASgLMhguZmFjaWxpdHlvcHMudjEuSW5jaWRlbnQqqwIKDkluY2lkZW50U3RhdHVzEh8KG0lOQ0lERU5UX1NUQVRVU19VTlNQRUNJRklFRBAAEh0KGUlOQ0lERU5UX1NUQVRVU19FU0NBTEFURUQQARIhCh1JTkNJREVOVF9TVEFUVVNfSU5WRVNUSUdBVElORxACEh4KGklOQ0lERU5UX1NUQVRVU19QTEFOX1JFQURZEAMSIAocSU5DSURFTlRfU1RBVFVTX05FRURTX1JFVklFVxAEEhwKGElOQ0lERU5UX1NUQVRVU19BUFBST1ZFRBAFEhwKGElOQ0lERU5UX1NUQVRVU19SRUpFQ1RFRBAGEhoKFklOQ0lERU5UX1NUQVRVU19DTE9TRUQQBxIcChhJTkNJREVOVF9TVEFUVVNfUkVWSVNJTkcQCCp8CgxQbGFuRGVjaXNpb24SHQoZUExBTl9ERUNJU0lPTl9VTlNQRUNJRklFRBAAEhkKFVBMQU5fREVDSVNJT05fQVBQUk9WRRABEhgKFFBMQU5fREVDSVNJT05fUkVWSVNFEAISGAoUUExBTl9ERUNJU0lPTl9SRUpFQ1QQAzL/AwoPSW5jaWRlbnRTZXJ2aWNlElwKDUxpc3RJbmNpZGVudHMSJC5mYWNpbGl0eW9wcy52MS5MaXN0SW5jaWRlbnRzUmVxdWVzdBolLmZhY2lsaXR5b3BzLnYxLkxpc3RJbmNpZGVudHNSZXNwb25zZRJWCgtHZXRJbmNpZGVudBIiLmZhY2lsaXR5b3BzLnYxLkdldEluY2lkZW50UmVxdWVzdBojLmZhY2lsaXR5b3BzLnYxLkdldEluY2lkZW50UmVzcG9uc2USYgoPRXNjYWxhdGVSZXF1ZXN0EiYuZmFjaWxpdHlvcHMudjEuRXNjYWxhdGVSZXF1ZXN0UmVxdWVzdBonLmZhY2lsaXR5b3BzLnYxLkVzY2FsYXRlUmVxdWVzdFJlc3BvbnNlEmsKEkRlY2lkZUluY2lkZW50UGxhbhIpLmZhY2lsaXR5b3BzLnYxLkRlY2lkZUluY2lkZW50UGxhblJlcXVlc3QaKi5mYWNpbGl0eW9wcy52MS5EZWNpZGVJbmNpZGVudFBsYW5SZXNwb25zZRJlChBTZW5kVGVuYW50Tm90aWNlEicuZmFjaWxpdHlvcHMudjEuU2VuZFRlbmFudE5vdGljZVJlcXVlc3QaKC5mYWNpbGl0eW9wcy52MS5TZW5kVGVuYW50Tm90aWNlUmVzcG9uc2ViBnByb3RvMw", [file_facilityops_v1_intake, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message facilityops.v1.Incident
@@ -97,6 +99,13 @@ export type ListIncidentsRequest = Message<"facilityops.v1.ListIncidentsRequest"
    * @generated from field: int32 offset = 3;
    */
   offset: number;
+
+  /**
+   * Only the incident of this request (there is at most one).
+   *
+   * @generated from field: string request_id = 4;
+   */
+  requestId: string;
 };
 
 /**
@@ -160,6 +169,27 @@ export type GetIncidentResponse = Message<"facilityops.v1.GetIncidentResponse"> 
    * @generated from field: repeated facilityops.v1.PlanVersion plans = 2;
    */
   plans: PlanVersion[];
+
+  /**
+   * What the application did for approved plans, in order.
+   *
+   * @generated from field: repeated facilityops.v1.ExecutedAction actions = 3;
+   */
+  actions: ExecutedAction[];
+
+  /**
+   * Notices sent to the tenant, newest first.
+   *
+   * @generated from field: repeated facilityops.v1.TenantNotice notices = 4;
+   */
+  notices: TenantNotice[];
+
+  /**
+   * The language a notice will be translated into ("en" when none is needed).
+   *
+   * @generated from field: string tenant_language = 5;
+   */
+  tenantLanguage: string;
 };
 
 /**
@@ -254,6 +284,24 @@ export type ProposedAction = Message<"facilityops.v1.ProposedAction"> & {
    * @generated from field: optional double estimated_cost = 3;
    */
   estimatedCost?: number | undefined;
+
+  /**
+   * What the application uses to carry the action out after approval: a technician profile id
+   * (for example "tech-001") for dispatch_technician, a part sku and quantity for order_part.
+   *
+   * @generated from field: string technician_id = 4;
+   */
+  technicianId: string;
+
+  /**
+   * @generated from field: string part_sku = 5;
+   */
+  partSku: string;
+
+  /**
+   * @generated from field: optional int32 quantity = 6;
+   */
+  quantity?: number | undefined;
 };
 
 /**
@@ -262,6 +310,89 @@ export type ProposedAction = Message<"facilityops.v1.ProposedAction"> & {
  */
 export const ProposedActionSchema: GenMessage<ProposedAction> = /*@__PURE__*/
   messageDesc(file_facilityops_v1_incidents, 7);
+
+/**
+ * What the application did with one action of an approved plan. The model only proposes; the
+ * application does each action with its own rules (FR-25).
+ *
+ * @generated from message facilityops.v1.ExecutedAction
+ */
+export type ExecutedAction = Message<"facilityops.v1.ExecutedAction"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string plan_id = 2;
+   */
+  planId: string;
+
+  /**
+   * The action's place in the plan's action list.
+   *
+   * @generated from field: int32 position = 3;
+   */
+  position: number;
+
+  /**
+   * @generated from field: string action_type = 4;
+   */
+  actionType: string;
+
+  /**
+   * "done", "requested", "queued", "recorded" or "failed".
+   *
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * What happened or why it failed, for example "assigned" or "technician_inactive".
+   *
+   * @generated from field: string reason_code = 6;
+   */
+  reasonCode: string;
+
+  /**
+   * @generated from field: string technician_id = 7;
+   */
+  technicianId: string;
+
+  /**
+   * @generated from field: string part_sku = 8;
+   */
+  partSku: string;
+
+  /**
+   * @generated from field: optional int32 quantity = 9;
+   */
+  quantity?: number | undefined;
+
+  /**
+   * Priced by the application from the parts table, not taken from the model's estimate.
+   *
+   * @generated from field: optional double cost = 10;
+   */
+  cost?: number | undefined;
+
+  /**
+   * @generated from field: string approved_by_user_id = 11;
+   */
+  approvedByUserId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 12;
+   */
+  createdAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.ExecutedAction.
+ * Use `create(ExecutedActionSchema)` to create a new message.
+ */
+export const ExecutedActionSchema: GenMessage<ExecutedAction> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 8);
 
 /**
  * @generated from message facilityops.v1.PlanVersion
@@ -350,6 +481,13 @@ export type PlanVersion = Message<"facilityops.v1.PlanVersion"> & {
    * @generated from field: google.protobuf.Timestamp created_at = 16;
    */
   createdAt?: Timestamp | undefined;
+
+  /**
+   * The communicator's English draft for the tenant; empty when none was written.
+   *
+   * @generated from field: facilityops.v1.NoticeDraft tenant_notice = 17;
+   */
+  tenantNotice?: NoticeDraft | undefined;
 };
 
 /**
@@ -357,7 +495,29 @@ export type PlanVersion = Message<"facilityops.v1.PlanVersion"> & {
  * Use `create(PlanVersionSchema)` to create a new message.
  */
 export const PlanVersionSchema: GenMessage<PlanVersion> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 8);
+  messageDesc(file_facilityops_v1_incidents, 9);
+
+/**
+ * @generated from message facilityops.v1.NoticeDraft
+ */
+export type NoticeDraft = Message<"facilityops.v1.NoticeDraft"> & {
+  /**
+   * @generated from field: string subject = 1;
+   */
+  subject: string;
+
+  /**
+   * @generated from field: string body = 2;
+   */
+  body: string;
+};
+
+/**
+ * Describes the message facilityops.v1.NoticeDraft.
+ * Use `create(NoticeDraftSchema)` to create a new message.
+ */
+export const NoticeDraftSchema: GenMessage<NoticeDraft> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 10);
 
 /**
  * @generated from message facilityops.v1.DecideIncidentPlanRequest
@@ -405,7 +565,7 @@ export type DecideIncidentPlanRequest = Message<"facilityops.v1.DecideIncidentPl
  * Use `create(DecideIncidentPlanRequestSchema)` to create a new message.
  */
 export const DecideIncidentPlanRequestSchema: GenMessage<DecideIncidentPlanRequest> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 9);
+  messageDesc(file_facilityops_v1_incidents, 11);
 
 /**
  * @generated from message facilityops.v1.DecideIncidentPlanResponse
@@ -427,7 +587,53 @@ export type DecideIncidentPlanResponse = Message<"facilityops.v1.DecideIncidentP
  * Use `create(DecideIncidentPlanResponseSchema)` to create a new message.
  */
 export const DecideIncidentPlanResponseSchema: GenMessage<DecideIncidentPlanResponse> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 10);
+  messageDesc(file_facilityops_v1_incidents, 12);
+
+/**
+ * @generated from message facilityops.v1.SendTenantNoticeRequest
+ */
+export type SendTenantNoticeRequest = Message<"facilityops.v1.SendTenantNoticeRequest"> & {
+  /**
+   * @generated from field: string incident_id = 1;
+   */
+  incidentId: string;
+
+  /**
+   * The English text a facility manager approves: the draft as written, or edited. No personal data.
+   *
+   * @generated from field: string subject = 2;
+   */
+  subject: string;
+
+  /**
+   * @generated from field: string body = 3;
+   */
+  body: string;
+};
+
+/**
+ * Describes the message facilityops.v1.SendTenantNoticeRequest.
+ * Use `create(SendTenantNoticeRequestSchema)` to create a new message.
+ */
+export const SendTenantNoticeRequestSchema: GenMessage<SendTenantNoticeRequest> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 13);
+
+/**
+ * @generated from message facilityops.v1.SendTenantNoticeResponse
+ */
+export type SendTenantNoticeResponse = Message<"facilityops.v1.SendTenantNoticeResponse"> & {
+  /**
+   * @generated from field: facilityops.v1.TenantNotice notice = 1;
+   */
+  notice?: TenantNotice | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.SendTenantNoticeResponse.
+ * Use `create(SendTenantNoticeResponseSchema)` to create a new message.
+ */
+export const SendTenantNoticeResponseSchema: GenMessage<SendTenantNoticeResponse> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 14);
 
 /**
  * @generated from message facilityops.v1.EscalateRequestRequest
@@ -444,7 +650,7 @@ export type EscalateRequestRequest = Message<"facilityops.v1.EscalateRequestRequ
  * Use `create(EscalateRequestRequestSchema)` to create a new message.
  */
 export const EscalateRequestRequestSchema: GenMessage<EscalateRequestRequest> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 11);
+  messageDesc(file_facilityops_v1_incidents, 15);
 
 /**
  * @generated from message facilityops.v1.EscalateRequestResponse
@@ -461,7 +667,7 @@ export type EscalateRequestResponse = Message<"facilityops.v1.EscalateRequestRes
  * Use `create(EscalateRequestResponseSchema)` to create a new message.
  */
 export const EscalateRequestResponseSchema: GenMessage<EscalateRequestResponse> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 12);
+  messageDesc(file_facilityops_v1_incidents, 16);
 
 /**
  * @generated from enum facilityops.v1.IncidentStatus
@@ -607,6 +813,17 @@ export const IncidentService: GenService<{
     methodKind: "unary";
     input: typeof DecideIncidentPlanRequestSchema;
     output: typeof DecideIncidentPlanResponseSchema;
+  },
+  /**
+   * Approve the English notice for the tenant (edited or as drafted) once the plan is approved.
+   * The application translates it into the tenant's language. Requires incidents:manage.
+   *
+   * @generated from rpc facilityops.v1.IncidentService.SendTenantNotice
+   */
+  sendTenantNotice: {
+    methodKind: "unary";
+    input: typeof SendTenantNoticeRequestSchema;
+    output: typeof SendTenantNoticeResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_facilityops_v1_incidents, 0);

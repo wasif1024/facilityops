@@ -263,7 +263,8 @@ class AzureMediaTranscriber:
 
 
 class AzureTranslator:
-    """Azure AI Translator (Text v3.0) for staff translations, with Entra ID.
+    """Azure AI Translator (Text v3.0), with Entra ID: requests into the staff language (FR-60)
+    and approved tenant notices into the tenant's language (FR-61).
 
     Called with redacted text only. [PII_nnnn] placeholders pass through unchanged, so the
     reveal mapping applies to the translation too; a translation that lost a placeholder is
@@ -275,13 +276,15 @@ class AzureTranslator:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def translate(self, text: str, *, source_language: str | None) -> Translation | None:
+    async def translate(
+        self, text: str, *, source_language: str | None, target_language: str | None = None
+    ) -> Translation | None:
         if not self._settings.translator_endpoint:
             raise RuntimeError("TRANSLATOR_ENDPOINT is not configured")
         import httpx
         from azure.identity.aio import DefaultAzureCredential
 
-        target = self._settings.staff_language
+        target = target_language or self._settings.staff_language
         params = {"api-version": self._API_VERSION, "to": target}
         if source_language:
             params["from"] = source_language

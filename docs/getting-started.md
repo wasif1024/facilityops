@@ -158,6 +158,27 @@ curl -s localhost:8000/facilityops.v1.UserAdminService/ListUsers \
 # {"code": "permission_denied", "message": "Insufficient permissions"}
 ```
 
+## Try the AI incident team
+
+Needs `FOUNDRY_ENDPOINT` in `.env`, the synthetic facility data (`scripts/db.sh seed-world`) and the worker, which
+`scripts/dev.sh` starts for you.
+
+1. As **`alice`**, report: *"The boiler HX-200 in plant room B at Harbor View shows error E04 again and the radiators
+   are cold."* It is classified as heating, priority 4, so a work order waits for approval and the request goes to
+   the incident team. Alice sees **Being investigated**.
+2. As **`fm`**, open the request (or its work order). The **Incident team** panel shows the specialists working,
+   then the plan after a minute or two: the evidence with citations, the flags and the proposed actions.
+3. This boiler's gas work permit has expired in the synthetic data, so the plan is **safety-blocked** and can't be
+   approved. That is the system working: no agent and no person can approve unsafe work.
+4. Use **Ask for a revision** or **Reject**. To see an approval go through, report a problem whose plan isn't
+   blocked, or send any other request to the team with **Send to incident team**.
+5. After **Approve plan**, the application (not an agent) opens the work order, assigns the named technician (who
+   then sees it as **`tech`**), raises purchase and visit requests and records lockout. Each action shows its result
+   in the panel and as a step in the **Decision trail**.
+6. Still in the panel, **Notice to the tenant** holds the AI communicator's English draft. Edit it if you like and
+   choose **Approve and send**. If the tenant wrote in French or Spanish, the application translates it; as
+   **`alice`**, open the request to read it under **Messages from facility management**.
+
 ## Run the tests
 
 ```bash

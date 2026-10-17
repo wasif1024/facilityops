@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react"
 
 import {
   categoryLabels,
+  incidentStatusFromName,
   intakeStatusLabel,
   reasonLabel,
   sourceLabels,
@@ -15,6 +16,8 @@ import { PriorityBadge, StatusBadge } from "@/components/app/badges"
 import { Pagination, useFilterParam, usePage } from "@/components/app/pagination"
 import { RevealButton, useReveal } from "@/components/app/redacted-text"
 import { TranslatedText } from "@/components/app/translated-text"
+import { IncidentPanel } from "@/features/incidents/incident-panel"
+import { NoticesCard } from "@/features/incidents/tenant-notices"
 import { DecisionTrailCard } from "@/features/requests/decision-trail"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
 import { TimeAgo } from "@/components/app/time"
@@ -50,9 +53,11 @@ function RequestText({ request, audience }: { request: IntakeRequestSummary; aud
 function RequestStatus({ request, audience }: { request: IntakeRequestSummary; audience: Audience }) {
   const status = intakeStatusLabel(request.status, audience)
   const workOrder = workOrderStatusFromName(request.workOrderStatus)
+  const incident = incidentStatusFromName(request.incidentStatus, audience)
   return (
     <div className="flex flex-wrap gap-1">
       <StatusBadge {...status} />
+      {incident && <StatusBadge label={audience === "staff" ? `Incident: ${incident.label}` : incident.label} tone={incident.tone} />}
       {workOrder && request.status !== IntakeStatus.DISMISSED && <StatusBadge label={`Work order: ${workOrder.label}`} tone={workOrder.tone} />}
     </div>
   )
@@ -226,6 +231,7 @@ export function RequestDetailPage() {
       ) : request ? (
         <div className="space-y-4">
           <PageHeader title="Request" description={<TimeAgo value={request.createdAt} />} />
+          {audience === "tenant" && <NoticesCard notices={data?.notices ?? []} />}
           <Card>
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center gap-2 text-base">
@@ -285,6 +291,10 @@ export function RequestDetailPage() {
               </ol>
             </CardContent>
           </Card>
+          <IncidentPanel
+            requestId={request.requestId}
+            canEscalate={request.status !== IntakeStatus.EMERGENCY_HANDOFF && request.status !== IntakeStatus.DISMISSED}
+          />
           {can(Permission.DecisionsRead) && <DecisionTrailCard requestId={request.requestId} />}
         </div>
       ) : null}

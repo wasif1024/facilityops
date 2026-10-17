@@ -12,9 +12,13 @@ from protobuf import Enum, Message
 from protobuf._codegen import file_desc
 from protobuf.wkt.google.protobuf import timestamp_pb
 
+from . import intake_pb
+
 if TYPE_CHECKING:
     from protobuf import DescFile
     from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
+
+    from .intake_pb import TenantNotice
 
 
 _IncidentFields: TypeAlias = Literal["id", "request_id", "work_order_id", "status", "escalation_reason", "reason_code", "escalated_by_user_id", "created_at", "updated_at"]
@@ -99,7 +103,7 @@ class Incident(Message[_IncidentFields]):
         created_at: Timestamp | None
         updated_at: Timestamp | None
 
-_ListIncidentsRequestFields: TypeAlias = Literal["status", "limit", "offset"]
+_ListIncidentsRequestFields: TypeAlias = Literal["status", "limit", "offset", "request_id"]
 
 class ListIncidentsRequest(Message[_ListIncidentsRequestFields]):
     """
@@ -122,9 +126,15 @@ class ListIncidentsRequest(Message[_ListIncidentsRequestFields]):
             ```proto
             int32 offset = 3;
             ```
+        request_id:
+            Only the incident of this request (there is at most one).
+
+            ```proto
+            string request_id = 4;
+            ```
     """
 
-    __slots__ = ("status", "limit", "offset")
+    __slots__ = ("status", "limit", "offset", "request_id")
 
     if TYPE_CHECKING:
 
@@ -134,12 +144,14 @@ class ListIncidentsRequest(Message[_ListIncidentsRequestFields]):
             status: IncidentStatus | None = None,
             limit: int = 0,
             offset: int = 0,
+            request_id: str = "",
         ) -> None:
             pass
 
         status: IncidentStatus
         limit: int
         offset: int
+        request_id: str
 
 _ListIncidentsResponseFields: TypeAlias = Literal["incidents", "total"]
 
@@ -203,7 +215,7 @@ class GetIncidentRequest(Message[_GetIncidentRequestFields]):
 
         incident_id: str
 
-_GetIncidentResponseFields: TypeAlias = Literal["incident", "plans"]
+_GetIncidentResponseFields: TypeAlias = Literal["incident", "plans", "actions", "notices", "tenant_language"]
 
 class GetIncidentResponse(Message[_GetIncidentResponseFields]):
     """
@@ -222,9 +234,27 @@ class GetIncidentResponse(Message[_GetIncidentResponseFields]):
             ```proto
             repeated facilityops.v1.PlanVersion plans = 2;
             ```
+        actions:
+            What the application did for approved plans, in order.
+
+            ```proto
+            repeated facilityops.v1.ExecutedAction actions = 3;
+            ```
+        notices:
+            Notices sent to the tenant, newest first.
+
+            ```proto
+            repeated facilityops.v1.TenantNotice notices = 4;
+            ```
+        tenant_language:
+            The language a notice will be translated into ("en" when none is needed).
+
+            ```proto
+            string tenant_language = 5;
+            ```
     """
 
-    __slots__ = ("incident", "plans")
+    __slots__ = ("incident", "plans", "actions", "notices", "tenant_language")
 
     if TYPE_CHECKING:
 
@@ -233,11 +263,17 @@ class GetIncidentResponse(Message[_GetIncidentResponseFields]):
             *,
             incident: Incident | None = None,
             plans: list[PlanVersion] | None = None,
+            actions: list[ExecutedAction] | None = None,
+            notices: list[TenantNotice] | None = None,
+            tenant_language: str = "",
         ) -> None:
             pass
 
         incident: Incident | None
         plans: list[PlanVersion]
+        actions: list[ExecutedAction]
+        notices: list[TenantNotice]
+        tenant_language: str
 
 _CitationFields: TypeAlias = Literal["source_type", "source_id", "section"]
 
@@ -331,7 +367,7 @@ class Claim(Message[_ClaimFields]):
         citations: list[Citation]
         verified: bool
 
-_ProposedActionFields: TypeAlias = Literal["type", "description", "estimated_cost"]
+_ProposedActionFields: TypeAlias = Literal["type", "description", "estimated_cost", "technician_id", "part_sku", "quantity"]
 
 class ProposedAction(Message[_ProposedActionFields]):
     """
@@ -354,9 +390,24 @@ class ProposedAction(Message[_ProposedActionFields]):
             ```proto
             optional double estimated_cost = 3;
             ```
+        technician_id:
+            What the application uses to carry the action out after approval: a technician profile id
+            (for example "tech-001") for dispatch_technician, a part sku and quantity for order_part.
+
+            ```proto
+            string technician_id = 4;
+            ```
+        part_sku:
+            ```proto
+            string part_sku = 5;
+            ```
+        quantity:
+            ```proto
+            optional int32 quantity = 6;
+            ```
     """
 
-    __slots__ = ("type", "description", "estimated_cost")
+    __slots__ = ("type", "description", "estimated_cost", "technician_id", "part_sku", "quantity")
 
     if TYPE_CHECKING:
 
@@ -366,14 +417,125 @@ class ProposedAction(Message[_ProposedActionFields]):
             type: str = "",
             description: str = "",
             estimated_cost: float | None = None,
+            technician_id: str = "",
+            part_sku: str = "",
+            quantity: int | None = None,
         ) -> None:
             pass
 
         type: str
         description: str
         estimated_cost: float
+        technician_id: str
+        part_sku: str
+        quantity: int
 
-_PlanVersionFields: TypeAlias = Literal["id", "version", "summary", "claims", "actions", "safety_block", "safety_notes", "open_questions", "estimated_total_cost", "flags", "status", "feedback", "decision_reason", "decided_by_user_id", "decided_at", "created_at"]
+_ExecutedActionFields: TypeAlias = Literal["id", "plan_id", "position", "action_type", "status", "reason_code", "technician_id", "part_sku", "quantity", "cost", "approved_by_user_id", "created_at"]
+
+class ExecutedAction(Message[_ExecutedActionFields]):
+    """
+    What the application did with one action of an approved plan. The model only proposes; the
+    application does each action with its own rules (FR-25).
+
+    ```proto
+    message facilityops.v1.ExecutedAction
+    ```
+
+    Attributes:
+        id:
+            ```proto
+            string id = 1;
+            ```
+        plan_id:
+            ```proto
+            string plan_id = 2;
+            ```
+        position:
+            The action's place in the plan's action list.
+
+            ```proto
+            int32 position = 3;
+            ```
+        action_type:
+            ```proto
+            string action_type = 4;
+            ```
+        status:
+            "done", "requested", "queued", "recorded" or "failed".
+
+            ```proto
+            string status = 5;
+            ```
+        reason_code:
+            What happened or why it failed, for example "assigned" or "technician_inactive".
+
+            ```proto
+            string reason_code = 6;
+            ```
+        technician_id:
+            ```proto
+            string technician_id = 7;
+            ```
+        part_sku:
+            ```proto
+            string part_sku = 8;
+            ```
+        quantity:
+            ```proto
+            optional int32 quantity = 9;
+            ```
+        cost:
+            Priced by the application from the parts table, not taken from the model's estimate.
+
+            ```proto
+            optional double cost = 10;
+            ```
+        approved_by_user_id:
+            ```proto
+            string approved_by_user_id = 11;
+            ```
+        created_at:
+            ```proto
+            optional google.protobuf.Timestamp created_at = 12;
+            ```
+    """
+
+    __slots__ = ("id", "plan_id", "position", "action_type", "status", "reason_code", "technician_id", "part_sku", "quantity", "cost", "approved_by_user_id", "created_at")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            id: str = "",
+            plan_id: str = "",
+            position: int = 0,
+            action_type: str = "",
+            status: str = "",
+            reason_code: str = "",
+            technician_id: str = "",
+            part_sku: str = "",
+            quantity: int | None = None,
+            cost: float | None = None,
+            approved_by_user_id: str = "",
+            created_at: Timestamp | None = None,
+        ) -> None:
+            pass
+
+        id: str
+        plan_id: str
+        position: int
+        action_type: str
+        status: str
+        reason_code: str
+        technician_id: str
+        part_sku: str
+        quantity: int
+        cost: float
+        approved_by_user_id: str
+        created_at: Timestamp | None
+
+_PlanVersionFields: TypeAlias = Literal["id", "version", "summary", "claims", "actions", "safety_block", "safety_notes", "open_questions", "estimated_total_cost", "flags", "status", "feedback", "decision_reason", "decided_by_user_id", "decided_at", "created_at", "tenant_notice"]
 
 class PlanVersion(Message[_PlanVersionFields]):
     """
@@ -450,9 +612,15 @@ class PlanVersion(Message[_PlanVersionFields]):
             ```proto
             optional google.protobuf.Timestamp created_at = 16;
             ```
+        tenant_notice:
+            The communicator's English draft for the tenant; empty when none was written.
+
+            ```proto
+            optional facilityops.v1.NoticeDraft tenant_notice = 17;
+            ```
     """
 
-    __slots__ = ("id", "version", "summary", "claims", "actions", "safety_block", "safety_notes", "open_questions", "estimated_total_cost", "flags", "status", "feedback", "decision_reason", "decided_by_user_id", "decided_at", "created_at")
+    __slots__ = ("id", "version", "summary", "claims", "actions", "safety_block", "safety_notes", "open_questions", "estimated_total_cost", "flags", "status", "feedback", "decision_reason", "decided_by_user_id", "decided_at", "created_at", "tenant_notice")
 
     if TYPE_CHECKING:
 
@@ -475,6 +643,7 @@ class PlanVersion(Message[_PlanVersionFields]):
             decided_by_user_id: str = "",
             decided_at: Timestamp | None = None,
             created_at: Timestamp | None = None,
+            tenant_notice: NoticeDraft | None = None,
         ) -> None:
             pass
 
@@ -494,6 +663,41 @@ class PlanVersion(Message[_PlanVersionFields]):
         decided_by_user_id: str
         decided_at: Timestamp | None
         created_at: Timestamp | None
+        tenant_notice: NoticeDraft | None
+
+_NoticeDraftFields: TypeAlias = Literal["subject", "body"]
+
+class NoticeDraft(Message[_NoticeDraftFields]):
+    """
+    ```proto
+    message facilityops.v1.NoticeDraft
+    ```
+
+    Attributes:
+        subject:
+            ```proto
+            string subject = 1;
+            ```
+        body:
+            ```proto
+            string body = 2;
+            ```
+    """
+
+    __slots__ = ("subject", "body")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            subject: str = "",
+            body: str = "",
+        ) -> None:
+            pass
+
+        subject: str
+        body: str
 
 _DecideIncidentPlanRequestFields: TypeAlias = Literal["incident_id", "plan_id", "decision", "feedback", "rejection_reason", "confirm_high_cost"]
 
@@ -592,6 +796,76 @@ class DecideIncidentPlanResponse(Message[_DecideIncidentPlanResponseFields]):
 
         incident: Incident | None
         plans: list[PlanVersion]
+
+_SendTenantNoticeRequestFields: TypeAlias = Literal["incident_id", "subject", "body"]
+
+class SendTenantNoticeRequest(Message[_SendTenantNoticeRequestFields]):
+    """
+    ```proto
+    message facilityops.v1.SendTenantNoticeRequest
+    ```
+
+    Attributes:
+        incident_id:
+            ```proto
+            string incident_id = 1;
+            ```
+        subject:
+            The English text a facility manager approves: the draft as written, or edited. No personal data.
+
+            ```proto
+            string subject = 2;
+            ```
+        body:
+            ```proto
+            string body = 3;
+            ```
+    """
+
+    __slots__ = ("incident_id", "subject", "body")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            incident_id: str = "",
+            subject: str = "",
+            body: str = "",
+        ) -> None:
+            pass
+
+        incident_id: str
+        subject: str
+        body: str
+
+_SendTenantNoticeResponseFields: TypeAlias = Literal["notice"]
+
+class SendTenantNoticeResponse(Message[_SendTenantNoticeResponseFields]):
+    """
+    ```proto
+    message facilityops.v1.SendTenantNoticeResponse
+    ```
+
+    Attributes:
+        notice:
+            ```proto
+            optional facilityops.v1.TenantNotice notice = 1;
+            ```
+    """
+
+    __slots__ = ("notice",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            notice: TenantNotice | None = None,
+        ) -> None:
+            pass
+
+        notice: TenantNotice | None
 
 _EscalateRequestRequestFields: TypeAlias = Literal["request_id"]
 
@@ -744,8 +1018,9 @@ class PlanDecision(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x1efacilityops/v1/incidents.proto\x12\x0efacilityops.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\x8a\x03\n\x08Incident\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nrequest_id\x18\x02 \x01(\tR\trequestId\x12"\n\rwork_order_id\x18\x03 \x01(\tR\x0bworkOrderId\x126\n\x06status\x18\x04 \x01(\x0e2\x1e.facilityops.v1.IncidentStatusR\x06status\x12+\n\x11escalation_reason\x18\x05 \x01(\tR\x10escalationReason\x12\x1f\n\x0breason_code\x18\x06 \x01(\tR\nreasonCode\x12/\n\x14escalated_by_user_id\x18\x07 \x01(\tR\x11escalatedByUserId\x129\n\ncreated_at\x18\x08 \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n\nupdated_at\x18\t \x01(\x0b2\x1a.google.protobuf.TimestampR\tupdatedAt"|\n\x14ListIncidentsRequest\x126\n\x06status\x18\x01 \x01(\x0e2\x1e.facilityops.v1.IncidentStatusR\x06status\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x03 \x01(\x05R\x06offset"e\n\x15ListIncidentsResponse\x126\n\tincidents\x18\x01 \x03(\x0b2\x18.facilityops.v1.IncidentR\tincidents\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"5\n\x12GetIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"~\n\x13GetIncidentResponse\x124\n\x08incident\x18\x01 \x01(\x0b2\x18.facilityops.v1.IncidentR\x08incident\x121\n\x05plans\x18\x02 \x03(\x0b2\x1b.facilityops.v1.PlanVersionR\x05plans"b\n\x08Citation\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x1b\n\tsource_id\x18\x02 \x01(\tR\x08sourceId\x12\x18\n\x07section\x18\x03 \x01(\tR\x07section"\x99\x01\n\x05Claim\x12\x1c\n\tstatement\x18\x01 \x01(\tR\tstatement\x12\x1e\n\nspecialist\x18\x02 \x01(\tR\nspecialist\x126\n\tcitations\x18\x03 \x03(\x0b2\x18.facilityops.v1.CitationR\tcitations\x12\x1a\n\x08verified\x18\x04 \x01(\x08R\x08verified"\x85\x01\n\x0eProposedAction\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12 \n\x0bdescription\x18\x02 \x01(\tR\x0bdescription\x12*\n\x0eestimated_cost\x18\x03 \x01(\x01H\x00R\restimatedCost\x88\x01\x01B\x11\n\x0f_estimated_cost"\xef\x04\n\x0bPlanVersion\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\x05R\x07version\x12\x18\n\x07summary\x18\x03 \x01(\tR\x07summary\x12-\n\x06claims\x18\x04 \x03(\x0b2\x15.facilityops.v1.ClaimR\x06claims\x128\n\x07actions\x18\x05 \x03(\x0b2\x1e.facilityops.v1.ProposedActionR\x07actions\x12!\n\x0csafety_block\x18\x06 \x01(\x08R\x0bsafetyBlock\x12!\n\x0csafety_notes\x18\x07 \x01(\tR\x0bsafetyNotes\x12%\n\x0eopen_questions\x18\x08 \x03(\tR\ropenQuestions\x120\n\x14estimated_total_cost\x18\t \x01(\x01R\x12estimatedTotalCost\x12\x14\n\x05flags\x18\n \x03(\tR\x05flags\x12\x16\n\x06status\x18\x0b \x01(\tR\x06status\x12\x1a\n\x08feedback\x18\x0c \x01(\tR\x08feedback\x12\'\n\x0fdecision_reason\x18\r \x01(\tR\x0edecisionReason\x12+\n\x12decided_by_user_id\x18\x0e \x01(\tR\x0fdecidedByUserId\x129\n\ndecided_at\x18\x0f \x01(\x0b2\x1a.google.protobuf.TimestampR\tdecidedAt\x129\n\ncreated_at\x18\x10 \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt"\x82\x02\n\x19DecideIncidentPlanRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12\x17\n\x07plan_id\x18\x02 \x01(\tR\x06planId\x128\n\x08decision\x18\x03 \x01(\x0e2\x1c.facilityops.v1.PlanDecisionR\x08decision\x12\x1a\n\x08feedback\x18\x04 \x01(\tR\x08feedback\x12)\n\x10rejection_reason\x18\x05 \x01(\tR\x0frejectionReason\x12*\n\x11confirm_high_cost\x18\x06 \x01(\x08R\x0fconfirmHighCost"\x85\x01\n\x1aDecideIncidentPlanResponse\x124\n\x08incident\x18\x01 \x01(\x0b2\x18.facilityops.v1.IncidentR\x08incident\x121\n\x05plans\x18\x02 \x03(\x0b2\x1b.facilityops.v1.PlanVersionR\x05plans"7\n\x16EscalateRequestRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId"O\n\x17EscalateRequestResponse\x124\n\x08incident\x18\x01 \x01(\x0b2\x18.facilityops.v1.IncidentR\x08incident*\xab\x02\n\x0eIncidentStatus\x12\x1f\n\x1bINCIDENT_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n\x19INCIDENT_STATUS_ESCALATED\x10\x01\x12!\n\x1dINCIDENT_STATUS_INVESTIGATING\x10\x02\x12\x1e\n\x1aINCIDENT_STATUS_PLAN_READY\x10\x03\x12 \n\x1cINCIDENT_STATUS_NEEDS_REVIEW\x10\x04\x12\x1c\n\x18INCIDENT_STATUS_APPROVED\x10\x05\x12\x1c\n\x18INCIDENT_STATUS_REJECTED\x10\x06\x12\x1a\n\x16INCIDENT_STATUS_CLOSED\x10\x07\x12\x1c\n\x18INCIDENT_STATUS_REVISING\x10\x08*|\n\x0cPlanDecision\x12\x1d\n\x19PLAN_DECISION_UNSPECIFIED\x10\x00\x12\x19\n\x15PLAN_DECISION_APPROVE\x10\x01\x12\x18\n\x14PLAN_DECISION_REVISE\x10\x02\x12\x18\n\x14PLAN_DECISION_REJECT\x10\x032\x98\x03\n\x0fIncidentService\x12\\\n\rListIncidents\x12$.facilityops.v1.ListIncidentsRequest\x1a%.facilityops.v1.ListIncidentsResponse\x12V\n\x0bGetIncident\x12".facilityops.v1.GetIncidentRequest\x1a#.facilityops.v1.GetIncidentResponse\x12b\n\x0fEscalateRequest\x12&.facilityops.v1.EscalateRequestRequest\x1a\'.facilityops.v1.EscalateRequestResponse\x12k\n\x12DecideIncidentPlan\x12).facilityops.v1.DecideIncidentPlanRequest\x1a*.facilityops.v1.DecideIncidentPlanResponseb\x06proto3',
+    b'\n\x1efacilityops/v1/incidents.proto\x12\x0efacilityops.v1\x1a\x1bfacilityops/v1/intake.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x8a\x03\n\x08Incident\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nrequest_id\x18\x02 \x01(\tR\trequestId\x12"\n\rwork_order_id\x18\x03 \x01(\tR\x0bworkOrderId\x126\n\x06status\x18\x04 \x01(\x0e2\x1e.facilityops.v1.IncidentStatusR\x06status\x12+\n\x11escalation_reason\x18\x05 \x01(\tR\x10escalationReason\x12\x1f\n\x0breason_code\x18\x06 \x01(\tR\nreasonCode\x12/\n\x14escalated_by_user_id\x18\x07 \x01(\tR\x11escalatedByUserId\x129\n\ncreated_at\x18\x08 \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n\nupdated_at\x18\t \x01(\x0b2\x1a.google.protobuf.TimestampR\tupdatedAt"\x9b\x01\n\x14ListIncidentsRequest\x126\n\x06status\x18\x01 \x01(\x0e2\x1e.facilityops.v1.IncidentStatusR\x06status\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x1d\n\nrequest_id\x18\x04 \x01(\tR\trequestId"e\n\x15ListIncidentsResponse\x126\n\tincidents\x18\x01 \x03(\x0b2\x18.facilityops.v1.IncidentR\tincidents\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"5\n\x12GetIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"\x99\x02\n\x13GetIncidentResponse\x124\n\x08incident\x18\x01 \x01(\x0b2\x18.facilityops.v1.IncidentR\x08incident\x121\n\x05plans\x18\x02 \x03(\x0b2\x1b.facilityops.v1.PlanVersionR\x05plans\x128\n\x07actions\x18\x03 \x03(\x0b2\x1e.facilityops.v1.ExecutedActionR\x07actions\x126\n\x07notices\x18\x04 \x03(\x0b2\x1c.facilityops.v1.TenantNoticeR\x07notices\x12\'\n\x0ftenant_language\x18\x05 \x01(\tR\x0etenantLanguage"b\n\x08Citation\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x1b\n\tsource_id\x18\x02 \x01(\tR\x08sourceId\x12\x18\n\x07section\x18\x03 \x01(\tR\x07section"\x99\x01\n\x05Claim\x12\x1c\n\tstatement\x18\x01 \x01(\tR\tstatement\x12\x1e\n\nspecialist\x18\x02 \x01(\tR\nspecialist\x126\n\tcitations\x18\x03 \x03(\x0b2\x18.facilityops.v1.CitationR\tcitations\x12\x1a\n\x08verified\x18\x04 \x01(\x08R\x08verified"\xf3\x01\n\x0eProposedAction\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12 \n\x0bdescription\x18\x02 \x01(\tR\x0bdescription\x12*\n\x0eestimated_cost\x18\x03 \x01(\x01H\x00R\restimatedCost\x88\x01\x01\x12#\n\rtechnician_id\x18\x04 \x01(\tR\x0ctechnicianId\x12\x19\n\x08part_sku\x18\x05 \x01(\tR\x07partSku\x12\x1f\n\x08quantity\x18\x06 \x01(\x05H\x01R\x08quantity\x88\x01\x01B\x11\n\x0f_estimated_costB\x0b\n\t_quantity"\xa9\x03\n\x0eExecutedAction\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07plan_id\x18\x02 \x01(\tR\x06planId\x12\x1a\n\x08position\x18\x03 \x01(\x05R\x08position\x12\x1f\n\x0baction_type\x18\x04 \x01(\tR\nactionType\x12\x16\n\x06status\x18\x05 \x01(\tR\x06status\x12\x1f\n\x0breason_code\x18\x06 \x01(\tR\nreasonCode\x12#\n\rtechnician_id\x18\x07 \x01(\tR\x0ctechnicianId\x12\x19\n\x08part_sku\x18\x08 \x01(\tR\x07partSku\x12\x1f\n\x08quantity\x18\t \x01(\x05H\x00R\x08quantity\x88\x01\x01\x12\x17\n\x04cost\x18\n \x01(\x01H\x01R\x04cost\x88\x01\x01\x12-\n\x13approved_by_user_id\x18\x0b \x01(\tR\x10approvedByUserId\x129\n\ncreated_at\x18\x0c \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAtB\x0b\n\t_quantityB\x07\n\x05_cost"\xb1\x05\n\x0bPlanVersion\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n\x07version\x18\x02 \x01(\x05R\x07version\x12\x18\n\x07summary\x18\x03 \x01(\tR\x07summary\x12-\n\x06claims\x18\x04 \x03(\x0b2\x15.facilityops.v1.ClaimR\x06claims\x128\n\x07actions\x18\x05 \x03(\x0b2\x1e.facilityops.v1.ProposedActionR\x07actions\x12!\n\x0csafety_block\x18\x06 \x01(\x08R\x0bsafetyBlock\x12!\n\x0csafety_notes\x18\x07 \x01(\tR\x0bsafetyNotes\x12%\n\x0eopen_questions\x18\x08 \x03(\tR\ropenQuestions\x120\n\x14estimated_total_cost\x18\t \x01(\x01R\x12estimatedTotalCost\x12\x14\n\x05flags\x18\n \x03(\tR\x05flags\x12\x16\n\x06status\x18\x0b \x01(\tR\x06status\x12\x1a\n\x08feedback\x18\x0c \x01(\tR\x08feedback\x12\'\n\x0fdecision_reason\x18\r \x01(\tR\x0edecisionReason\x12+\n\x12decided_by_user_id\x18\x0e \x01(\tR\x0fdecidedByUserId\x129\n\ndecided_at\x18\x0f \x01(\x0b2\x1a.google.protobuf.TimestampR\tdecidedAt\x129\n\ncreated_at\x18\x10 \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x12@\n\rtenant_notice\x18\x11 \x01(\x0b2\x1b.facilityops.v1.NoticeDraftR\x0ctenantNotice";\n\x0bNoticeDraft\x12\x18\n\x07subject\x18\x01 \x01(\tR\x07subject\x12\x12\n\x04body\x18\x02 \x01(\tR\x04body"\x82\x02\n\x19DecideIncidentPlanRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12\x17\n\x07plan_id\x18\x02 \x01(\tR\x06planId\x128\n\x08decision\x18\x03 \x01(\x0e2\x1c.facilityops.v1.PlanDecisionR\x08decision\x12\x1a\n\x08feedback\x18\x04 \x01(\tR\x08feedback\x12)\n\x10rejection_reason\x18\x05 \x01(\tR\x0frejectionReason\x12*\n\x11confirm_high_cost\x18\x06 \x01(\x08R\x0fconfirmHighCost"\x85\x01\n\x1aDecideIncidentPlanResponse\x124\n\x08incident\x18\x01 \x01(\x0b2\x18.facilityops.v1.IncidentR\x08incident\x121\n\x05plans\x18\x02 \x03(\x0b2\x1b.facilityops.v1.PlanVersionR\x05plans"h\n\x17SendTenantNoticeRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12\x18\n\x07subject\x18\x02 \x01(\tR\x07subject\x12\x12\n\x04body\x18\x03 \x01(\tR\x04body"P\n\x18SendTenantNoticeResponse\x124\n\x06notice\x18\x01 \x01(\x0b2\x1c.facilityops.v1.TenantNoticeR\x06notice"7\n\x16EscalateRequestRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId"O\n\x17EscalateRequestResponse\x124\n\x08incident\x18\x01 \x01(\x0b2\x18.facilityops.v1.IncidentR\x08incident*\xab\x02\n\x0eIncidentStatus\x12\x1f\n\x1bINCIDENT_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n\x19INCIDENT_STATUS_ESCALATED\x10\x01\x12!\n\x1dINCIDENT_STATUS_INVESTIGATING\x10\x02\x12\x1e\n\x1aINCIDENT_STATUS_PLAN_READY\x10\x03\x12 \n\x1cINCIDENT_STATUS_NEEDS_REVIEW\x10\x04\x12\x1c\n\x18INCIDENT_STATUS_APPROVED\x10\x05\x12\x1c\n\x18INCIDENT_STATUS_REJECTED\x10\x06\x12\x1a\n\x16INCIDENT_STATUS_CLOSED\x10\x07\x12\x1c\n\x18INCIDENT_STATUS_REVISING\x10\x08*|\n\x0cPlanDecision\x12\x1d\n\x19PLAN_DECISION_UNSPECIFIED\x10\x00\x12\x19\n\x15PLAN_DECISION_APPROVE\x10\x01\x12\x18\n\x14PLAN_DECISION_REVISE\x10\x02\x12\x18\n\x14PLAN_DECISION_REJECT\x10\x032\xff\x03\n\x0fIncidentService\x12\\\n\rListIncidents\x12$.facilityops.v1.ListIncidentsRequest\x1a%.facilityops.v1.ListIncidentsResponse\x12V\n\x0bGetIncident\x12".facilityops.v1.GetIncidentRequest\x1a#.facilityops.v1.GetIncidentResponse\x12b\n\x0fEscalateRequest\x12&.facilityops.v1.EscalateRequestRequest\x1a\'.facilityops.v1.EscalateRequestResponse\x12k\n\x12DecideIncidentPlan\x12).facilityops.v1.DecideIncidentPlanRequest\x1a*.facilityops.v1.DecideIncidentPlanResponse\x12e\n\x10SendTenantNotice\x12\'.facilityops.v1.SendTenantNoticeRequest\x1a(.facilityops.v1.SendTenantNoticeResponseb\x06proto3',
     [
+        intake_pb.desc(),
         timestamp_pb.desc(),
     ],
     {
@@ -757,9 +1032,13 @@ _DESC = file_desc(
         "Citation": Citation,
         "Claim": Claim,
         "ProposedAction": ProposedAction,
+        "ExecutedAction": ExecutedAction,
         "PlanVersion": PlanVersion,
+        "NoticeDraft": NoticeDraft,
         "DecideIncidentPlanRequest": DecideIncidentPlanRequest,
         "DecideIncidentPlanResponse": DecideIncidentPlanResponse,
+        "SendTenantNoticeRequest": SendTenantNoticeRequest,
+        "SendTenantNoticeResponse": SendTenantNoticeResponse,
         "EscalateRequestRequest": EscalateRequestRequest,
         "EscalateRequestResponse": EscalateRequestResponse,
         "IncidentStatus": IncidentStatus,

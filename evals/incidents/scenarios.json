@@ -13,10 +13,11 @@
          "citations": [{"source_type": "procedure", "source_id": "procedure:loto-gas-boilers", "section": "Step 2"}]}
       ],
       "actions": [
-        {"type": "dispatch_technician", "description": "HVAC technician to plant room B today", "estimated_cost": 120},
-        {"type": "order_part", "description": "Expansion vessel 24 L (if the pre-charge test fails)", "estimated_cost": 60},
+        {"type": "dispatch_technician", "description": "HVAC technician to plant room B today", "estimated_cost": 120, "technician_id": "tech-001"},
+        {"type": "order_part", "description": "Expansion vessel 24 L (if the pre-charge test fails)", "estimated_cost": 60, "part_sku": "exp-vessel-24l", "quantity": 1},
         {"type": "notify_tenant", "description": "Tell residents heating is being restored this afternoon"}
-      ]
+      ],
+      "tenant_notice": {"subject": "Heating: an engineer is on the way", "body": "Dear resident, the boiler that serves your building is losing pressure. A qualified engineer will inspect it today and restore heating. Please keep windows closed to hold in warmth. Thank you for your patience."}
     },
     "boiler_after_feedback": {
       "summary": "Revised: test the expansion vessel pre-charge before ordering parts; dispatch today.",
@@ -25,7 +26,7 @@
          "citations": [{"source_type": "manual", "source_id": "manual:boiler-hx200", "section": "7.4 Pressure loss"}]}
       ],
       "actions": [
-        {"type": "dispatch_technician", "description": "HVAC technician: pre-charge test first", "estimated_cost": 120}
+        {"type": "dispatch_technician", "description": "HVAC technician: pre-charge test first", "estimated_cost": 120, "technician_id": "tech-001"}
       ]
     },
     "electrical_blocked": {
@@ -34,7 +35,7 @@
         {"statement": "Work on DB-3 requires an isolation permit and a qualified electrician.", "specialist": "safety",
          "citations": [{"source_type": "procedure", "source_id": "procedure:electrical-isolation", "section": "1.1"}]}
       ],
-      "actions": [{"type": "dispatch_technician", "description": "Electrician to DB-3", "estimated_cost": 300}],
+      "actions": [{"type": "dispatch_technician", "description": "Electrician to DB-3", "estimated_cost": 300, "technician_id": "tech-002"}],
       "safety_block": true,
       "safety_notes": "No isolation permit is on record for DB-3."
     },
@@ -46,7 +47,7 @@
       ],
       "actions": [
         {"type": "apply_lockout", "description": "Lock out DB-3 under permit P-77"},
-        {"type": "dispatch_technician", "description": "Qualified electrician to inspect DB-3", "estimated_cost": 250}
+        {"type": "dispatch_technician", "description": "Qualified electrician to inspect DB-3", "estimated_cost": 250, "technician_id": "tech-002"}
       ]
     },
     "chiller_expensive": {
@@ -58,7 +59,7 @@
          "citations": [{"source_type": "contract", "source_id": "contract:coolserve-2026", "section": "SLA"}]}
       ],
       "actions": [
-        {"type": "order_part", "description": "Replacement compressor CX90-C", "estimated_cost": 4200},
+        {"type": "order_part", "description": "Replacement compressor CX90-C", "estimated_cost": 4200, "part_sku": "cx90-compressor", "quantity": 1},
         {"type": "schedule_visit", "description": "Vendor engineer within 48 hours", "estimated_cost": 650}
       ]
     },
@@ -69,7 +70,7 @@
         {"statement": "Isolate the riser at valve V-8 before work.", "specialist": "safety",
          "citations": [{"source_type": "procedure", "source_id": "procedure:water-isolation"}]}
       ],
-      "actions": [{"type": "dispatch_technician", "description": "Plumber to the riser above 8F", "estimated_cost": 150}]
+      "actions": [{"type": "dispatch_technician", "description": "Plumber to the riser above 8F", "estimated_cost": 150, "technician_id": "tech-003"}]
     }
   },
   "scenarios": [

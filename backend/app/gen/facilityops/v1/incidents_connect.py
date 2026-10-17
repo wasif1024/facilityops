@@ -16,7 +16,7 @@ from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, DE
 from protobuf import DescService
 
 from . import incidents_pb
-from .incidents_pb import DecideIncidentPlanRequest, DecideIncidentPlanResponse, EscalateRequestRequest, EscalateRequestResponse, GetIncidentRequest, GetIncidentResponse, ListIncidentsRequest, ListIncidentsResponse
+from .incidents_pb import DecideIncidentPlanRequest, DecideIncidentPlanResponse, EscalateRequestRequest, EscalateRequestResponse, GetIncidentRequest, GetIncidentResponse, ListIncidentsRequest, ListIncidentsResponse, SendTenantNoticeRequest, SendTenantNoticeResponse
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Iterable, Mapping
@@ -56,6 +56,13 @@ class IncidentService(Protocol):
         Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
         approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
         application carries out approved actions. Requires incidents:manage.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def send_tenant_notice(self, request: SendTenantNoticeRequest, ctx: RequestContext[SendTenantNoticeRequest, SendTenantNoticeResponse], /) -> SendTenantNoticeResponse:
+        """
+        Approve the English notice for the tenant (edited or as drafted) once the plan is approved.
+        The application translates it into the tenant's language. Requires incidents:manage.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -116,6 +123,16 @@ class IncidentServiceASGIApplication(ConnectASGIApplication[IncidentService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.decide_incident_plan,
+                ),
+                "/facilityops.v1.IncidentService/SendTenantNotice": Endpoint.unary(
+                    method=MethodInfo(
+                        name="SendTenantNotice",
+                        service_name="facilityops.v1.IncidentService",
+                        input=SendTenantNoticeRequest,
+                        output=SendTenantNoticeResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.send_tenant_notice,
                 ),
             },
             interceptors=interceptors,
@@ -230,6 +247,30 @@ class IncidentServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def send_tenant_notice(
+        self,
+        request: SendTenantNoticeRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> SendTenantNoticeResponse:
+        """
+        Approve the English notice for the tenant (edited or as drafted) once the plan is approved.
+        The application translates it into the tenant's language. Requires incidents:manage.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="SendTenantNotice",
+                service_name="facilityops.v1.IncidentService",
+                input=SendTenantNoticeRequest,
+                output=SendTenantNoticeResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 class IncidentServiceSync(Protocol):
     """
     Incidents investigated by the Phase 2 incident team. A request is escalated automatically
@@ -259,6 +300,13 @@ class IncidentServiceSync(Protocol):
         Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
         approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
         application carries out approved actions. Requires incidents:manage.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def send_tenant_notice(self, request: SendTenantNoticeRequest, ctx: RequestContext[SendTenantNoticeRequest, SendTenantNoticeResponse], /) -> SendTenantNoticeResponse:
+        """
+        Approve the English notice for the tenant (edited or as drafted) once the plan is approved.
+        The application translates it into the tenant's language. Requires incidents:manage.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -317,6 +365,16 @@ class IncidentServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.decide_incident_plan,
+                ),
+                "/facilityops.v1.IncidentService/SendTenantNotice": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="SendTenantNotice",
+                        service_name="facilityops.v1.IncidentService",
+                        input=SendTenantNoticeRequest,
+                        output=SendTenantNoticeResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.send_tenant_notice,
                 ),
             },
             interceptors=interceptors,
@@ -422,6 +480,29 @@ class IncidentServiceClientSync(ConnectClientSync):
                 service_name="facilityops.v1.IncidentService",
                 input=DecideIncidentPlanRequest,
                 output=DecideIncidentPlanResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def send_tenant_notice(
+        self,
+        request: SendTenantNoticeRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> SendTenantNoticeResponse:
+        """
+        Approve the English notice for the tenant (edited or as drafted) once the plan is approved.
+        The application translates it into the tenant's language. Requires incidents:manage.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="SendTenantNotice",
+                service_name="facilityops.v1.IncidentService",
+                input=SendTenantNoticeRequest,
+                output=SendTenantNoticeResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

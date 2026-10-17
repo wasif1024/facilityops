@@ -17,6 +17,8 @@ export const rolePermissions: Record<string, string[]> = {
     "evaluations:read",
     "monitoring:read",
     "decisions:read",
+    "incidents:read",
+    "incidents:manage",
   ],
   admin: ["users:read", "users:manage", "roles:read", "audit:read", "evaluations:read", "evaluations:run", "monitoring:read", "decisions:read"],
 }

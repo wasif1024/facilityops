@@ -53,13 +53,14 @@ class TeamBudgets:
 
     Tuned from the first live run (2026-10-17): four rounds used 65k tokens in 74 s (the manager's
     context grows each round; each specialist resends its prompt and tool results per tool step),
-    so a full investigation needs about 100k tokens and two minutes.
+    so a full investigation needs about 100k tokens and two minutes. The live evaluation (2026-10-18)
+    measured a complete electrical investigation at 155k tokens over 8 rounds, so the limit is 250k.
     """
 
     max_rounds: int = 10
     max_stalls: int = 2
     max_resets: int = 1
-    max_tokens: int = 150_000
+    max_tokens: int = 250_000
     timeout_seconds: float = 240
 
 
@@ -104,17 +105,22 @@ def _description(name: str) -> str:
     return " ".join(paragraphs[0].split())[:400]
 
 
-def _function_tool(spec: ToolSpec, specialist: str, ctx: ToolContext):
-    """An Agent Framework tool that runs ``spec`` through run_tool (read-only, budgeted, recorded)."""
-    from agent_framework import tool
-
+def tool_schema(spec: ToolSpec) -> type:
+    """The arguments the model may pass: the tool function's keyword-only parameters."""
     hints = get_type_hints(spec.function)
     parameters = {
         name: (hints.get(name, str), param.default if param.default is not inspect.Parameter.empty else ...)
         for name, param in inspect.signature(spec.function).parameters.items()
         if param.kind is inspect.Parameter.KEYWORD_ONLY and name != "now"
     }
-    schema = create_model(f"{spec.name}_arguments", **parameters)
+    return create_model(f"{spec.name}_arguments", **parameters)
+
+
+def _function_tool(spec: ToolSpec, specialist: str, ctx: ToolContext):
+    """An Agent Framework tool that runs ``spec`` through run_tool (read-only, budgeted, recorded)."""
+    from agent_framework import tool
+
+    schema = tool_schema(spec)
 
     async def call(**kwargs: Any) -> str:
         result = await run_tool(ctx, specialist, spec.name, spec.function, uses_knowledge=spec.uses_knowledge, **kwargs)
@@ -178,12 +184,16 @@ class MagenticIncidentTeam:
     recorder: AgentRunRecorder | None = None
     knowledge: Any = None
     budgets: TeamBudgets = field(default_factory=TeamBudgets)
+    # Evaluation only: collects every tool call with its result (see ToolContext.transcript).
+    tool_transcript: list[dict[str, Any]] | None = None
 
     async def investigate(self, context: IncidentContext) -> TeamOutcome:
         from agent_framework import Agent, create_harness_agent
         from agent_framework.orchestrations import MagenticBuilder
 
-        ctx = ToolContext(self.session_factory, request_id=context.request_id, knowledge=self.knowledge)
+        ctx = ToolContext(
+            self.session_factory, request_id=context.request_id, knowledge=self.knowledge, transcript=self.tool_transcript
+        )
         meter = _TokenMeter(self.budgets.max_tokens)
         steps: list[DecisionStep] = []
         harness = load_prompt("specialist_harness").text
@@ -218,6 +228,9 @@ class MagenticIncidentTeam:
                 disable_web_search=True,
                 disable_tool_auto_approval=True,
                 middleware=middleware(name, self.settings.incident_specialist_model),
+                # Run-scoped history kept by the harness and sent with each call: Foundry stores no
+                # conversation, and each tool result always travels with the call that asked for it.
+                default_options={"store": False},
                 otel_provider_name="facilityops.incident_team",
             )
             for name in SPECIALISTS
@@ -228,6 +241,7 @@ class MagenticIncidentTeam:
             description="Coordinates the incident team and writes the incident plan.",
             instructions=load_prompt(MANAGER).text,
             middleware=middleware(MANAGER, self.settings.incident_manager_model),
+            default_options={"store": False},
         )
         ledgers, ledger_sha = load_ledger_prompts()
         workflow = MagenticBuilder(

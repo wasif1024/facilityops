@@ -13,7 +13,12 @@ from backend.app.api.rpc.convert import (
     timestamp,
     to_proto_enum,
 )
-from backend.app.db.models import IncidentPlanRecord, IncidentRecord
+from sqlalchemy import select
+
+from backend.app.db.models import IncidentActionRecord, IncidentPlanRecord, IncidentRecord, IntakeRequestRecord
+from backend.app.api.rpc.intake import to_proto_notice
+from backend.app.services.incident_actions import list_actions
+from backend.app.services.tenant_notices import NOTICE_LANGUAGE, list_notices, send_notice
 from backend.app.gen.facilityops.v1 import incidents_pb as pb
 from backend.app.services.incidents import (
     decide_plan,
@@ -43,7 +48,14 @@ def to_proto_plan(record: IncidentPlanRecord) -> pb.PlanVersion:
             for c in plan.get("claims", [])
         ],
         actions=[
-            pb.ProposedAction(type=a["type"], description=a["description"], estimated_cost=a.get("estimated_cost"))
+            pb.ProposedAction(
+                type=a["type"],
+                description=a["description"],
+                estimated_cost=a.get("estimated_cost"),
+                technician_id=text(a.get("technician_id")),
+                part_sku=text(a.get("part_sku")),
+                quantity=a.get("quantity"),
+            )
             for a in plan.get("actions", [])
         ],
         safety_block=bool(plan.get("safety_block")),
@@ -51,11 +63,30 @@ def to_proto_plan(record: IncidentPlanRecord) -> pb.PlanVersion:
         open_questions=list(plan.get("open_questions", [])),
         estimated_total_cost=float(plan.get("estimated_total_cost", 0)),
         flags=list(record.flags or []),
+        tenant_notice=pb.NoticeDraft(subject=n["subject"], body=n["body"]) if (n := plan.get("tenant_notice")) else None,
         status=record.status,
         feedback=text(record.feedback),
         decision_reason=text(record.decision_reason),
         decided_by_user_id=text(record.decided_by_user_id),
         decided_at=timestamp(record.decided_at),
+        created_at=timestamp(record.created_at),
+    )
+
+
+def to_proto_action(record: IncidentActionRecord) -> pb.ExecutedAction:
+    details = record.details or {}
+    return pb.ExecutedAction(
+        id=str(record.id),
+        plan_id=str(record.plan_id),
+        position=record.position,
+        action_type=record.action_type,
+        status=record.status,
+        reason_code=text(record.reason_code),
+        technician_id=text(details.get("technician_id")),
+        part_sku=text(details.get("part_sku")),
+        quantity=details.get("quantity"),
+        cost=details.get("cost"),
+        approved_by_user_id=text(record.approved_by_user_id),
         created_at=timestamp(record.created_at),
     )
 
@@ -82,7 +113,11 @@ class IncidentRpc:
         limit, offset = page(request.limit, request.offset, default=20, maximum=100)
         async with self._c.session_factory() as session:
             incidents, total = await list_incidents(
-                session, status=from_proto_enum(request.status), limit=limit, offset=offset
+                session,
+                status=from_proto_enum(request.status),
+                limit=limit,
+                offset=offset,
+                request_id=parse_uuid(request.request_id, "request_id") if request.request_id else None,
             )
         return pb.ListIncidentsResponse(incidents=[to_proto_incident(i) for i in incidents], total=total)
 
@@ -92,7 +127,34 @@ class IncidentRpc:
             with operation_errors():
                 incident = await get_incident(session, incident_id)
             plans = await latest_plans(session, incident_id)
-        return pb.GetIncidentResponse(incident=to_proto_incident(incident), plans=[to_proto_plan(p) for p in plans])
+            actions = await list_actions(session, incident_id)
+            notices = await list_notices(session, incident_id=incident_id)
+            language = await session.scalar(
+                select(IntakeRequestRecord.source_language).where(IntakeRequestRecord.request_id == incident.request_id)
+            )
+        return pb.GetIncidentResponse(
+            incident=to_proto_incident(incident),
+            plans=[to_proto_plan(p) for p in plans],
+            actions=[to_proto_action(a) for a in actions],
+            notices=[to_proto_notice(n, staff=True) for n in notices],
+            tenant_language=language or NOTICE_LANGUAGE,
+        )
+
+    async def send_tenant_notice(
+        self, request: pb.SendTenantNoticeRequest, ctx: RequestContext
+    ) -> pb.SendTenantNoticeResponse:
+        incident_id = parse_uuid(request.incident_id, "incident_id")
+        async with self._c.session_factory() as session:
+            with operation_errors():
+                notice = await send_notice(
+                    session,
+                    self._c.translator,
+                    incident_id=incident_id,
+                    subject=request.subject,
+                    body=request.body,
+                    actor_id=current_principal().user_id,
+                )
+        return pb.SendTenantNoticeResponse(notice=to_proto_notice(notice, staff=True))
 
     async def decide_incident_plan(
         self, request: pb.DecideIncidentPlanRequest, ctx: RequestContext

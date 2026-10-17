@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.models import (
     HumanReviewCase,
+    IncidentRecord,
     IntakeAuditEvent,
     IntakeRequestRecord,
     PiiMappingRecord,
@@ -70,6 +71,7 @@ class Viewer:
 class RequestView:
     request: IntakeRequestRecord
     work_order_status: str | None
+    incident_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,8 +119,10 @@ class OperationsService:
         limit: int,
         offset: int,
     ) -> tuple[list[RequestView], int]:
-        query = select(IntakeRequestRecord, WorkOrderRecord.status).outerjoin(
-            WorkOrderRecord, WorkOrderRecord.request_id == IntakeRequestRecord.request_id
+        query = (
+            select(IntakeRequestRecord, WorkOrderRecord.status, IncidentRecord.status)
+            .outerjoin(WorkOrderRecord, WorkOrderRecord.request_id == IntakeRequestRecord.request_id)
+            .outerjoin(IncidentRecord, IncidentRecord.request_id == IntakeRequestRecord.request_id)
         )
         if submitted_by is not None:
             query = query.where(IntakeRequestRecord.submitted_by_user_id == submitted_by)
@@ -128,15 +132,16 @@ class OperationsService:
         rows = await self._session.execute(
             query.order_by(IntakeRequestRecord.created_at.desc()).limit(limit).offset(offset)
         )
-        return [RequestView(request, wo_status) for request, wo_status in rows], total
+        return [RequestView(*row) for row in rows], total
 
     async def get_request(self, request_id: UUID, viewer: Viewer) -> RequestView:
         row = (
             await self._session.execute(
-                select(IntakeRequestRecord, WorkOrderRecord.status)
+                select(IntakeRequestRecord, WorkOrderRecord.status, IncidentRecord.status)
                 .outerjoin(
                     WorkOrderRecord, WorkOrderRecord.request_id == IntakeRequestRecord.request_id
                 )
+                .outerjoin(IncidentRecord, IncidentRecord.request_id == IntakeRequestRecord.request_id)
                 .where(IntakeRequestRecord.request_id == request_id)
             )
         ).first()
@@ -146,7 +151,7 @@ class OperationsService:
             or row[0].submitted_by_user_id == viewer.user_id
         ):
             raise NotFound("Request not found")
-        return RequestView(row[0], row[1])
+        return RequestView(*row)
 
     async def reveal(self, request_id: UUID, viewer: Viewer) -> RevealedDetails:
         request = await self._session.scalar(

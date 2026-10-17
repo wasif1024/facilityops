@@ -154,11 +154,13 @@ async def escalate_manually(session: AsyncSession, request_id: UUID, actor_id: U
 
 
 async def list_incidents(
-    session: AsyncSession, *, status: str | None, limit: int, offset: int
+    session: AsyncSession, *, status: str | None, limit: int, offset: int, request_id: UUID | None = None
 ) -> tuple[list[IncidentRecord], int]:
     query = select(IncidentRecord)
     if status:
         query = query.where(IncidentRecord.status == status)
+    if request_id:
+        query = query.where(IncidentRecord.request_id == request_id)
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
     rows = await session.scalars(query.order_by(IncidentRecord.created_at.desc()).limit(limit).offset(offset))
     return list(rows), total or 0

@@ -29,8 +29,8 @@ privacy, human oversight, evaluation, identity and access control. **New to AI?*
 [Enterprise AI concepts](docs/enterprise-ai-concepts.md), which explains each one in plain words. All data in the
 repository is synthetic.
 
-> **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team) in progress: Azure Translator and the
-> transparency trail, events, plans, tools, knowledge and the Magentic team are done; approved actions, notices and screens are next. See [Roadmap](#roadmap).
+> **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team): every feature is built and tested; the
+> live incident evaluation is built but not yet run (it uses paid model calls). See [Roadmap](#roadmap).
 
 ## Features
 
@@ -54,11 +54,13 @@ repository is synthetic.
 ## Architecture
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agent-orchestration-dark.png">
-  <img src="docs/images/agent-orchestration-light.png" alt="Agent orchestration: a deterministic intake workflow with one classifier agent; escalated incidents go to a Magentic team where an Incident Manager agent coordinates six specialist agents with read-only tools; a facility manager approves, revises or rejects the plan; only the application acts; every step is recorded.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agent-orchestration-dark.gif">
+  <img src="docs/images/agent-orchestration-light.gif" alt="Animated walkthrough of the agent orchestration in 18 steps: a request passes the emergency screen, file and image checks, PII redaction and safety checks in code; the classifier agent suggests a category and priority and code routes it; a high-priority equipment problem is escalated to a Magentic team, where the Incident Manager agent sends the asset historian, diagnostician, safety and compliance, procurement, scheduler and communicator agents in turn; the team produces a cited incident plan; a facility manager approves, revises or rejects it; only the application acts; every step is recorded.">
 </picture>
 
-**How to read it.** Grey boxes are code, purple boxes are AI agents, amber boxes are people.
+**How to read it.** The animation follows one request through the system in 18 steps (about 70 seconds, then it
+repeats); a [still version](docs/images/agent-orchestration-light.png) shows everything at once. Grey boxes are
+code, purple boxes are AI agents, amber boxes are people.
 - **Every request** goes through a fixed pipeline in code (`IntakeCoordinator`), where one AI agent, the classifier,
   only suggests a category and priority. Emergencies skip the AI entirely.
 - **Escalated incidents** (high-priority heating, electrical or plumbing) go to a team of seven agents. The
@@ -189,7 +191,7 @@ docs/         documentation and diagrams
 - [x] Identity (Entra ID, Entra External ID), RBAC, demo accounts
 - [x] Agent monitoring, OpenTelemetry, evaluation set with a CI gate
 
-**Phase 2, complex incidents** 🚧 in progress
+**Phase 2, complex incidents** 🚧 features complete, live evaluation pending
 
 - [x] Azure Translator: staff see non-English requests in English, after redaction
 - [x] Transparency: decision trail, model input and output, append-only audit, correlated logs, retention
@@ -199,7 +201,21 @@ docs/         documentation and diagrams
 - [x] Synthetic facility world and 7 read-only tools (read-only transactions, budgets, recorded on the trail)
 - [x] Magentic incident team: Incident Manager (gpt-5.2) and 6 harness specialists (gpt-5.4-mini), with budgets; a live boiler incident produced a fully cited, correctly safety-blocked plan
 - [x] Foundry IQ knowledge base over synthetic manuals and procedures; Prompt Shields drops injected passages
-- [ ] Tenant notices in the tenant's language; translate-then-classify experiment
+- [x] Approved plans are carried out by the application, not an agent: one approval opens the work order, assigns the
+  named technician, raises purchase and visit requests and records lockout, each step recorded on the trail
+- [x] Incident screens: the plan with its evidence, flags and actions on the request and work order pages; approve
+  (with cost confirmation, never when safety-blocked), revise or reject; "Send to incident team"; tenants see "Being
+  investigated"
+- [x] Tenant notices in the tenant's language: the communicator drafts in English, a manager approves, the
+  application translates with Azure AI Translator and keeps both
+- [x] Translate-then-classify experiment (FR-62): measured on two live runs, not adopted (no fairness gain; the
+  French priority effect comes from wording that translation keeps)
+- [x] Live incident evaluation, built: 5 scenarios on the real team, scored by Foundry's Groundedness and Tool Call
+  Accuracy evaluators plus deterministic checks (`python -m evals.run_incident_scenarios --mode live --store`)
+- [ ] Run the live incident evaluation twice and meet its targets (groundedness and tool-call accuracy ≥ 0.90,
+  safety-block recall 1.00): the exit criterion for Phase 2
+- [ ] Resume a paused run from a Magentic checkpoint (FR-26); today a revision starts a new run with the feedback
+  and the previous plan
 
 **Phase 3, production**
 

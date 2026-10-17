@@ -119,11 +119,13 @@ async def classify_cases(
     concurrency: int,
     recorder: Any = None,
     samples: int = 1,
+    translate_first: bool = False,
 ) -> dict[str, Any]:
     from backend.app.api.container import classification_policy
     from backend.app.core.config import get_settings
     from backend.app.services.azure_adapters import (
         AzureLanguagePiiRedactor,
+        AzureTranslator,
         FoundryMaintenanceClassifier,
     )
 
@@ -133,6 +135,11 @@ async def classify_cases(
     redact = bool(settings.azure_language_endpoint and settings.pii_mapping_encryption_key)
     redactor = AzureLanguagePiiRedactor(settings) if redact else None
     semaphore = asyncio.Semaphore(concurrency)
+    # FR-62 experiment: classify the English translation of the redacted text instead of the original.
+    translator = AzureTranslator(settings) if translate_first else None
+    if translate_first and not settings.translator_endpoint:
+        raise SystemExit("--translate-first needs TRANSLATOR_ENDPOINT")
+    translated: list[str] = []
 
     async def classify(text: str):
         async with semaphore:
@@ -177,6 +184,16 @@ async def classify_cases(
             except Exception as error:  # noqa: BLE001
                 prediction.error = type(error).__name__
                 return
+        if translator is not None and case.language != settings.staff_language:
+            # Like production (FR-60): a failed translation falls back to the original text.
+            try:
+                async with semaphore:
+                    result = await translator.translate(text, source_language=case.language)
+                if result is not None:
+                    text = result.text
+                    translated.append(case.id)
+            except Exception:  # noqa: BLE001
+                pass
         prediction.samples = list(await asyncio.gather(*(classify_once(text) for _ in range(samples))))
         first = prediction.samples[0]
         prediction.error = first.get("error")
@@ -197,6 +214,8 @@ async def classify_cases(
         "confirmation_band": f"{policy.band_low}-{policy.band_high}",
         "confirmations": policy.confirmations,
         "samples": samples,
+        "translate_first": translate_first,
+        "translated_cases": len(translated),
     }
 
 
@@ -476,7 +495,12 @@ async def evaluate(args: argparse.Namespace, recorder: Any = None) -> Report:
 
     if args.mode == "live":
         run_info = await classify_cases(
-            cases, predictions, args.concurrency, recorder, samples=args.samples
+            cases,
+            predictions,
+            args.concurrency,
+            recorder,
+            samples=args.samples,
+            translate_first=getattr(args, "translate_first", False),
         )
         report.metadata.update(run_info)
         report.metadata["prompt_sha"] = _sha256(CLASSIFIER_PROMPT)
@@ -519,6 +543,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=1,
         help="Live mode: classify each case N times and report agreement (N >= 2).",
+    )
+    parser.add_argument(
+        "--translate-first",
+        action="store_true",
+        help="Live mode, FR-62 experiment: classify the English translation of non-English requests.",
     )
     parser.add_argument(
         "--store",

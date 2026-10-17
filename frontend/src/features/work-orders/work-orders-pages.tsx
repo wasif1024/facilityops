@@ -15,6 +15,7 @@ import { Pagination, useFilterParam, usePage } from "@/components/app/pagination
 import { RevealButton, useReveal } from "@/components/app/redacted-text"
 import { TranslatedText } from "@/components/app/translated-text"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
+import { IncidentPanel } from "@/features/incidents/incident-panel"
 import { TimeAgo } from "@/components/app/time"
 import {
   AlertDialog,
@@ -231,6 +232,10 @@ export function WorkOrderDetailPage() {
               </dl>
             </CardContent>
           </Card>
+          <IncidentPanel
+            requestId={wo.requestId}
+            canEscalate={wo.status === WorkOrderStatus.PENDING_APPROVAL || wo.status === WorkOrderStatus.OPEN}
+          />
         </div>
       ) : null}
     </div>

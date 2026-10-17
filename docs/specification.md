@@ -93,11 +93,11 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-22 | Specialists: diagnostician, asset historian, safety & compliance, procurement, scheduler, communicator (§5.2). *Harness agents on gpt-5.4-mini, each with its own prompt file and only its own tools.* | ✅ |
 | FR-23 | Produce a structured **incident plan** whose factual claims cite manual sections or records. *The manager's final answer is validated as an `IncidentPlan`; citations no tool returned in the run are removed, so the claim shows as unverified; an invalid answer goes to a person.* | ✅ |
 | FR-24 | Facility manager approves, revises or rejects the plan before any side effect (`IncidentService/DecideIncidentPlan`). The gate is code: a safety-blocked plan can't be approved, a high-cost plan needs explicit confirmation, rejections use fixed reason codes, revisions go back to the team with the feedback and previous plan. | ✅ |
-| FR-25 | After approval, the application (not an agent) executes actions: purchase request, technician assignment, tenant notice. | ⬜ |
+| FR-25 | After approval, the application (not an agent) executes actions: purchase request, technician assignment, tenant notice. *The `action-executor` consumer of `incident.plan_decided` (approve) approves the incident's work order, assigns the technician profile the plan names (only an active technician account), prices parts from the parts table, records vendor visits and lockout, and queues tenant notices for FR-61. Each result is an `incident_actions` row and an `incident.action_*` trail step; a failure is recorded with a reason code for a person, never retried with other targets. It refuses safety-blocked plans again. Live: a revised boiler plan was approved and the work order opened and assigned to tech-001.* | ✅ |
 | FR-26 | Checkpoint runs so a run paused for human review can resume. *Today a revision starts a new run with the previous plan and the feedback (state lives in the database, so nothing is lost); Magentic `checkpoint_storage` for resuming mid-run is a follow-up.* | 🚧 |
 | FR-27 | Incidents run off the request path: escalations and plan decisions are published as events (transactional outbox, §6.2) and handled by an incident worker (`python -m backend.app.worker`). Until the team exists, the worker fails closed to a person (`incident_team_unavailable`). | ✅ |
 | FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). *Foundry IQ knowledge base (GA, extractive), `search_manuals` and `get_safety_procedure`, Prompt Shields on every passage; a planted injection is dropped live.* | ✅ |
-| FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). *Scripted harness with 9 scenarios and 5 hard gates runs on every PR (`evals/incidents/`); live mode and tool fixtures arrive with the team.* | 🚧 |
+| FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). *Scripted harness with 9 scenarios and 5 hard gates runs on every PR (`evals/incidents/`). Live mode is built (`evals/incidents/live.py`, 5 scenarios on the real team and the synthetic world, Foundry `GroundednessEvaluator` and `ToolCallAccuracyEvaluator`, stored with the other evaluation runs) but not yet run in full: it is deferred to keep model costs down. Building it found and fixed two issues: server-stored conversations broke tool calls (agents now run with `store: false`) and the token budget was too small (now 250k).* | 🚧 |
 
 ### 4.2.1 Language support with Azure Translator (Phase 2)
 
@@ -108,8 +108,8 @@ translation unchanged (verified live), so the reveal mapping keeps working.
 | ID | Requirement | Status |
 |---|---|---|
 | FR-60 | **Staff translation.** When a request isn't in English, translate its redacted text to English and store it beside the original with the source language. Review queue, request and work-order pages show the translation labelled *Machine translation*, with the original one click away. A translation failure never blocks intake (the original is shown); translation is a convenience, not a safety step. A translation that loses a `[PII_nnnn]` placeholder is discarded. | ✅ |
-| FR-61 | **Tenant notices in the tenant's language.** The Communicator drafts a notice in English; a facility manager approves the English text; the application (not an agent) translates the approved text into the tenant's language with Translator and stores both. Tenants see their language with a *machine translated* note. | ⬜ |
-| FR-62 | **Translate-then-classify experiment.** An evaluation option classifies the English translation instead of the original. Adopt it only if, on two live runs, category accuracy and route fairness don't drop and label consistency across languages improves (the French priority effect in §10). Otherwise record the result and keep classifying the original. | ⬜ |
+| FR-61 | **Tenant notices in the tenant's language.** The Communicator drafts a notice in English; a facility manager approves the English text; the application (not an agent) translates the approved text into the tenant's language with Translator and stores both. Tenants see their language with a *machine translated* note. *The plan carries the communicator's draft (`tenant_notice`; a draft with a `[PII_nnnn]` placeholder is dropped and the reviewer told). Once the plan is approved, the incident panel shows it for the manager to edit and approve (`IncidentService/SendTenantNotice`); text with placeholders is refused. The application translates subject and body from English into the language the request was translated from (FR-60) and stores both in `tenant_notices`; a failed translation still sends the approved English (`translation_failed`). The queued `notify_tenant` action becomes `done`, with an audit event and an `incident.tenant_notice_sent` trail step. Tenants read it on their request page, with the English one click away.* | ✅ |
+| FR-62 | **Translate-then-classify experiment.** An evaluation option classifies the English translation instead of the original. Adopt it only if, on two live runs, category accuracy and route fairness don't drop and label consistency across languages improves (the French priority effect in §10). Otherwise record the result and keep classifying the original. *Run 2026-10-18 (`run_eval --mode live --samples 5 --translate-first`, two runs, 12 non-English cases translated): category accuracy 0.911 both runs (baseline 0.911), route fairness 1.00 (baseline 1.00), label consistency 0.75 (baseline 0.75, F02 still split). **Not adopted**: label consistency did not improve, and automated accuracy was 0.928/0.944 against 0.958/0.944. Result in §10.* | ✅ |
 
 Safety steps keep working on the original language: the emergency screen, PII redaction and Prompt Shields all run
 before and independently of translation, so a translation error can't hide an emergency or an attack.
@@ -278,7 +278,7 @@ loop limit caps tool calls.
 | Coordination rounds | 10 | `max_round_count` | Stop; return partial plan to human review |
 | Rounds without progress before re-plan | 2 | `max_stall_count` | Re-plan, then human input on stall |
 | Re-plans | 1 | `max_reset_count` | Stop; human review |
-| Tokens per run | 150,000 | `TokenBudgetMiddleware` on every agent | Terminate; human review (`token_budget_exhausted`) |
+| Tokens per run | 250,000 | `TokenBudgetMiddleware` on every agent | Terminate; human review (`token_budget_exhausted`) |
 | Tool calls per specialist per run | 5 | Tool runtime (`run_tool`) | Tool returns a refusal the model can read |
 | Wall-clock time per run | 240 s | Team timeout | Terminate; human review (`team_timeout`) |
 | Delivery attempts per event | 3 | Event consumer | Dead-letter; human review |
@@ -288,7 +288,12 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 **Tuned from the first live runs (2026-10-17).** With 60k tokens and 120 s, a real boiler incident stopped after four
 of six specialists (65k tokens, 74 s): the manager's context grows every round, and each specialist resends its prompt
 and tool results on each tool step. A complete run then took **7 rounds, 11 tool calls, 119k tokens and 110 s**
-(manager on gpt-5.2, specialists on gpt-5.4-mini), so the limits are now 150k tokens and 240 s.
+(manager on gpt-5.2, specialists on gpt-5.4-mini), so the limits became 150k tokens and 240 s. The live evaluation
+(2026-10-18) then measured a complete electrical investigation at 8 rounds, 14 tool calls and 155k tokens, so the
+token limit is now **250k**. The same run showed that server-stored conversations could pair a tool result with
+the wrong earlier response (`No tool call found for function call output`), so every agent now runs with
+`store: false`: the harness's run-scoped history is sent with each call and Foundry keeps no copy of the
+conversation.
 
 ### 6.2 Events and topics
 
@@ -437,6 +442,22 @@ way; only queue order differs. It is tracked by the label-consistency metric and
 `RESPONSIBLE_AI.md`. A fix would need more multilingual cases than the golden set has today, rather than a prompt
 tweak fitted to one example.
 
+**Translate-then-classify doesn't remove it (FR-62, 2026-10-18).** Classifying the English translation of the
+redacted text instead of the original left the French variant at priority 3 in all 10 samples of two runs. The
+translation keeps the wording that seems to drive it: *"la chasse d'eau coule en continu"* becomes *"the toilet
+flush is running continuously"*, not *"keeps running"*. So the effect comes from how the request is phrased, which
+any faithful translation preserves, not from the language itself. With accuracy and route fairness unchanged and no
+gain in label consistency, intake keeps classifying the original text; reports are in
+`evals/reports/translate_first_run{1,2}.json`.
+
+| | Classify the original (baseline) | Classify the English translation |
+|---|---|---|
+| Category accuracy | 0.911, 0.911 | 0.911, 0.911 |
+| Route fairness (modal) | 1.00, 1.00 | 1.00, 1.00 |
+| Label consistency (modal) | 0.75, 0.75 | 0.75, 0.75 |
+| Accuracy of automated requests | 0.958, 0.944 | 0.928, 0.944 |
+| Same route on identical input | 0.83, 0.89 | 0.87, 0.84 |
+
 **Media intake** ([`evals/run_media_eval.py`](../evals/run_media_eval.py), live): synthetic scans and photos drawn
 in code, through the real services. 6/6 pass on 2026-10-17: a scanned form is read and classified, and the fake
 name and phone number drawn on it are absent from the stored text (the eval fails on any planted identifier that
@@ -478,6 +499,28 @@ block, high cost, grounding, tool failure, budget exhaustion, emergency) and 5 h
 It runs in two modes. **Scripted** mode replaces the models with a scripted chat client, so it is deterministic,
 free and runs on **every PR**: it tests the harness, budgets, events and gates, not model quality. **Live** mode
 uses the real models, stores an evaluation run like Phase 1, and adds Foundry evaluators.
+
+**Live mode** ([`evals/incidents/live.py`](../evals/incidents/live.py), built, not yet run in full). Five scenarios
+in [`live_scenarios.json`](../evals/incidents/live_scenarios.json) (an expired gas permit that must block the plan,
+an electrical board with a valid permit, a chiller, a repeatedly failing pump, and an instruction to the AI planted
+in the request) run through the real worker and team in a scratch database. Each plan is scored three ways:
+
+- **Checks:** a plan exists; the safety block is right; the expected citations, tools and actions are present; the
+  tenant notice holds no personal data.
+- **Groundedness:** Foundry's `GroundednessEvaluator` judges each claim against the tool results it cites (a claim
+  citing nothing a tool returned is ungrounded).
+- **Tool-call accuracy:** Foundry's `ToolCallAccuracyEvaluator` judges each specialist's calls against the
+  incident, its role and its tool definitions.
+
+Both evaluators score 1 to 5 with gpt-5.2 as the judge; a claim or a specialist passes at the default threshold (3)
+and the metric is the share that pass. Tool results stay in memory during the run; the stored report holds scores
+and ids only. A full run takes about 15 minutes and roughly 150k model tokens per incident, so it is run on demand,
+not on every PR:
+
+```bash
+python -m evals.run_incident_scenarios --mode live --store                 # all five, stored
+python -m evals.run_incident_scenarios --mode live --scenario live-boiler-blocked   # just one
+```
 
 | Metric | Target | Gate |
 |---|---|---|

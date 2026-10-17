@@ -19,6 +19,9 @@ import { RevealButton, useReveal } from "@/components/app/redacted-text"
 import { TranslatedText } from "@/components/app/translated-text"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
 import { TimeAgo } from "@/components/app/time"
+import { EscalateButton } from "@/features/incidents/incident-panel"
+import { Permission } from "@/auth/permissions"
+import { useSession } from "@/auth/session"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -99,6 +102,7 @@ export function ReviewQueuePage() {
 }
 
 function CaseCard({ item, onResolve }: { item: ReviewCase; onResolve: () => void }) {
+  const { can } = useSession()
   const emergency = item.status === ReviewCaseStatus.EMERGENCY_ON_CALL_QUEUE
   const resolved = item.status === ReviewCaseStatus.RESOLVED
   return (
@@ -133,9 +137,13 @@ function CaseCard({ item, onResolve }: { item: ReviewCase; onResolve: () => void
           )}
         </div>
         {!resolved && (
-          <Button onClick={onResolve} variant={emergency ? "destructive" : "default"} className="shrink-0">
-            {emergency && <AlertTriangle aria-hidden />} Resolve
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {/* Emergencies stay with on-call: they are never sent to the AI team. */}
+            {!emergency && can(Permission.IncidentsManage) && <EscalateButton requestId={item.requestId} />}
+            <Button onClick={onResolve} variant={emergency ? "destructive" : "default"}>
+              {emergency && <AlertTriangle aria-hidden />} Resolve
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

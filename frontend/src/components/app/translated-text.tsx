@@ -26,6 +26,7 @@ export function TranslatedText({
   text,
   translated,
   sourceLanguage,
+  translatedLanguage = "en",
   revealed,
   className,
   excerpt,
@@ -33,6 +34,8 @@ export function TranslatedText({
   text: string
   translated?: string
   sourceLanguage?: string
+  /** Language of the translation: English for staff (FR-60), the tenant's for notices (FR-61). */
+  translatedLanguage?: string
   revealed?: Record<string, string>
   className?: string
   /** Shorten both texts to this many characters (lists). */
@@ -48,7 +51,7 @@ export function TranslatedText({
         text={shorten(showOriginal ? text : translated, excerpt)}
         revealed={revealed}
         className={className}
-        lang={showOriginal ? sourceLanguage : "en"}
+        lang={showOriginal ? sourceLanguage : translatedLanguage}
       />
       <p className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
         <Languages aria-hidden className="size-3.5" />

@@ -3,6 +3,8 @@
 - ``intake.escalated``: the incident team investigates and proposes a plan.
 - ``incident.plan_decided`` with a revision: the team investigates again, with the manager's
   feedback and its previous plan.
+- ``incident.plan_decided`` with an approval: the action executor carries the plan out
+  (services/incident_actions.py).
 
 The team only *returns* a plan (or a reason it couldn't make one); this worker stores it, moves
 the incident on, writes the next event and the decision-trail steps. The team never writes to
@@ -27,6 +29,7 @@ from backend.app.db.models import IncidentPlanRecord, IncidentRecord, IntakeRequ
 from backend.app.domain.decision_trail import DecisionStep, StepOutcome, current_trace_id
 from backend.app.domain.events import Event, EventType
 from backend.app.domain.incident_plan import IncidentPlan
+from backend.app.services import incident_actions
 from backend.app.services.events import InProcessEventBus, OutboxDispatcher, Subscription
 from backend.app.services.incidents import (
     ESCALATED,
@@ -221,5 +224,7 @@ async def on_dead_letter(session: AsyncSession, event: OutboxEventRecord) -> Non
 def build_dispatcher(
     session_factory: async_sessionmaker[AsyncSession], team: IncidentTeam | None = None
 ) -> OutboxDispatcher:
-    bus = InProcessEventBus(session_factory, subscriptions(team or UnavailableIncidentTeam()))
+    bus = InProcessEventBus(
+        session_factory, subscriptions(team or UnavailableIncidentTeam()) + incident_actions.subscriptions()
+    )
     return OutboxDispatcher(session_factory, bus, on_dead_letter=on_dead_letter)

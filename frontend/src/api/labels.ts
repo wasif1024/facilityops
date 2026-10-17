@@ -10,6 +10,7 @@ import {
   WorkOrderStatus,
 } from "@/gen/facilityops/v1/operations_pb"
 import { EvaluationMode, EvaluationStatus } from "@/gen/facilityops/v1/evaluations_pb"
+import { IncidentStatus } from "@/gen/facilityops/v1/incidents_pb"
 import { UserStatus } from "@/gen/facilityops/v1/users_pb"
 
 export type Tone = "neutral" | "info" | "success" | "warning" | "danger"
@@ -131,6 +132,10 @@ const reasonCodeLabels: Record<string, string> = {
   incident_team_unavailable: "Incident team not available yet",
   event_delivery_failed: "Couldn't hand the incident to the team",
   budget_exhausted: "The team ran out of budget",
+  incident_team_no_plan: "The team couldn't produce a plan",
+  actions_carried_out: "Approved actions carried out",
+  actions_need_attention: "Some approved actions need a person",
+  high_cost_confirmed: "Approved with the cost confirmed",
   approve: "Approved",
   revise: "Revision requested",
   not_needed: "Not needed",
@@ -150,6 +155,81 @@ export function reasonLabel(code: string): string {
   if (code.startsWith("harmful_image_")) return `Image flagged by Content Safety (${humanize(code.slice(14))})`
   return reasonCodeLabels[code] ?? humanize(code)
 }
+
+export const incidentStatusLabels: Record<IncidentStatus, { label: string; tone: Tone }> = {
+  [IncidentStatus.UNSPECIFIED]: { label: "Unknown", tone: "neutral" },
+  [IncidentStatus.ESCALATED]: { label: "Waiting for the team", tone: "info" },
+  [IncidentStatus.INVESTIGATING]: { label: "Investigating", tone: "info" },
+  [IncidentStatus.PLAN_READY]: { label: "Plan ready for a decision", tone: "warning" },
+  [IncidentStatus.NEEDS_REVIEW]: { label: "Needs a person", tone: "warning" },
+  [IncidentStatus.APPROVED]: { label: "Plan approved", tone: "success" },
+  [IncidentStatus.REJECTED]: { label: "Plan rejected", tone: "neutral" },
+  [IncidentStatus.CLOSED]: { label: "Closed", tone: "neutral" },
+  [IncidentStatus.REVISING]: { label: "Revising the plan", tone: "info" },
+}
+
+/** The team is still working: the panel refreshes itself while this is true. */
+export const incidentInProgress = new Set([IncidentStatus.ESCALATED, IncidentStatus.INVESTIGATING, IncidentStatus.REVISING])
+
+/** Requests report the incident status as a plain name, e.g. "investigating"; tenants see only this. */
+export function incidentStatusFromName(name: string, audience: "tenant" | "staff"): { label: string; tone: Tone } | null {
+  if (!name) return null
+  if (audience === "tenant") {
+    return ["escalated", "investigating", "plan_ready", "revising", "needs_review"].includes(name)
+      ? { label: "Being investigated", tone: "info" }
+      : null
+  }
+  const value = IncidentStatus[name.toUpperCase() as keyof typeof IncidentStatus]
+  return value === undefined ? { label: humanize(name), tone: "neutral" } : incidentStatusLabels[value]
+}
+
+export const actionTypeLabels: Record<string, string> = {
+  dispatch_technician: "Dispatch a technician",
+  order_part: "Order a part",
+  schedule_visit: "Book a vendor visit",
+  notify_tenant: "Notify the tenant",
+  apply_lockout: "Apply lockout/tagout",
+}
+
+/** What the application did with an approved action (FR-25). */
+export const executedStatusLabels: Record<string, { label: string; tone: Tone }> = {
+  done: { label: "Done", tone: "success" },
+  requested: { label: "Requested", tone: "info" },
+  queued: { label: "Queued", tone: "info" },
+  recorded: { label: "Recorded", tone: "info" },
+  failed: { label: "Needs a person", tone: "danger" },
+}
+
+export const executedReasonLabels: Record<string, string> = {
+  assigned: "Work order assigned",
+  purchase_requested: "Purchase request raised",
+  vendor_visit_requested: "Vendor visit requested",
+  lockout_required: "Lockout required before work starts",
+  notice_pending: "Notice waiting to be sent",
+  safety_block: "Blocked for safety",
+  technician_not_named: "The plan named no technician",
+  technician_unknown: "Unknown technician",
+  technician_not_linked: "Technician has no account",
+  technician_inactive: "Technician isn't active",
+  no_work_order: "No work order to assign",
+  work_order_closed: "Work order already closed",
+  part_not_named: "The plan named no part",
+  part_unknown: "Unknown part",
+}
+
+export const planFlagLabels: Record<string, { label: string; tone: Tone }> = {
+  safety_block: { label: "Safety block", tone: "danger" },
+  high_cost: { label: "High cost", tone: "warning" },
+  unverified_claims: { label: "Unverified claims", tone: "warning" },
+}
+
+export const planRejectionReasons: { value: string; label: string }[] = [
+  { value: "not_needed", label: "Not needed" },
+  { value: "unsafe", label: "Unsafe" },
+  { value: "too_costly", label: "Too costly" },
+  { value: "wrong_diagnosis", label: "Wrong diagnosis" },
+  { value: "duplicate", label: "Duplicate" },
+]
 
 export const priorityLabels: Record<number, { label: string; tone: Tone }> = {
   1: { label: "Low", tone: "neutral" },

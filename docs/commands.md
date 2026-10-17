@@ -471,6 +471,11 @@ python -m evals.run_eval --mode live --report evals/reports/live.json
 # Uses a scratch database (facilityops_scenarios); CI runs the same scenarios as integration tests.
 python -m evals.run_incident_scenarios --report evals/reports/incidents.json
 
+# Incident scenarios, live: the real Magentic team on 5 synthetic incidents, scored by Foundry's Groundedness and
+# Tool Call Accuracy evaluators. Paid model calls: about 15 minutes and ~150k tokens per incident.
+python -m evals.run_incident_scenarios --mode live --store
+python -m evals.run_incident_scenarios --mode live --scenario live-electrical-permitted   # one scenario
+
 # Photo and scanned-document intake: synthetic files drawn in code, sent through the real services
 # (Vision, Document Intelligence, Content Safety image + Prompt Shields, Language, classifier). ~1 min.
 python -m evals.run_media_eval --report evals/reports/media.json

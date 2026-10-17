@@ -53,6 +53,8 @@ class Container:
     coordinator_factory: Callable[[Any], Any]
     # Starts an evaluation run and returns without waiting for it to finish.
     launch_evaluation: EvaluationLauncher
+    # Translates approved tenant notices (FR-61); None when Translator isn't configured.
+    translator: Any = None
 
     @classmethod
     def default(
@@ -106,6 +108,7 @@ class Container:
             intake_repository_factory=SqlIntakeRepository,
             coordinator_factory=coordinator_for,
             launch_evaluation=_background_launcher(session_factory),
+            translator=adapters.translator,
         )
 
 

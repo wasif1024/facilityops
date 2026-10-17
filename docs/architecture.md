@@ -449,6 +449,39 @@ sequenceDiagram
 
 Both transports implement one `EventBus` port, so the domain code and the scenario tests don't know which is used.
 
+### 5.6 Carrying out an approved plan
+
+The model only proposes. Each proposed action names what the application needs (`technician_id` for a dispatch,
+`part_sku` and `quantity` for a part); after a facility manager approves, the **action executor**
+(`backend/app/services/incident_actions.py`, consumer `action-executor`) does the work with the application's own
+rules, in the same transaction as its processed-event marker:
+
+| Action | What the application does | Checked against |
+|---|---|---|
+| `dispatch_technician` | Approves the work order (the plan approval is that approval) and assigns it | Profile exists, linked to an **active technician** account |
+| `order_part` | Raises a purchase request, priced from the parts table (not the model's estimate) | Part sku exists |
+| `schedule_visit` | Records a vendor visit request | |
+| `apply_lockout` | Records that lockout/tagout is required before work starts | |
+| `notify_tenant` | Queues the notice; it is done when a manager approves the notice text (below) | |
+
+Results are `incident_actions` rows (`done`, `requested`, `queued`, `recorded` or `failed` with a reason code such
+as `technician_not_linked`) and `incident.action_*` decision-trail steps. A failed action is left for a person; the
+executor never substitutes another technician or part. A plan with a safety block is refused here too, even though
+`DecideIncidentPlan` already refuses to approve it.
+
+**Tenant notices (FR-61)** follow the same rule: the agent drafts, a person approves, the application acts.
+
+```mermaid
+flowchart LR
+    C["Communicator agent<br/>English draft in the plan"] --> FM["Facility manager<br/>edits and approves the English"]
+    FM --> T["Application: Azure AI Translator<br/>English → tenant's language"]
+    T --> N[("tenant_notices<br/>approved English + translation")]
+    N --> R["Tenant's request page<br/>their language, English one click away"]
+```
+
+The tenant's language is the one their request was translated from; notices with personal-data placeholders are
+refused, and a failed translation still delivers the approved English.
+
 ## 6. Human oversight
 
 People hold every decision with safety, money or privacy consequences. Models produce inputs to those decisions.

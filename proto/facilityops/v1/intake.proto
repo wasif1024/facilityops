@@ -114,6 +114,9 @@ message IntakeRequestSummary {
   string translated_description = 12;
   // ISO 639-1 code of the language translated from, for example "fr"; empty without a translation.
   string source_language = 13;
+  // Incident status name when the incident team has the request, for example "investigating";
+  // empty otherwise. Tenants see only this, never the plan.
+  string incident_status = 14;
 }
 
 message ListMyRequestsRequest {
@@ -145,6 +148,28 @@ message GetRequestRequest {
 
 message GetRequestResponse {
   IntakeRequestSummary request = 1;
+  // Notices from facility management about this request, newest first (FR-61).
+  repeated TenantNotice notices = 2;
+}
+
+// A notice to the resident (FR-61): drafted in English by the communicator, approved (and maybe
+// edited) by a facility manager, then machine-translated by the application into the tenant's language.
+message TenantNotice {
+  string id = 1;
+  // The approved English text.
+  string subject = 2;
+  string body = 3;
+  // ISO 639-1 language the tenant reads it in; "en" without a translation.
+  string language = 4;
+  // Machine translation into language; empty when language is "en".
+  string translated_subject = 5;
+  string translated_body = 6;
+  // "translation_failed" when the tenant got the English text instead.
+  string reason_code = 7;
+  // Staff only: whether the manager edited the communicator's draft, and who approved it.
+  bool edited = 8;
+  string approved_by_user_id = 9;
+  google.protobuf.Timestamp created_at = 10;
 }
 
 message RevealRequestDetailsRequest {

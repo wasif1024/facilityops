@@ -27,9 +27,14 @@ seed-world`) and Foundry IQ knowledge (done: agents/knowledge.py, GA 2026-04-01 
 `scripts/knowledge.sh setup|search`; Prompt Shields on every passage, notes never returned) done. Agent prompts written (8 files,
 agents/prompts.py loader, tests/unit/test_prompts.py keeps them consistent with tools and fixtures). Magentic team done:
 agents/team.py (MagenticIncidentTeam; manager gpt-5.2 + harness specialists gpt-5.4-mini; budgets 10 rounds,
-150k tokens, 240 s; invented citations removed), agents/scripted.py (ScriptedChatClient for tests), wired in
-worker.py. Next: approved actions executed by the application (FR-25), tenant notices + translation (FR-61),
-incident screens, live scenario eval.
+250k tokens, 240 s; invented citations removed), agents/scripted.py (ScriptedChatClient for tests), wired in
+worker.py. Approved actions done: services/incident_actions.py (consumer action-executor; incident_actions table;
+plan actions carry technician_id / part_sku / quantity). Incident screens done: frontend/src/features/incidents/
+(panel on request + work order pages, escalate in review queue; tenants see incident_status only).
+Tenant notices done (FR-61): services/tenant_notices.py, tenant_notices table, SendTenantNotice; plan.tenant_notice is
+the communicator's draft; AzureTranslator.translate(target_language=...). FR-62: `run_eval --translate-first`, measured, not adopted (spec §10).
+Live incident eval built (evals/incidents/live.py, `run_incident_scenarios --mode live [--store]`), not yet run in
+full (cost; owner deferred it). Agents run with store=False. Next: Phase 3; FR-26 checkpoint resume is a follow-up.
 Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
 Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
 scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport).

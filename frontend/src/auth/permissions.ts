@@ -19,6 +19,8 @@ export const Permission = {
   EvaluationsRun: "evaluations:run",
   MonitoringRead: "monitoring:read",
   DecisionsRead: "decisions:read",
+  IncidentsRead: "incidents:read",
+  IncidentsManage: "incidents:manage",
 } as const
 
 export type PermissionId = (typeof Permission)[keyof typeof Permission]
