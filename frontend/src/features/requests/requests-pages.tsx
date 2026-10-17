@@ -13,7 +13,8 @@ import { Permission } from "@/auth/permissions"
 import { useSession } from "@/auth/session"
 import { PriorityBadge, StatusBadge } from "@/components/app/badges"
 import { Pagination, useFilterParam, usePage } from "@/components/app/pagination"
-import { RedactedText, RevealButton, useReveal } from "@/components/app/redacted-text"
+import { RevealButton, useReveal } from "@/components/app/redacted-text"
+import { TranslatedText } from "@/components/app/translated-text"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
 import { TimeAgo } from "@/components/app/time"
 import { Button } from "@/components/ui/button"
@@ -26,13 +27,23 @@ type Audience = "tenant" | "staff"
 
 /** Emergencies are handed off before any processing, so they have no stored text. */
 function describeRequest(request: IntakeRequestSummary): string {
-  if (request.redactedDescription) return excerpt(request.redactedDescription)
+  if (request.redactedDescription) return request.redactedDescription
   if (request.status === IntakeStatus.EMERGENCY_HANDOFF) return "Emergency report, sent straight to the on-call team"
   return `${sourceLabels[request.source]} request`
 }
 
-function excerpt(text: string, length = 110): string {
-  return text.length > length ? `${text.slice(0, length).trimEnd()}…` : text
+const EXCERPT = 110
+
+/** Staff read the English translation of non-English requests; tenants always see their own words. */
+function RequestText({ request, audience }: { request: IntakeRequestSummary; audience: Audience }) {
+  return (
+    <TranslatedText
+      text={describeRequest(request)}
+      translated={audience === "staff" ? request.translatedDescription : undefined}
+      sourceLanguage={request.sourceLanguage}
+      excerpt={EXCERPT}
+    />
+  )
 }
 
 function RequestStatus({ request, audience }: { request: IntakeRequestSummary; audience: Audience }) {
@@ -61,7 +72,7 @@ function RequestList({ requests, audience }: { requests: IntakeRequestSummary[];
                     <RequestStatus request={request} audience={audience} />
                     <TimeAgo value={request.createdAt} />
                   </div>
-                  <RedactedText text={describeRequest(request)} />
+                  <RequestText request={request} audience={audience} />
                 </CardContent>
               </Card>
             </Link>
@@ -86,7 +97,7 @@ function RequestList({ requests, audience }: { requests: IntakeRequestSummary[];
               </TableCell>
               <TableCell className="max-w-md min-w-48 whitespace-normal">
                 <Link to={detail(request)} className="hover:underline">
-                  <RedactedText text={describeRequest(request)} />
+                  <RequestText request={request} audience={audience} />
                 </Link>
               </TableCell>
               <TableCell>{categoryLabels[request.category]}</TableCell>
@@ -222,13 +233,15 @@ export function RequestDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <RedactedText
+              <TranslatedText
                 text={
                   request.redactedDescription ||
                   (request.status === IntakeStatus.EMERGENCY_HANDOFF
                     ? "Emergency reports go straight to the on-call team before any processing, so no text is stored."
                     : "No text was captured.")
                 }
+                translated={audience === "staff" ? request.translatedDescription : undefined}
+                sourceLanguage={request.sourceLanguage}
                 revealed={reveal.values}
                 className="leading-relaxed whitespace-pre-wrap"
               />

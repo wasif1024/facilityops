@@ -12,6 +12,7 @@ from sqlalchemy import (
     LargeBinary,
     PrimaryKeyConstraint,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -33,6 +34,11 @@ class IntakeRequestRecord(Base):
     redacted_description: Mapped[str | None] = mapped_column(
         String(10_000), nullable=True
     )
+    # Staff translation of redacted_description (FR-60): machine-translated, same placeholders.
+    # Text, not a bounded string: a translation can be longer than its source.
+    translated_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Language the translation was made from (ISO 639-1); empty when no translation was needed.
+    source_language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     status: Mapped[str] = mapped_column(String(32))
     reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     category: Mapped[str | None] = mapped_column(String(32), nullable=True)

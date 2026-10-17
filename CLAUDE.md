@@ -74,6 +74,10 @@ Cap the rounds and tokens per run. Use smaller models for specialists to control
   live mode measures groundedness and tool-call accuracy (spec §10.1).
 - Knowledge uses the existing serverless AI Search service (endpoint in `.env` as `AZURE_SEARCH_ENDPOINT`), Entra
   auth. New Azure resources (Service Bus for Phase 3) need the owner's approval first.
+- **Translator (Phase 2, important; FR-60 done):** Azure AI Translator on the existing AI Services resource (Entra, path
+  `/translator/text/v3.0/translate`), redacted text only, placeholders survive. FR-60 staff translation to English,
+  FR-61 approved tenant notices into the tenant's language (application translates, not an agent), FR-62
+  translate-then-classify only if the fairness eval improves (spec §4.2.1).
 
 ## Cross-cutting requirements
 - **Enterprise:** managed identity, RBAC roles (tenant / technician / facility manager),

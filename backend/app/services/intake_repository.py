@@ -13,7 +13,7 @@ from backend.app.db.models import (
     PiiMappingRecord,
     WorkOrderRecord,
 )
-from backend.app.domain.intake import Classification, IntakeCommand, IntakeResult
+from backend.app.domain.intake import Classification, IntakeCommand, IntakeResult, Translation
 
 
 class DuplicateRequestInProgress(Exception):
@@ -119,6 +119,7 @@ class SqlIntakeRepository:
         result: IntakeResult,
         redacted_text: str | None,
         encrypted_mapping: bytes | None,
+        translation: Translation | None = None,
     ) -> None:
         request = await self._session.scalar(
             select(IntakeRequestRecord).where(
@@ -129,6 +130,9 @@ class SqlIntakeRepository:
             raise RuntimeError("Intake request must be reserved before processing")
 
         request.redacted_description = redacted_text
+        if translation is not None:
+            request.translated_description = translation.text
+            request.source_language = translation.source_language
         request.status = result.status.value
         request.reason_code = result.reason_code
         request.category = result.category.value if result.category else None

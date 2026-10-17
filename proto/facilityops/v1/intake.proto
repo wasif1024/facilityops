@@ -104,6 +104,11 @@ message IntakeRequestSummary {
   // PII-redacted text, with [PII_nnnn] placeholders.
   string redacted_description = 10;
   google.protobuf.Timestamp created_at = 11;
+  // Machine translation of redacted_description into the staff language, with the same
+  // placeholders; empty when the request was already in that language or translation failed.
+  string translated_description = 12;
+  // ISO 639-1 code of the language translated from, for example "fr"; empty without a translation.
+  string source_language = 13;
 }
 
 message ListMyRequestsRequest {
@@ -144,6 +149,8 @@ message RevealRequestDetailsRequest {
 message RevealRequestDetailsResponse {
   string request_id = 1;
   string redacted_description = 2;
+  // The staff translation; the same values apply to its placeholders.
+  string translated_description = 4;
   // Placeholder (for example "[PII_0001]") to original value. Do not cache or log.
   map<string, string> values = 3;
 }

@@ -81,6 +81,7 @@ Set at least these in `.env`:
 | `VISION_ENDPOINT` | your Azure AI Vision endpoint | Photo intake (caption + OCR) |
 | `SPEECH_ENDPOINT` | your Azure AI Speech endpoint | Voice intake (transcription) |
 | `DOCUMENT_INTELLIGENCE_ENDPOINT` | your Azure AI Document Intelligence endpoint (an AI Services resource works) | Scanned-document intake (read model) |
+| `TRANSLATOR_ENDPOINT` | your Azure AI Translator endpoint (an AI Services resource works) | Staff translation of Spanish and French requests (optional) |
 | `PII_MAPPING_ENCRYPTION_KEY` | see below | Storing and revealing the PII mapping |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | from your Application Insights resource | OpenTelemetry export (optional) |
 

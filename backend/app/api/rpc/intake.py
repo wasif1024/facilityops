@@ -70,6 +70,8 @@ def to_proto_summary(view: RequestView) -> pb.IntakeRequestSummary:
         work_order_id=text(request.work_order_id),
         work_order_status=text(view.work_order_status),
         redacted_description=text(request.redacted_description),
+        translated_description=text(request.translated_description),
+        source_language=text(request.source_language),
         created_at=timestamp(request.created_at),
     )
 
@@ -179,5 +181,6 @@ class IntakeRpc:
         return pb.RevealRequestDetailsResponse(
             request_id=str(details.request_id),
             redacted_description=details.redacted_description,
+            translated_description=details.translated_description,
             values=details.values,
         )

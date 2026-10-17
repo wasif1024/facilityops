@@ -38,6 +38,8 @@ def to_proto_case(view: ReviewCaseView) -> pb.ReviewCase:
         status=to_proto_enum(pb.ReviewCaseStatus, case.status),
         reason_code=case.reason_code,
         redacted_description=text(request.redacted_description),
+        translated_description=text(request.translated_description),
+        source_language=text(request.source_language),
         suggested_category=to_proto_enum(intake_pb.MaintenanceCategory, request.category),
         suggested_priority=request.priority,
         suggested_confidence=request.confidence,
@@ -67,6 +69,8 @@ def to_proto_work_order(view: WorkOrderView) -> pb.WorkOrder:
         completed_at=timestamp(wo.completed_at),
         created_at=timestamp(wo.created_at),
         redacted_description=text(view.redacted_description),
+        translated_description=text(view.translated_description),
+        source_language=text(view.source_language),
     )
 
 

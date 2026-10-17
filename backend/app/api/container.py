@@ -20,6 +20,7 @@ from backend.app.services.azure_adapters import (
     AzureContentSafetyInspector,
     AzureLanguagePiiRedactor,
     AzureMediaTranscriber,
+    AzureTranslator,
     FoundryMaintenanceClassifier,
 )
 from backend.app.services.evaluations import execute_admin_run
@@ -91,6 +92,7 @@ class Container:
             safety_inspector=AzureContentSafetyInspector(settings),
             classifier=FoundryMaintenanceClassifier(settings, recorder=recorder),
             media_transcriber=AzureMediaTranscriber(settings),
+            translator=AzureTranslator(settings) if settings.translator_endpoint else None,
         )
 
         def coordinator_for(repository: SqlIntakeRepository) -> IntakeCoordinator:
@@ -123,6 +125,7 @@ class IntakeAdapters:
     safety_inspector: AzureContentSafetyInspector
     classifier: FoundryMaintenanceClassifier
     media_transcriber: AzureMediaTranscriber
+    translator: AzureTranslator | None = None
 
 
 def build_coordinator(
@@ -136,6 +139,8 @@ def build_coordinator(
         decision_writer=repository,
         emergency_handoff=repository.emergency_handoff,
         media_transcriber=adapters.media_transcriber,
+        translator=adapters.translator,
+        staff_language=settings.staff_language,
         policy=classification_policy(settings),
     )
 

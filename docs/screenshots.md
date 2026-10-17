@@ -32,6 +32,14 @@ request; every reveal is recorded in the audit log.
 
 ![Revealing personal details on a work order](images/manager-work-order-reveal.png)
 
+### Requests in other languages
+
+Requests written in Spanish or French reach staff with an English machine translation from Azure AI Translator,
+clearly labelled, with the tenant's original one click away. Only redacted text is translated, so revealing
+personal details works on the translation too.
+
+![A French request shown to a facility manager in English, with a personal detail revealed](images/manager-translation.png)
+
 ## Technician: my work orders
 
 Technicians see only their own assignments, reveal details only for work assigned to them, and mark jobs done.

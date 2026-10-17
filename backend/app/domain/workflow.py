@@ -19,12 +19,14 @@ from backend.app.domain.intake import (
     IntakeStatus,
     PiiRedaction,
     RequestSource,
+    Translation,
 )
 from backend.app.domain.media import check_media, is_image
 
 
 # No-op unless telemetry is configured. Spans carry ids and reason codes, never text.
 _tracer = trace.get_tracer("facilityops.intake")
+_TRANSLATION_TIMEOUT_SECONDS = 10
 T = TypeVar("T")
 
 
@@ -79,6 +81,12 @@ class ContentSafetyInspector(Protocol):
         ...
 
 
+class TextTranslator(Protocol):
+    async def translate(self, text: str, *, source_language: str | None) -> Translation | None:
+        """Translate redacted text into the staff language; None when it is already in it."""
+        ...
+
+
 class MaintenanceClassifier(Protocol):
     async def classify(self, redacted_text: str) -> Classification: ...
 
@@ -103,6 +111,7 @@ class IntakeDecisionWriter(Protocol):
         result: IntakeResult,
         redacted_text: str | None,
         encrypted_mapping: bytes | None,
+        translation: Translation | None = None,
     ) -> None: ...
 
 
@@ -119,6 +128,8 @@ class IntakeCoordinator:
         decision_writer: IntakeDecisionWriter,
         emergency_handoff: Callable[[UUID, str], Awaitable[None]],
         media_transcriber: MediaTranscriber | None = None,
+        translator: TextTranslator | None = None,
+        staff_language: str = "en",
         minimum_confidence: float = 0.75,
         approval_priority_threshold: int = 4,
         policy: ClassificationPolicy | None = None,
@@ -137,6 +148,10 @@ class IntakeCoordinator:
         self._decision_writer = decision_writer
         self._emergency_handoff = emergency_handoff
         self._media_transcriber = media_transcriber
+        self._translator = translator
+        self._staff_language = staff_language
+        # Staff translations run alongside the safety checks and classifier, one per request.
+        self._translations: dict[UUID, asyncio.Task[Translation | None]] = {}
 
     async def process(self, command: IntakeCommand) -> IntakeResult:
         with _tracer.start_as_current_span("intake.process") as span:
@@ -193,6 +208,7 @@ class IntakeCoordinator:
                 command,
                 self._human_review(command, "pii_redaction_empty_result"),
             )
+        self._start_translation(command, redacted_text)
 
         if image_reason is not None:
             # A flagged picture never reaches the classifier. A person sees the redacted text
@@ -364,8 +380,34 @@ class IntakeCoordinator:
             result=result,
             redacted_text=redacted_text,
             encrypted_mapping=encrypted_mapping,
+            translation=await self._collect_translation(command),
         )
         return result
+
+    def _start_translation(self, command: IntakeCommand, redacted_text: str) -> None:
+        """Translate the redacted text for staff, unless it is already in their language.
+
+        Runs after every safety step and only ever sees redacted text. It is a convenience:
+        its failure never changes the outcome (FR-60).
+        """
+        if self._translator is None or command.language == self._staff_language:
+            return
+        self._translations[command.request_id] = asyncio.create_task(
+            _step(
+                "intake.translation",
+                self._translator.translate(redacted_text, source_language=command.language),
+            )
+        )
+
+    async def _collect_translation(self, command: IntakeCommand) -> Translation | None:
+        task = self._translations.pop(command.request_id, None)
+        if task is None:
+            return None
+        try:
+            return await asyncio.wait_for(task, timeout=_TRANSLATION_TIMEOUT_SECONDS)
+        except Exception:
+            # The original redacted text is still stored and shown; nothing else depends on this.
+            return None
 
     @staticmethod
     def _emergency_reason(text: str) -> str | None:

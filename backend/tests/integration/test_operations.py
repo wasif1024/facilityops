@@ -21,7 +21,9 @@ async def make_user(session_factory, name: str, role: str) -> str:
     return str(access.user.id)
 
 
-async def pending_work_order(session_factory, *, mapping: dict[str, str] | None = None):
+async def pending_work_order(
+    session_factory, *, mapping: dict[str, str] | None = None, translated: str | None = None
+):
     """A classified request awaiting approval, as the workflow would leave it."""
     request_id, work_order_id = uuid4(), uuid4()
     async with session_factory() as session:
@@ -37,6 +39,8 @@ async def pending_work_order(session_factory, *, mapping: dict[str, str] | None 
                 confidence=0.9,
                 work_order_id=work_order_id,
                 redacted_description="[PII_0001] in unit 3A: heating stopped",
+                translated_description=translated,
+                source_language="fr" if translated else None,
             )
         )
         await session.flush()
@@ -267,3 +271,23 @@ async def test_tenants_only_see_their_own_requests(client, session_factory):
     assert own.status_code == 200
     other = call(client, "IntakeService/GetRequest", {"requestId": mine["requestId"]}, user="bob")
     assert other.json()["code"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_staff_see_the_translation_with_the_same_reveal_values(client, session_factory):
+    """FR-60: the stored translation reaches every staff view, and reveal applies to it."""
+    await make_user(session_factory, "fm", "facility_manager")
+    translated = "[PII_0001] unit 3A: the heating is off"
+    request_id, work_order_id = await pending_work_order(
+        session_factory, mapping={"[PII_0001]": "Marie Dubois"}, translated=translated
+    )
+
+    request = call(client, "IntakeService/GetRequest", {"requestId": request_id}, user="fm").json()["request"]
+    assert (request["translatedDescription"], request["sourceLanguage"]) == (translated, "fr")
+
+    work_order = call(client, "WorkOrderService/GetWorkOrder", {"workOrderId": work_order_id}, user="fm").json()
+    assert work_order["workOrder"]["translatedDescription"] == translated
+
+    revealed = call(client, "IntakeService/RevealRequestDetails", {"requestId": request_id}, user="fm").json()
+    assert revealed["translatedDescription"] == translated
+    assert revealed["values"] == {"[PII_0001]": "Marie Dubois"}

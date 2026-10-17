@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .intake_pb import MaintenanceCategory
 
 
-_ReviewCaseFields: TypeAlias = Literal["id", "request_id", "status", "reason_code", "redacted_description", "suggested_category", "suggested_priority", "suggested_confidence", "resolution", "dismissal_reason", "resolved_by_user_id", "resolved_at", "created_at", "work_order_id"]
+_ReviewCaseFields: TypeAlias = Literal["id", "request_id", "status", "reason_code", "redacted_description", "suggested_category", "suggested_priority", "suggested_confidence", "resolution", "dismissal_reason", "resolved_by_user_id", "resolved_at", "created_at", "work_order_id", "translated_description", "source_language"]
 
 class ReviewCase(Message[_ReviewCaseFields]):
     """
@@ -90,9 +90,21 @@ class ReviewCase(Message[_ReviewCaseFields]):
             ```proto
             string work_order_id = 14;
             ```
+        translated_description:
+            Machine translation into the staff language (same placeholders); empty when not needed.
+
+            ```proto
+            string translated_description = 15;
+            ```
+        source_language:
+            ISO 639-1 code of the language translated from; empty without a translation.
+
+            ```proto
+            string source_language = 16;
+            ```
     """
 
-    __slots__ = ("id", "request_id", "status", "reason_code", "redacted_description", "suggested_category", "suggested_priority", "suggested_confidence", "resolution", "dismissal_reason", "resolved_by_user_id", "resolved_at", "created_at", "work_order_id")
+    __slots__ = ("id", "request_id", "status", "reason_code", "redacted_description", "suggested_category", "suggested_priority", "suggested_confidence", "resolution", "dismissal_reason", "resolved_by_user_id", "resolved_at", "created_at", "work_order_id", "translated_description", "source_language")
 
     if TYPE_CHECKING:
 
@@ -113,6 +125,8 @@ class ReviewCase(Message[_ReviewCaseFields]):
             resolved_at: Timestamp | None = None,
             created_at: Timestamp | None = None,
             work_order_id: str = "",
+            translated_description: str = "",
+            source_language: str = "",
         ) -> None:
             pass
 
@@ -130,8 +144,10 @@ class ReviewCase(Message[_ReviewCaseFields]):
         resolved_at: Timestamp | None
         created_at: Timestamp | None
         work_order_id: str
+        translated_description: str
+        source_language: str
 
-_WorkOrderFields: TypeAlias = Literal["id", "request_id", "category", "priority", "confidence", "status", "approval_required", "assigned_technician_id", "decided_by_user_id", "decided_at", "rejection_reason", "completed_at", "created_at", "redacted_description"]
+_WorkOrderFields: TypeAlias = Literal["id", "request_id", "category", "priority", "confidence", "status", "approval_required", "assigned_technician_id", "decided_by_user_id", "decided_at", "rejection_reason", "completed_at", "created_at", "redacted_description", "translated_description", "source_language"]
 
 class WorkOrder(Message[_WorkOrderFields]):
     """
@@ -198,9 +214,21 @@ class WorkOrder(Message[_WorkOrderFields]):
             ```proto
             string redacted_description = 14;
             ```
+        translated_description:
+            Machine translation into the staff language (same placeholders); empty when not needed.
+
+            ```proto
+            string translated_description = 15;
+            ```
+        source_language:
+            ISO 639-1 code of the language translated from; empty without a translation.
+
+            ```proto
+            string source_language = 16;
+            ```
     """
 
-    __slots__ = ("id", "request_id", "category", "priority", "confidence", "status", "approval_required", "assigned_technician_id", "decided_by_user_id", "decided_at", "rejection_reason", "completed_at", "created_at", "redacted_description")
+    __slots__ = ("id", "request_id", "category", "priority", "confidence", "status", "approval_required", "assigned_technician_id", "decided_by_user_id", "decided_at", "rejection_reason", "completed_at", "created_at", "redacted_description", "translated_description", "source_language")
 
     if TYPE_CHECKING:
 
@@ -221,6 +249,8 @@ class WorkOrder(Message[_WorkOrderFields]):
             completed_at: Timestamp | None = None,
             created_at: Timestamp | None = None,
             redacted_description: str = "",
+            translated_description: str = "",
+            source_language: str = "",
         ) -> None:
             pass
 
@@ -238,6 +268,8 @@ class WorkOrder(Message[_WorkOrderFields]):
         completed_at: Timestamp | None
         created_at: Timestamp | None
         redacted_description: str
+        translated_description: str
+        source_language: str
 
 _ListReviewCasesRequestFields: TypeAlias = Literal["include_resolved", "emergency_only", "limit", "offset"]
 
@@ -1052,7 +1084,7 @@ class RejectionReason(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x1ffacilityops/v1/operations.proto\x12\x0efacilityops.v1\x1a\x1bfacilityops/v1/intake.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x92\x06\n\nReviewCase\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nrequest_id\x18\x02 \x01(\tR\trequestId\x128\n\x06status\x18\x03 \x01(\x0e2 .facilityops.v1.ReviewCaseStatusR\x06status\x12\x1f\n\x0breason_code\x18\x04 \x01(\tR\nreasonCode\x121\n\x14redacted_description\x18\x05 \x01(\tR\x13redactedDescription\x12R\n\x12suggested_category\x18\x06 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x11suggestedCategory\x122\n\x12suggested_priority\x18\x07 \x01(\x05H\x00R\x11suggestedPriority\x88\x01\x01\x126\n\x14suggested_confidence\x18\x08 \x01(\x01H\x01R\x13suggestedConfidence\x88\x01\x01\x12@\n\nresolution\x18\t \x01(\x0e2 .facilityops.v1.ReviewResolutionR\nresolution\x12J\n\x10dismissal_reason\x18\n \x01(\x0e2\x1f.facilityops.v1.DismissalReasonR\x0fdismissalReason\x12-\n\x13resolved_by_user_id\x18\x0b \x01(\tR\x10resolvedByUserId\x12;\n\x0bresolved_at\x18\x0c \x01(\x0b2\x1a.google.protobuf.TimestampR\nresolvedAt\x129\n\ncreated_at\x18\r \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x12"\n\rwork_order_id\x18\x0e \x01(\tR\x0bworkOrderIdB\x15\n\x13_suggested_priorityB\x17\n\x15_suggested_confidence"\xb4\x05\n\tWorkOrder\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nrequest_id\x18\x02 \x01(\tR\trequestId\x12?\n\x08category\x18\x03 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1a\n\x08priority\x18\x04 \x01(\x05R\x08priority\x12\x1e\n\nconfidence\x18\x05 \x01(\x01R\nconfidence\x127\n\x06status\x18\x06 \x01(\x0e2\x1f.facilityops.v1.WorkOrderStatusR\x06status\x12+\n\x11approval_required\x18\x07 \x01(\x08R\x10approvalRequired\x124\n\x16assigned_technician_id\x18\x08 \x01(\tR\x14assignedTechnicianId\x12+\n\x12decided_by_user_id\x18\t \x01(\tR\x0fdecidedByUserId\x129\n\ndecided_at\x18\n \x01(\x0b2\x1a.google.protobuf.TimestampR\tdecidedAt\x12J\n\x10rejection_reason\x18\x0b \x01(\x0e2\x1f.facilityops.v1.RejectionReasonR\x0frejectionReason\x12=\n\x0ccompleted_at\x18\x0c \x01(\x0b2\x1a.google.protobuf.TimestampR\x0bcompletedAt\x129\n\ncreated_at\x18\r \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x121\n\x14redacted_description\x18\x0e \x01(\tR\x13redactedDescription"\x98\x01\n\x16ListReviewCasesRequest\x12)\n\x10include_resolved\x18\x01 \x01(\x08R\x0fincludeResolved\x12%\n\x0eemergency_only\x18\x02 \x01(\x08R\remergencyOnly\x12\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x04 \x01(\x05R\x06offset"a\n\x17ListReviewCasesResponse\x120\n\x05cases\x18\x01 \x03(\x0b2\x1a.facilityops.v1.ReviewCaseR\x05cases\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"\x9e\x02\n\x18ResolveReviewCaseRequest\x12\x17\n\x07case_id\x18\x01 \x01(\tR\x06caseId\x12@\n\nresolution\x18\x02 \x01(\x0e2 .facilityops.v1.ReviewResolutionR\nresolution\x12?\n\x08category\x18\x03 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1a\n\x08priority\x18\x04 \x01(\x05R\x08priority\x12J\n\x10dismissal_reason\x18\x05 \x01(\x0e2\x1f.facilityops.v1.DismissalReasonR\x0fdismissalReason"X\n\x19ResolveReviewCaseResponse\x12;\n\x0breview_case\x18\x01 \x01(\x0b2\x1a.facilityops.v1.ReviewCaseR\nreviewCase"\xa4\x01\n\x15ListWorkOrdersRequest\x127\n\x06status\x18\x01 \x01(\x0e2\x1f.facilityops.v1.WorkOrderStatusR\x06status\x12$\n\x0eassigned_to_me\x18\x02 \x01(\x08R\x0cassignedToMe\x12\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x04 \x01(\x05R\x06offset"j\n\x16ListWorkOrdersResponse\x12:\n\x0bwork_orders\x18\x01 \x03(\x0b2\x19.facilityops.v1.WorkOrderR\nworkOrders\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"9\n\x13GetWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId"P\n\x14GetWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"=\n\x17ApproveWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId"T\n\x18ApproveWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"u\n\x16RejectWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId\x127\n\x06reason\x18\x02 \x01(\x0e2\x1f.facilityops.v1.RejectionReasonR\x06reason"S\n\x17RejectWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"j\n\x16AssignWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId\x12,\n\x12technician_user_id\x18\x02 \x01(\tR\x10technicianUserId"S\n\x17AssignWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder">\n\x18CompleteWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId"U\n\x19CompleteWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"r\n\nTechnician\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId\x12!\n\x0cdisplay_name\x18\x02 \x01(\tR\x0bdisplayName\x12(\n\x10open_work_orders\x18\x03 \x01(\x05R\x0eopenWorkOrders"\x18\n\x16ListTechniciansRequest"W\n\x17ListTechniciansResponse\x12<\n\x0btechnicians\x18\x01 \x03(\x0b2\x1a.facilityops.v1.TechnicianR\x0btechnicians*\xa6\x01\n\x10ReviewCaseStatus\x12"\n\x1eREVIEW_CASE_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n\x19REVIEW_CASE_STATUS_QUEUED\x10\x01\x12.\n*REVIEW_CASE_STATUS_EMERGENCY_ON_CALL_QUEUE\x10\x02\x12\x1f\n\x1bREVIEW_CASE_STATUS_RESOLVED\x10\x03*\x80\x01\n\x10ReviewResolution\x12!\n\x1dREVIEW_RESOLUTION_UNSPECIFIED\x10\x00\x12(\n$REVIEW_RESOLUTION_WORK_ORDER_CREATED\x10\x01\x12\x1f\n\x1bREVIEW_RESOLUTION_DISMISSED\x10\x02*\x93\x02\n\x0fDismissalReason\x12 \n\x1cDISMISSAL_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1aDISMISSAL_REASON_DUPLICATE\x10\x01\x12#\n\x1fDISMISSAL_REASON_NOT_ACTIONABLE\x10\x02\x12!\n\x1dDISMISSAL_REASON_OUT_OF_SCOPE\x10\x03\x12\'\n#DISMISSAL_REASON_HANDLED_BY_ON_CALL\x10\x04\x12\'\n#DISMISSAL_REASON_RESOLVED_BY_TENANT\x10\x05\x12$\n DISMISSAL_REASON_ABUSIVE_OR_SPAM\x10\x06*\xb9\x01\n\x0fWorkOrderStatus\x12!\n\x1dWORK_ORDER_STATUS_UNSPECIFIED\x10\x00\x12&\n"WORK_ORDER_STATUS_PENDING_APPROVAL\x10\x01\x12\x1a\n\x16WORK_ORDER_STATUS_OPEN\x10\x02\x12\x1e\n\x1aWORK_ORDER_STATUS_REJECTED\x10\x03\x12\x1f\n\x1bWORK_ORDER_STATUS_COMPLETED\x10\x04*\xee\x01\n\x0fRejectionReason\x12 \n\x1cREJECTION_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1aREJECTION_REASON_DUPLICATE\x10\x01\x12#\n\x1fREJECTION_REASON_NOT_ACTIONABLE\x10\x02\x12&\n"REJECTION_REASON_COST_NOT_APPROVED\x10\x03\x12)\n%REJECTION_REASON_SAFETY_REVIEW_NEEDED\x10\x04\x12!\n\x1dREJECTION_REASON_OUT_OF_SCOPE\x10\x052\xe2\x01\n\x12ReviewQueueService\x12b\n\x0fListReviewCases\x12&.facilityops.v1.ListReviewCasesRequest\x1a\'.facilityops.v1.ListReviewCasesResponse\x12h\n\x11ResolveReviewCase\x12(.facilityops.v1.ResolveReviewCaseRequest\x1a).facilityops.v1.ResolveReviewCaseResponse2\xcb\x05\n\x10WorkOrderService\x12_\n\x0eListWorkOrders\x12%.facilityops.v1.ListWorkOrdersRequest\x1a&.facilityops.v1.ListWorkOrdersResponse\x12Y\n\x0cGetWorkOrder\x12#.facilityops.v1.GetWorkOrderRequest\x1a$.facilityops.v1.GetWorkOrderResponse\x12e\n\x10ApproveWorkOrder\x12\'.facilityops.v1.ApproveWorkOrderRequest\x1a(.facilityops.v1.ApproveWorkOrderResponse\x12b\n\x0fRejectWorkOrder\x12&.facilityops.v1.RejectWorkOrderRequest\x1a\'.facilityops.v1.RejectWorkOrderResponse\x12b\n\x0fAssignWorkOrder\x12&.facilityops.v1.AssignWorkOrderRequest\x1a\'.facilityops.v1.AssignWorkOrderResponse\x12h\n\x11CompleteWorkOrder\x12(.facilityops.v1.CompleteWorkOrderRequest\x1a).facilityops.v1.CompleteWorkOrderResponse\x12b\n\x0fListTechnicians\x12&.facilityops.v1.ListTechniciansRequest\x1a\'.facilityops.v1.ListTechniciansResponseb\x06proto3',
+    b'\n\x1ffacilityops/v1/operations.proto\x12\x0efacilityops.v1\x1a\x1bfacilityops/v1/intake.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xf2\x06\n\nReviewCase\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nrequest_id\x18\x02 \x01(\tR\trequestId\x128\n\x06status\x18\x03 \x01(\x0e2 .facilityops.v1.ReviewCaseStatusR\x06status\x12\x1f\n\x0breason_code\x18\x04 \x01(\tR\nreasonCode\x121\n\x14redacted_description\x18\x05 \x01(\tR\x13redactedDescription\x12R\n\x12suggested_category\x18\x06 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x11suggestedCategory\x122\n\x12suggested_priority\x18\x07 \x01(\x05H\x00R\x11suggestedPriority\x88\x01\x01\x126\n\x14suggested_confidence\x18\x08 \x01(\x01H\x01R\x13suggestedConfidence\x88\x01\x01\x12@\n\nresolution\x18\t \x01(\x0e2 .facilityops.v1.ReviewResolutionR\nresolution\x12J\n\x10dismissal_reason\x18\n \x01(\x0e2\x1f.facilityops.v1.DismissalReasonR\x0fdismissalReason\x12-\n\x13resolved_by_user_id\x18\x0b \x01(\tR\x10resolvedByUserId\x12;\n\x0bresolved_at\x18\x0c \x01(\x0b2\x1a.google.protobuf.TimestampR\nresolvedAt\x129\n\ncreated_at\x18\r \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x12"\n\rwork_order_id\x18\x0e \x01(\tR\x0bworkOrderId\x125\n\x16translated_description\x18\x0f \x01(\tR\x15translatedDescription\x12\'\n\x0fsource_language\x18\x10 \x01(\tR\x0esourceLanguageB\x15\n\x13_suggested_priorityB\x17\n\x15_suggested_confidence"\x94\x06\n\tWorkOrder\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nrequest_id\x18\x02 \x01(\tR\trequestId\x12?\n\x08category\x18\x03 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1a\n\x08priority\x18\x04 \x01(\x05R\x08priority\x12\x1e\n\nconfidence\x18\x05 \x01(\x01R\nconfidence\x127\n\x06status\x18\x06 \x01(\x0e2\x1f.facilityops.v1.WorkOrderStatusR\x06status\x12+\n\x11approval_required\x18\x07 \x01(\x08R\x10approvalRequired\x124\n\x16assigned_technician_id\x18\x08 \x01(\tR\x14assignedTechnicianId\x12+\n\x12decided_by_user_id\x18\t \x01(\tR\x0fdecidedByUserId\x129\n\ndecided_at\x18\n \x01(\x0b2\x1a.google.protobuf.TimestampR\tdecidedAt\x12J\n\x10rejection_reason\x18\x0b \x01(\x0e2\x1f.facilityops.v1.RejectionReasonR\x0frejectionReason\x12=\n\x0ccompleted_at\x18\x0c \x01(\x0b2\x1a.google.protobuf.TimestampR\x0bcompletedAt\x129\n\ncreated_at\x18\r \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x121\n\x14redacted_description\x18\x0e \x01(\tR\x13redactedDescription\x125\n\x16translated_description\x18\x0f \x01(\tR\x15translatedDescription\x12\'\n\x0fsource_language\x18\x10 \x01(\tR\x0esourceLanguage"\x98\x01\n\x16ListReviewCasesRequest\x12)\n\x10include_resolved\x18\x01 \x01(\x08R\x0fincludeResolved\x12%\n\x0eemergency_only\x18\x02 \x01(\x08R\remergencyOnly\x12\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x04 \x01(\x05R\x06offset"a\n\x17ListReviewCasesResponse\x120\n\x05cases\x18\x01 \x03(\x0b2\x1a.facilityops.v1.ReviewCaseR\x05cases\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"\x9e\x02\n\x18ResolveReviewCaseRequest\x12\x17\n\x07case_id\x18\x01 \x01(\tR\x06caseId\x12@\n\nresolution\x18\x02 \x01(\x0e2 .facilityops.v1.ReviewResolutionR\nresolution\x12?\n\x08category\x18\x03 \x01(\x0e2#.facilityops.v1.MaintenanceCategoryR\x08category\x12\x1a\n\x08priority\x18\x04 \x01(\x05R\x08priority\x12J\n\x10dismissal_reason\x18\x05 \x01(\x0e2\x1f.facilityops.v1.DismissalReasonR\x0fdismissalReason"X\n\x19ResolveReviewCaseResponse\x12;\n\x0breview_case\x18\x01 \x01(\x0b2\x1a.facilityops.v1.ReviewCaseR\nreviewCase"\xa4\x01\n\x15ListWorkOrdersRequest\x127\n\x06status\x18\x01 \x01(\x0e2\x1f.facilityops.v1.WorkOrderStatusR\x06status\x12$\n\x0eassigned_to_me\x18\x02 \x01(\x08R\x0cassignedToMe\x12\x14\n\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n\x06offset\x18\x04 \x01(\x05R\x06offset"j\n\x16ListWorkOrdersResponse\x12:\n\x0bwork_orders\x18\x01 \x03(\x0b2\x19.facilityops.v1.WorkOrderR\nworkOrders\x12\x14\n\x05total\x18\x02 \x01(\x05R\x05total"9\n\x13GetWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId"P\n\x14GetWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"=\n\x17ApproveWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId"T\n\x18ApproveWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"u\n\x16RejectWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId\x127\n\x06reason\x18\x02 \x01(\x0e2\x1f.facilityops.v1.RejectionReasonR\x06reason"S\n\x17RejectWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"j\n\x16AssignWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId\x12,\n\x12technician_user_id\x18\x02 \x01(\tR\x10technicianUserId"S\n\x17AssignWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder">\n\x18CompleteWorkOrderRequest\x12"\n\rwork_order_id\x18\x01 \x01(\tR\x0bworkOrderId"U\n\x19CompleteWorkOrderResponse\x128\n\nwork_order\x18\x01 \x01(\x0b2\x19.facilityops.v1.WorkOrderR\tworkOrder"r\n\nTechnician\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId\x12!\n\x0cdisplay_name\x18\x02 \x01(\tR\x0bdisplayName\x12(\n\x10open_work_orders\x18\x03 \x01(\x05R\x0eopenWorkOrders"\x18\n\x16ListTechniciansRequest"W\n\x17ListTechniciansResponse\x12<\n\x0btechnicians\x18\x01 \x03(\x0b2\x1a.facilityops.v1.TechnicianR\x0btechnicians*\xa6\x01\n\x10ReviewCaseStatus\x12"\n\x1eREVIEW_CASE_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n\x19REVIEW_CASE_STATUS_QUEUED\x10\x01\x12.\n*REVIEW_CASE_STATUS_EMERGENCY_ON_CALL_QUEUE\x10\x02\x12\x1f\n\x1bREVIEW_CASE_STATUS_RESOLVED\x10\x03*\x80\x01\n\x10ReviewResolution\x12!\n\x1dREVIEW_RESOLUTION_UNSPECIFIED\x10\x00\x12(\n$REVIEW_RESOLUTION_WORK_ORDER_CREATED\x10\x01\x12\x1f\n\x1bREVIEW_RESOLUTION_DISMISSED\x10\x02*\x93\x02\n\x0fDismissalReason\x12 \n\x1cDISMISSAL_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1aDISMISSAL_REASON_DUPLICATE\x10\x01\x12#\n\x1fDISMISSAL_REASON_NOT_ACTIONABLE\x10\x02\x12!\n\x1dDISMISSAL_REASON_OUT_OF_SCOPE\x10\x03\x12\'\n#DISMISSAL_REASON_HANDLED_BY_ON_CALL\x10\x04\x12\'\n#DISMISSAL_REASON_RESOLVED_BY_TENANT\x10\x05\x12$\n DISMISSAL_REASON_ABUSIVE_OR_SPAM\x10\x06*\xb9\x01\n\x0fWorkOrderStatus\x12!\n\x1dWORK_ORDER_STATUS_UNSPECIFIED\x10\x00\x12&\n"WORK_ORDER_STATUS_PENDING_APPROVAL\x10\x01\x12\x1a\n\x16WORK_ORDER_STATUS_OPEN\x10\x02\x12\x1e\n\x1aWORK_ORDER_STATUS_REJECTED\x10\x03\x12\x1f\n\x1bWORK_ORDER_STATUS_COMPLETED\x10\x04*\xee\x01\n\x0fRejectionReason\x12 \n\x1cREJECTION_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1aREJECTION_REASON_DUPLICATE\x10\x01\x12#\n\x1fREJECTION_REASON_NOT_ACTIONABLE\x10\x02\x12&\n"REJECTION_REASON_COST_NOT_APPROVED\x10\x03\x12)\n%REJECTION_REASON_SAFETY_REVIEW_NEEDED\x10\x04\x12!\n\x1dREJECTION_REASON_OUT_OF_SCOPE\x10\x052\xe2\x01\n\x12ReviewQueueService\x12b\n\x0fListReviewCases\x12&.facilityops.v1.ListReviewCasesRequest\x1a\'.facilityops.v1.ListReviewCasesResponse\x12h\n\x11ResolveReviewCase\x12(.facilityops.v1.ResolveReviewCaseRequest\x1a).facilityops.v1.ResolveReviewCaseResponse2\xcb\x05\n\x10WorkOrderService\x12_\n\x0eListWorkOrders\x12%.facilityops.v1.ListWorkOrdersRequest\x1a&.facilityops.v1.ListWorkOrdersResponse\x12Y\n\x0cGetWorkOrder\x12#.facilityops.v1.GetWorkOrderRequest\x1a$.facilityops.v1.GetWorkOrderResponse\x12e\n\x10ApproveWorkOrder\x12\'.facilityops.v1.ApproveWorkOrderRequest\x1a(.facilityops.v1.ApproveWorkOrderResponse\x12b\n\x0fRejectWorkOrder\x12&.facilityops.v1.RejectWorkOrderRequest\x1a\'.facilityops.v1.RejectWorkOrderResponse\x12b\n\x0fAssignWorkOrder\x12&.facilityops.v1.AssignWorkOrderRequest\x1a\'.facilityops.v1.AssignWorkOrderResponse\x12h\n\x11CompleteWorkOrder\x12(.facilityops.v1.CompleteWorkOrderRequest\x1a).facilityops.v1.CompleteWorkOrderResponse\x12b\n\x0fListTechnicians\x12&.facilityops.v1.ListTechniciansRequest\x1a\'.facilityops.v1.ListTechniciansResponseb\x06proto3',
     [
         intake_pb.desc(),
         timestamp_pb.desc(),

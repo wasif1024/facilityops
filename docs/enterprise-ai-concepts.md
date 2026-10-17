@@ -50,6 +50,7 @@ project implements, in plain words, with the file that implements it. It is writ
 | **PII redaction** | Names, phone numbers and similar are replaced with placeholders before any model, log or trace sees them | Personal data must not leak into AI providers, logs or analytics | `AzureLanguagePiiRedactor` in [`azure_adapters.py`](../backend/app/services/azure_adapters.py) |
 | **Reversible, role-gated reveal** | The originals are kept encrypted; a technician can reveal them for their own job, and each reveal is audited | Privacy that isn't all-or-nothing: work still gets done | `RevealRequestDetails` RPC |
 | **Data minimisation** | Photos, scans and voice notes are never stored; telemetry carries ids and counts, never text | What you don't keep can't leak | spec [§8](specification.md#8-data-and-privacy) |
+| **Privacy-safe translation** | Requests are translated for staff only after redaction; the placeholders survive, and a translation that loses one is thrown away | Translation services must not become a side door for personal data | `AzureTranslator` in [`azure_adapters.py`](../backend/app/services/azure_adapters.py) |
 | **Synthetic data only** | Every name, building and document in the repo and evals is invented | A public repo must not contain real people | [`evals/`](../evals) |
 
 ## Quality and fairness

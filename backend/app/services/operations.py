@@ -82,6 +82,16 @@ class ReviewCaseView:
 class WorkOrderView:
     work_order: WorkOrderRecord
     redacted_description: str | None
+    translated_description: str | None = None
+    source_language: str | None = None
+
+
+# The request text shown with a work order: redacted original plus the staff translation (FR-60).
+_REQUEST_TEXT = (
+    IntakeRequestRecord.redacted_description,
+    IntakeRequestRecord.translated_description,
+    IntakeRequestRecord.source_language,
+)
 
 
 @dataclass(frozen=True)
@@ -89,6 +99,7 @@ class RevealedDetails:
     request_id: UUID
     redacted_description: str
     values: dict[str, str]
+    translated_description: str = ""
 
 
 class OperationsService:
@@ -176,7 +187,9 @@ class OperationsService:
             )
         )
         await self._session.commit()
-        return RevealedDetails(request_id, request.redacted_description or "", values)
+        return RevealedDetails(
+            request_id, request.redacted_description or "", values, request.translated_description or ""
+        )
 
     # --- Review queue --------------------------------------------------------------
 
@@ -273,7 +286,7 @@ class OperationsService:
         limit: int,
         offset: int,
     ) -> tuple[list[WorkOrderView], int]:
-        query = select(WorkOrderRecord, IntakeRequestRecord.redacted_description).join(
+        query = select(WorkOrderRecord, *_REQUEST_TEXT).join(
             IntakeRequestRecord, IntakeRequestRecord.request_id == WorkOrderRecord.request_id
         )
         # Without read_all, a technician only ever sees their own assignments.
@@ -287,12 +300,12 @@ class OperationsService:
             .limit(limit)
             .offset(offset)
         )
-        return [WorkOrderView(wo, text) for wo, text in rows], total
+        return [WorkOrderView(wo, *text) for wo, *text in rows], total
 
     async def get_work_order(self, work_order_id: UUID, viewer: Viewer) -> WorkOrderView:
         row = (
             await self._session.execute(
-                select(WorkOrderRecord, IntakeRequestRecord.redacted_description)
+                select(WorkOrderRecord, *_REQUEST_TEXT)
                 .join(
                     IntakeRequestRecord,
                     IntakeRequestRecord.request_id == WorkOrderRecord.request_id,
@@ -305,7 +318,7 @@ class OperationsService:
             or row[0].assigned_technician_id == viewer.user_id
         ):
             raise NotFound("Work order not found")
-        return WorkOrderView(row[0], row[1])
+        return WorkOrderView(row[0], *row[1:])
 
     async def approve(self, work_order_id: UUID, actor_id: UUID) -> WorkOrderView:
         work_order = await self._transition(work_order_id, "approve")
@@ -402,12 +415,12 @@ class OperationsService:
 
     async def _commit_view(self, work_order: WorkOrderRecord) -> WorkOrderView:
         await self._session.commit()
-        text = await self._session.scalar(
-            select(IntakeRequestRecord.redacted_description).where(
-                IntakeRequestRecord.request_id == work_order.request_id
+        row = (
+            await self._session.execute(
+                select(*_REQUEST_TEXT).where(IntakeRequestRecord.request_id == work_order.request_id)
             )
-        )
-        return WorkOrderView(work_order, text)
+        ).first()
+        return WorkOrderView(work_order, *(row or (None, None, None)))
 
     def _audit(self, request_id: UUID, event_type: str, reason_code: str, actor_id: UUID) -> None:
         self._session.add(

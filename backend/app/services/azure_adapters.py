@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +16,7 @@ from backend.app.domain.intake import (
     Classification,
     PiiRedaction,
     RequestSource,
+    Translation,
 )
 from backend.app.services.agent_monitoring import (
     AgentMonitoringMiddleware,
@@ -229,6 +231,58 @@ class AzureMediaTranscriber:
         response.raise_for_status()
         phrases = response.json().get("combinedPhrases") or []
         return " ".join(phrase.get("text", "") for phrase in phrases).strip()
+
+
+class AzureTranslator:
+    """Azure AI Translator (Text v3.0) for staff translations, with Entra ID.
+
+    Called with redacted text only. [PII_nnnn] placeholders pass through unchanged, so the
+    reveal mapping applies to the translation too; a translation that lost a placeholder is
+    discarded rather than shown with a detail missing.
+    """
+
+    _API_VERSION = "3.0"
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    async def translate(self, text: str, *, source_language: str | None) -> Translation | None:
+        if not self._settings.translator_endpoint:
+            raise RuntimeError("TRANSLATOR_ENDPOINT is not configured")
+        import httpx
+        from azure.identity.aio import DefaultAzureCredential
+
+        target = self._settings.staff_language
+        params = {"api-version": self._API_VERSION, "to": target}
+        if source_language:
+            params["from"] = source_language
+        async with DefaultAzureCredential() as credential:
+            token = (await credential.get_token(_COGNITIVE_SERVICES_SCOPE)).token
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                f"{self._settings.translator_endpoint.rstrip('/')}/translator/text/v3.0/translate",
+                params=params,
+                headers={"Authorization": f"Bearer {token}"},
+                json=[{"text": text}],
+            )
+        response.raise_for_status()
+        return _parse_translation(response.json(), text, source_language, target)
+
+
+def _parse_translation(
+    body: Any, original: str, source_language: str | None, target: str
+) -> Translation | None:
+    item = body[0]
+    language = (source_language or (item.get("detectedLanguage") or {}).get("language") or "").lower()
+    if not language or language == target:
+        return None
+    translated = item["translations"][0]["text"]
+    if sorted(_PLACEHOLDERS.findall(translated)) != sorted(_PLACEHOLDERS.findall(original)):
+        raise RuntimeError("Translation changed the personal-data placeholders")
+    return Translation(text=translated, source_language=language)
+
+
+_PLACEHOLDERS = re.compile(r"\[PII_\d{4}\]")
 
 
 class AzureContentSafetyInspector:

@@ -20,14 +20,17 @@ export function RedactedText({
   text,
   revealed,
   className,
+  lang,
 }: {
   text: string
   revealed?: Record<string, string>
   className?: string
+  /** Language of the text, for screen readers and hyphenation. */
+  lang?: string
 }) {
   const parts = text.split(PLACEHOLDER)
   return (
-    <p className={className}>
+    <p className={className} lang={lang}>
       {parts.map((part, i) => {
         if (!IS_PLACEHOLDER.test(part)) return <Fragment key={i}>{part}</Fragment>
         const value = revealed?.[part]

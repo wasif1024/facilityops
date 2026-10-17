@@ -12,7 +12,8 @@ import { Permission } from "@/auth/permissions"
 import { useSession } from "@/auth/session"
 import { PriorityBadge, StatusBadge } from "@/components/app/badges"
 import { Pagination, useFilterParam, usePage } from "@/components/app/pagination"
-import { RedactedText, RevealButton, useReveal } from "@/components/app/redacted-text"
+import { RevealButton, useReveal } from "@/components/app/redacted-text"
+import { TranslatedText } from "@/components/app/translated-text"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
 import { TimeAgo } from "@/components/app/time"
 import {
@@ -59,9 +60,6 @@ const rejectionReasons = Object.values(RejectionReason).filter(
   (v): v is RejectionReason => typeof v === "number" && v !== RejectionReason.UNSPECIFIED,
 )
 
-function excerpt(text: string): string {
-  return text.length > 100 ? `${text.slice(0, 100).trimEnd()}…` : text
-}
 
 /** Technician names for display and the assign picker (needs work_orders:assign). */
 function useTechnicians() {
@@ -130,7 +128,12 @@ export function WorkOrdersPage() {
                   </TableCell>
                   <TableCell className="max-w-md min-w-48 whitespace-normal">
                     <Link to={`/work-orders/${wo.id}`} className="hover:underline">
-                      <RedactedText text={excerpt(wo.redactedDescription) || "(no text)"} />
+                      <TranslatedText
+                        text={wo.redactedDescription || "(no text)"}
+                        translated={wo.translatedDescription}
+                        sourceLanguage={wo.sourceLanguage}
+                        excerpt={100}
+                      />
                     </Link>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{categoryLabels[wo.category]}</TableCell>
@@ -192,8 +195,10 @@ export function WorkOrderDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <RedactedText
+              <TranslatedText
                 text={wo.redactedDescription || "No description."}
+                translated={wo.translatedDescription}
+                sourceLanguage={wo.sourceLanguage}
                 revealed={reveal.values}
                 className="leading-relaxed whitespace-pre-wrap"
               />

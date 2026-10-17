@@ -385,6 +385,20 @@ contracts) in a knowledge base on Azure AI Search, reached only through tools, s
 screened by Prompt Shields for injected instructions and cited. **Tools** are read-only functions over FacilityOps
 data. **Skills** are procedures (how to cite, how to judge a repeat failure) loaded only when relevant.
 
+### 5.4.1 Languages: Azure Translator
+
+```mermaid
+flowchart LR
+    t["Tenant writes in<br/>en · es · fr"] --> safety["Emergency screen ·<br/>redaction · Prompt Shields<br/>on the original"]
+    safety --> red["Redacted text<br/>[PII_nnnn] kept"]
+    red --> tr1["Translator → English<br/>for staff (FR-60)"]
+    red --> cls["Classifier<br/>original text"]
+    note["Approved English notice"] --> tr2["Translator → tenant's<br/>language (FR-61)"]
+```
+
+Translator only sees redacted text, runs after every safety step, and its failure never blocks intake. Whether to
+classify the English translation instead of the original is decided by measurement (FR-62), not assumed.
+
 ### 5.5 Events and topics
 
 Agents *inside* a run talk through Magentic's workflow edges. Agent Framework has no topics. **Topics connect the

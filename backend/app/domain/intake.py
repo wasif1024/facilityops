@@ -121,6 +121,14 @@ class PiiRedaction(BaseModel):
     redacted_attachment: str = ""
 
 
+class Translation(BaseModel):
+    """Machine translation of the redacted text for staff. Placeholders such as [PII_0001] are kept."""
+
+    text: str
+    # ISO 639-1 code of the language it was translated from, for example "fr".
+    source_language: str = Field(min_length=2, max_length=8)
+
+
 class IntakeResult(BaseModel):
     request_id: UUID
     status: IntakeStatus

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     speech_endpoint: str | None = None
     # Scanned documents (Document Intelligence read model). Also usually the same resource.
     document_intelligence_endpoint: str | None = None
+    # Azure AI Translator: requests are translated into the staff language for reviewers (FR-60).
+    # The same AI Services resource works. Unset: no translation, originals only.
+    translator_endpoint: str | None = None
+    staff_language: str = Field(default="en", pattern=r"^[a-z]{2}$")
     frontend_origins: list[str] = ["http://localhost:5173"]
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
     # Large enough for an 8 MiB photo or voice note sent as base64 JSON.

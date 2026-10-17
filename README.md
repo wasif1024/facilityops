@@ -35,6 +35,8 @@ repository is synthetic.
 
 - **Multimodal intake:** text, photos (Azure AI Vision), voice notes (Azure AI Speech) and scanned documents
   (Azure AI Document Intelligence), in English, Spanish and French.
+- **Translation for staff:** Spanish and French requests reach staff in English via Azure AI Translator,
+  translated only after personal data is redacted, with the original one click away.
 - **Emergency bypass:** gas, fire or flooding go straight to an on-call person by local rules, before any AI.
 - **Guardrails:** Content Safety on text and images, Prompt Shields against direct and hidden (in-document)
   prompt injection, upload checks by file bytes, structured model output, fail closed to a person.
@@ -68,7 +70,7 @@ complex incidents. Details: [architecture and agent orchestration](docs/architec
 
 | Layer | Technology |
 |---|---|
-| AI | Microsoft Foundry, Microsoft Agent Framework, Azure AI Language, Content Safety, Vision, Speech, Document Intelligence |
+| AI | Microsoft Foundry, Microsoft Agent Framework, Azure AI Language, Content Safety, Vision, Speech, Document Intelligence, Translator |
 | Backend | Python 3.13, FastAPI (ASGI), Connect RPC + protobuf, SQLAlchemy, Alembic, PostgreSQL |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, Connect-Web (gRPC-Web), TanStack Query |
 | Identity | Microsoft Entra ID, Entra External ID, MSAL, managed identity |
@@ -161,7 +163,7 @@ docs/         documentation and diagrams
 ## Roadmap
 
 - [x] **Phase 1, intake:** multimodal intake, guardrails, PII, review queue and approvals, RBAC, monitoring, evals with a CI gate
-- [ ] **Phase 2, complex incidents:** Magentic multi-agent team, Foundry IQ knowledge base over equipment manuals, event-driven runs, scenario evaluation harness
+- [ ] **Phase 2, complex incidents:** Magentic multi-agent team, Foundry IQ knowledge base over equipment manuals, Azure Translator for staff and tenant notices, event-driven runs, scenario evaluation harness
 - [ ] **Phase 3, production:** `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md` transparency note
 
 ## Contributing

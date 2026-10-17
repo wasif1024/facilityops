@@ -99,6 +99,21 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). | ⬜ |
 | FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). | ⬜ |
 
+### 4.2.1 Language support with Azure Translator (Phase 2)
+
+Tenants report in English, Spanish or French; staff work in English. Azure AI Translator runs on the existing AI
+Services resource with Entra ID, and only ever receives **redacted** text: `[PII_nnnn]` placeholders pass through
+translation unchanged (verified live), so the reveal mapping keeps working.
+
+| ID | Requirement | Status |
+|---|---|---|
+| FR-60 | **Staff translation.** When a request isn't in English, translate its redacted text to English and store it beside the original with the source language. Review queue, request and work-order pages show the translation labelled *Machine translation*, with the original one click away. A translation failure never blocks intake (the original is shown); translation is a convenience, not a safety step. A translation that loses a `[PII_nnnn]` placeholder is discarded. | ✅ |
+| FR-61 | **Tenant notices in the tenant's language.** The Communicator drafts a notice in English; a facility manager approves the English text; the application (not an agent) translates the approved text into the tenant's language with Translator and stores both. Tenants see their language with a *machine translated* note. | ⬜ |
+| FR-62 | **Translate-then-classify experiment.** An evaluation option classifies the English translation instead of the original. Adopt it only if, on two live runs, category accuracy and route fairness don't drop and label consistency across languages improves (the French priority effect in §10). Otherwise record the result and keep classifying the original. | ⬜ |
+
+Safety steps keep working on the original language: the emergency screen, PII redaction and Prompt Shields all run
+before and independently of translation, so a translation error can't hide an emergency or an attack.
+
 ### 4.3 Escalation criteria (proposed)
 
 A classified, non-emergency request goes to the incident team if **any** of the following hold; otherwise it stays
@@ -423,7 +438,7 @@ Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note)
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **1. Intake MVP** ✅ | FR-1–19, golden set, media eval, CI gate | All Phase 1 FRs ✅; every target in §10 met on two consecutive live runs (2026-10-17) |
-| **2. Incident team** | FR-20–29: Magentic team on the harness profile, knowledge base over synthetic manuals, events with outbox and incident worker, scenario harness, approvals | Every scenario family in §10.1 passes in scripted mode on every PR; live targets in §10.1 met on two consecutive runs |
+| **2. Incident team** | FR-20–29, FR-60–62 (Translator): Magentic team on the harness profile, knowledge base over synthetic manuals, events with outbox and incident worker, scenario harness, approvals | Every scenario family in §10.1 passes in scripted mode on every PR; live targets in §10.1 met on two consecutive runs |
 | **3. Product** | FR-30–32, Service Bus topic in Bicep, red-team report, transparency note, demo | Deployed with `azd up` from a clean subscription |
 
 ## 12. Open questions

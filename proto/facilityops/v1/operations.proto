@@ -92,6 +92,10 @@ message ReviewCase {
   google.protobuf.Timestamp resolved_at = 12;
   google.protobuf.Timestamp created_at = 13;
   string work_order_id = 14;
+  // Machine translation into the staff language (same placeholders); empty when not needed.
+  string translated_description = 15;
+  // ISO 639-1 code of the language translated from; empty without a translation.
+  string source_language = 16;
 }
 
 message WorkOrder {
@@ -110,6 +114,10 @@ message WorkOrder {
   google.protobuf.Timestamp created_at = 13;
   // PII-redacted request text; use IntakeService.RevealRequestDetails for the originals.
   string redacted_description = 14;
+  // Machine translation into the staff language (same placeholders); empty when not needed.
+  string translated_description = 15;
+  // ISO 639-1 code of the language translated from; empty without a translation.
+  string source_language = 16;
 }
 
 message ListReviewCasesRequest {

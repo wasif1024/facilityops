@@ -15,7 +15,8 @@ import {
 } from "@/api/labels"
 import { PriorityBadge, StatusBadge } from "@/components/app/badges"
 import { Pagination, useFilterParam, usePage } from "@/components/app/pagination"
-import { RedactedText, RevealButton, useReveal } from "@/components/app/redacted-text"
+import { RevealButton, useReveal } from "@/components/app/redacted-text"
+import { TranslatedText } from "@/components/app/translated-text"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
 import { TimeAgo } from "@/components/app/time"
 import { Badge } from "@/components/ui/badge"
@@ -111,7 +112,12 @@ function CaseCard({ item, onResolve }: { item: ReviewCase; onResolve: () => void
               · <TimeAgo value={item.createdAt} />
             </span>
           </div>
-          <RedactedText text={item.redactedDescription || noTextReason(item)} className="text-sm" />
+          <TranslatedText
+            text={item.redactedDescription || noTextReason(item)}
+            translated={item.translatedDescription}
+            sourceLanguage={item.sourceLanguage}
+            className="text-sm"
+          />
           {item.suggestedPriority !== undefined && (
             <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
               AI suggestion: {categoryLabels[item.suggestedCategory]} <PriorityBadge priority={item.suggestedPriority} />
@@ -187,7 +193,13 @@ function ResolveForm({ item, onDone }: { item: ReviewCase; onDone: () => void })
       </SheetHeader>
       <div className="space-y-6 px-4">
         <div className="space-y-3 rounded-lg border p-3">
-          <RedactedText text={item.redactedDescription || noTextReason(item)} revealed={reveal.values} className="text-sm" />
+          <TranslatedText
+            text={item.redactedDescription || noTextReason(item)}
+            translated={item.translatedDescription}
+            sourceLanguage={item.sourceLanguage}
+            revealed={reveal.values}
+            className="text-sm"
+          />
           {item.redactedDescription.includes("[PII_") && <RevealButton reveal={reveal} />}
         </div>
 
