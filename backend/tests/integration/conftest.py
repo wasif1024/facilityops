@@ -44,6 +44,9 @@ _DATA_TABLES = (
     "prompt_versions",
     "outbox_events",
     "processed_events",
+    "buildings",
+    "vendors",
+    "technician_profiles",
 )
 
 

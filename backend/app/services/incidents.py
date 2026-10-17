@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.db.models import (
     DecisionStepRecord,
+    IncidentPlanRecord,
     IncidentRecord,
     IntakeAuditEvent,
     IntakeRequestRecord,
@@ -28,7 +29,19 @@ from backend.app.services.operations import InvalidTransition, NotFound
 
 ESCALATED = "escalated"
 INVESTIGATING = "investigating"
+PLAN_READY = "plan_ready"
+REVISING = "revising"
 NEEDS_REVIEW = "needs_review"
+APPROVED = "approved"
+REJECTED = "rejected"
+
+# Fixed reasons a manager can give for rejecting a plan: codes, never free text, in the audit.
+REJECTION_REASONS = frozenset({"not_needed", "unsafe", "too_costly", "wrong_diagnosis", "duplicate"})
+_DECISION_EVENTS = {
+    "approve": "incident_plan_approved",
+    "revise": "incident_plan_revision_requested",
+    "reject": "incident_plan_rejected",
+}
 
 
 def write_event(session: AsyncSession, event: Event) -> None:
@@ -155,4 +168,96 @@ async def get_incident(session: AsyncSession, incident_id: UUID) -> IncidentReco
     incident = await session.get(IncidentRecord, incident_id)
     if incident is None:
         raise NotFound("Incident not found")
+    return incident
+
+
+async def latest_plans(session: AsyncSession, incident_id: UUID) -> list[IncidentPlanRecord]:
+    """All plan versions, newest first."""
+    return list(
+        await session.scalars(
+            select(IncidentPlanRecord)
+            .where(IncidentPlanRecord.incident_id == incident_id)
+            .order_by(IncidentPlanRecord.version.desc())
+        )
+    )
+
+
+async def decide_plan(
+    session: AsyncSession,
+    *,
+    incident_id: UUID,
+    plan_id: UUID,
+    decision: str,
+    actor_id: UUID,
+    feedback: str | None = None,
+    rejection_reason: str | None = None,
+    confirm_high_cost: bool = False,
+) -> IncidentRecord:
+    """A facility manager approves, revises or rejects the latest plan (FR-24).
+
+    The approval gate is code, not a model: a plan with a safety block can't be approved, and a
+    high-cost plan needs ``confirm_high_cost``. Approval never acts by itself; the application
+    carries out the approved actions afterwards (FR-25).
+    """
+    incident = await session.get(IncidentRecord, incident_id, with_for_update=True)
+    if incident is None:
+        raise NotFound("Incident not found")
+    plan = await session.get(IncidentPlanRecord, plan_id, with_for_update=True)
+    if plan is None or plan.incident_id != incident_id:
+        raise NotFound("Plan not found")
+    if incident.status != PLAN_READY or plan.status != "proposed":
+        raise InvalidTransition("Only the latest proposed plan of an incident awaiting a decision can be decided")
+
+    if decision == "approve":
+        if "safety_block" in plan.flags:
+            raise InvalidTransition("This plan has a safety block: revise or reject it")
+        if "high_cost" in plan.flags and not confirm_high_cost:
+            raise InvalidTransition("This plan is above the cost threshold: confirm the cost to approve it")
+        plan.status, incident.status = "approved", APPROVED
+    elif decision == "revise":
+        if not feedback or not feedback.strip():
+            raise InvalidTransition("Say what should change in the plan")
+        plan.status, plan.feedback, incident.status = "revision_requested", feedback.strip()[:2_000], REVISING
+    elif decision == "reject":
+        if rejection_reason not in REJECTION_REASONS:
+            raise InvalidTransition(f"Rejection reason must be one of {sorted(REJECTION_REASONS)}")
+        plan.status, plan.decision_reason, incident.status = "rejected", rejection_reason, REJECTED
+    else:
+        raise InvalidTransition("Decision must be approve, revise or reject")
+
+    plan.decided_by_user_id, plan.decided_at = actor_id, datetime.now(UTC)
+    incident.reason_code = rejection_reason if decision == "reject" else None
+    write_event(
+        session,
+        Event(
+            type=EventType.INCIDENT_PLAN_DECIDED,
+            aggregate_id=incident.id,
+            payload={"request_id": str(incident.request_id), "plan_id": str(plan.id), "decision": decision},
+        ),
+    )
+    session.add(
+        IntakeAuditEvent(
+            id=uuid4(),
+            request_id=incident.request_id,
+            event_type=_DECISION_EVENTS[decision],
+            reason_code=rejection_reason or ("high_cost_confirmed" if confirm_high_cost and decision == "approve" else decision),
+            actor_id=str(actor_id),
+        )
+    )
+    await append_steps(
+        session,
+        incident.request_id,
+        [
+            DecisionStep(
+                step="incident.plan_decided",
+                outcome=StepOutcome.DECIDED,
+                started_at=datetime.now(UTC),
+                reason_code=rejection_reason or decision,
+                service="facility manager",
+                details={"version": plan.version, "decision": decision, "flags": list(plan.flags)},
+                trace_id=current_trace_id(),
+            )
+        ],
+    )
+    await session.commit()
     return incident

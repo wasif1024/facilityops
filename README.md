@@ -53,6 +53,22 @@ repository is synthetic.
 
 ## Architecture
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agent-orchestration-dark.png">
+  <img src="docs/images/agent-orchestration-light.png" alt="Agent orchestration: a deterministic intake workflow with one classifier agent; escalated incidents go to a Magentic team where an Incident Manager agent coordinates six specialist agents with read-only tools; a facility manager approves, revises or rejects the plan; only the application acts; every step is recorded.">
+</picture>
+
+**How to read it.** Grey boxes are code, purple boxes are AI agents, amber boxes are people.
+- **Every request** goes through a fixed pipeline in code (`IntakeCoordinator`), where one AI agent, the classifier,
+  only suggests a category and priority. Emergencies skip the AI entirely.
+- **Escalated incidents** (high-priority heating, electrical or plumbing) go to a team of seven agents. The
+  **Incident Manager** agent plans and decides which specialist works next; six specialists each have read-only tools
+  or knowledge, and all of them run within fixed budgets.
+- **No agent can act.** The team proposes a plan with citations; a facility manager approves, revises or rejects it,
+  and only then does the application carry out the approved actions.
+
+The request flow in more detail:
+
 ```mermaid
 flowchart LR
     R[Request<br/>text · photo · voice · scan] --> E{Emergency<br/>screen}
@@ -66,8 +82,8 @@ flowchart LR
     F & P & S & C -. failure or flagged .-> Q[Human review]
 ```
 
-Code decides the steps and the routing; the model only classifies. Phase 2 adds a Magentic multi-agent team for
-complex incidents. Details: [architecture and agent orchestration](docs/architecture.md).
+The incident team is being built in Phase 2: escalation, the event-driven worker, plans and the approval gate are in
+place; the seven team agents come next. Details: [architecture and agent orchestration](docs/architecture.md).
 
 ## Tech stack
 
@@ -178,10 +194,12 @@ docs/         documentation and diagrams
 - [x] Azure Translator: staff see non-English requests in English, after redaction
 - [x] Transparency: decision trail, model input and output, append-only audit, correlated logs, retention
 - [x] Events foundation: escalation, transactional outbox, event bus, incident worker
-- [ ] Magentic multi-agent incident team on Agent Framework's harness, with budgets and approvals
+- [x] Incident plans with citations and review flags; manager approve / revise / reject with a safety and cost gate in code
+- [x] Scenario evaluation harness (scripted): 9 incident scenarios and 5 hard gates on every PR
+- [x] Synthetic facility world and 7 read-only tools (read-only transactions, budgets, recorded on the trail)
+- [ ] Magentic multi-agent incident team on Agent Framework's harness, with budgets
 - [ ] Foundry IQ knowledge base over synthetic equipment manuals
 - [ ] Tenant notices in the tenant's language; translate-then-classify experiment
-- [ ] Scenario evaluation harness gating every PR
 
 **Phase 3, production**
 

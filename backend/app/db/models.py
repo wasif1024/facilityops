@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -437,3 +438,122 @@ class ProcessedEventRecord(Base):
     consumer: Mapped[str] = mapped_column(String(64))
     event_id: Mapped[UUID] = mapped_column(Uuid)
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class IncidentPlanRecord(Base):
+    """One version of an incident plan (FR-23) and the facility manager's decision on it (FR-24).
+
+    Each revision is a new version; decided versions are never edited. The plan is the
+    schema-validated JSON of backend.app.domain.incident_plan.IncidentPlan.
+    """
+
+    __tablename__ = "incident_plans"
+    __table_args__ = (UniqueConstraint("incident_id", "version"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    plan: Mapped[dict] = mapped_column(JSONB)
+    # Review flags at creation, for example ["safety_block", "high_cost"].
+    flags: Mapped[list] = mapped_column(JSONB, default=list)
+    # proposed -> approved | revision_requested | rejected
+    status: Mapped[str] = mapped_column(String(24))
+    # The manager's instructions for a revision (staff-written, shown to the team).
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decided_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ---- Facility data used by the incident team's read-only tools (Phase 2) ----
+# Filled from backend/app/fixtures/synthetic_world.json in development and evals; every row is invented.
+
+
+class BuildingRecord(Base):
+    __tablename__ = "buildings"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    units: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class AssetRecord(Base):
+    __tablename__ = "assets"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    building_id: Mapped[str] = mapped_column(String(64), ForeignKey("buildings.id", ondelete="CASCADE"), index=True)
+    # Same values as the intake categories: hvac, plumbing, electrical...
+    category: Mapped[str] = mapped_column(String(32), index=True)
+    kind: Mapped[str] = mapped_column(String(64))
+    manufacturer: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(64))
+    location: Mapped[str] = mapped_column(String(128))
+    installed_on: Mapped[date] = mapped_column(Date)
+    # Knowledge-base document for this model, for example "manual:boiler-hx200".
+    manual_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    criticality: Mapped[str] = mapped_column(String(16), default="normal")
+
+
+class MaintenanceRecord(Base):
+    __tablename__ = "maintenance_records"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    asset_id: Mapped[str] = mapped_column(String(64), ForeignKey("assets.id", ondelete="CASCADE"), index=True)
+    occurred_on: Mapped[date] = mapped_column(Date, index=True)
+    # repair, service or inspection
+    kind: Mapped[str] = mapped_column(String(16))
+    fault_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    summary: Mapped[str] = mapped_column(String(240))
+    cost: Mapped[float] = mapped_column(Float, default=0)
+
+
+class VendorRecord(Base):
+    __tablename__ = "vendors"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    trades: Mapped[list] = mapped_column(JSONB, default=list)
+    sla_hours: Mapped[int] = mapped_column(Integer)
+    callout_fee: Mapped[float] = mapped_column(Float)
+    contract_id: Mapped[str] = mapped_column(String(64))
+    contract_ends: Mapped[date] = mapped_column(Date)
+
+
+class PartRecord(Base):
+    __tablename__ = "parts"
+
+    sku: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    fits_models: Mapped[list] = mapped_column(JSONB, default=list)
+    stock: Mapped[int] = mapped_column(Integer, default=0)
+    unit_cost: Mapped[float] = mapped_column(Float)
+    vendor_id: Mapped[str] = mapped_column(String(64), ForeignKey("vendors.id", ondelete="RESTRICT"))
+    lead_time_days: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TechnicianProfileRecord(Base):
+    """Skills and shift of a technician. Tools return the profile id and skills, never names."""
+
+    __tablename__ = "technician_profiles"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    skills: Mapped[list] = mapped_column(JSONB, default=list)
+    # Working hours (0-23) and weekdays (0 = Monday).
+    shift_start_hour: Mapped[int] = mapped_column(Integer)
+    shift_end_hour: Mapped[int] = mapped_column(Integer)
+    weekdays: Mapped[list] = mapped_column(JSONB, default=list)
+    on_call: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PermitRecord(Base):
+    __tablename__ = "permits"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    asset_id: Mapped[str] = mapped_column(String(64), ForeignKey("assets.id", ondelete="CASCADE"), index=True)
+    # For example "electrical_isolation" or "hot_work".
+    kind: Mapped[str] = mapped_column(String(48))
+    valid_until: Mapped[date] = mapped_column(Date)

@@ -6,6 +6,7 @@
     python -m backend.app.cli remove-demo-accounts [--force]
     python -m backend.app.cli add-demo-accounts
     python -m backend.app.cli purge-expired
+    python -m backend.app.cli seed-world
 
 ``grant-role`` is how the first administrator is created; after that, use the admin API.
 """
@@ -21,6 +22,7 @@ from backend.app.db.session import SessionLocal
 from backend.app.domain.rbac import IdentityProvider
 from backend.app.services.demo_accounts import add_demo_accounts, remove_demo_accounts
 from backend.app.services.retention import purge_expired
+from backend.app.services.world import load_world
 from backend.app.services.users import UserDirectory, UserDirectoryError
 
 
@@ -84,6 +86,16 @@ async def _purge(_: argparse.Namespace) -> int:
     return 0
 
 
+async def _seed_world(_: argparse.Namespace) -> int:
+    if get_settings().app_env == "production":
+        print("error: the synthetic world is never loaded in production", file=sys.stderr)
+        return 1
+    async with SessionLocal() as session:
+        counts = await load_world(session)
+    print("synthetic world loaded: " + ", ".join(f"{n} {k}" for k, n in counts.items()))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m backend.app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -117,6 +129,11 @@ def main(argv: list[str] | None = None) -> int:
         "purge-expired", help="Delete model content and audit records past their retention period"
     )
     purge.set_defaults(handler=_purge)
+
+    world = commands.add_parser(
+        "seed-world", help="Load the synthetic buildings, assets, history, parts, vendors and technicians"
+    )
+    world.set_defaults(handler=_seed_world)
 
     args = parser.parse_args(argv)
     return asyncio.run(args.handler(args))

@@ -146,6 +146,12 @@ flowchart LR
 
 ## 3. Orchestration overview
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/agent-orchestration-dark.png">
+  <img src="images/agent-orchestration-light.png" alt="Agent orchestration overview: intake workflow, Magentic incident team, human decision, application acts.">
+</picture>
+
+
 Two tiers, chosen per request. **Tier 1** is a fixed pipeline in plain Python that handles every request.
 **Tier 2** is a dynamic Magentic team for the few incidents that need investigation. Agents in both tiers advise.
 Code and people decide.

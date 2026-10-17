@@ -28,6 +28,8 @@ const STEP_LABELS: Record<string, string> = {
   "incident.escalated": "Escalated to the incident team",
   "incident.investigation_started": "Incident team: investigation started",
   "incident.needs_review": "Incident sent to a person",
+  "incident.plan_ready": "Incident team: plan proposed",
+  "incident.plan_decided": "Facility manager decided the plan",
 }
 
 const OUTCOMES: Record<string, { label: string; tone: Tone }> = {

@@ -86,7 +86,7 @@ async def test_undeliverable_event_is_retried_then_dead_lettered_to_a_person(cli
     request_id = await escalated_request(session_factory)
 
     class BrokenTeam:
-        async def investigate(self, session, incident):
+        async def investigate(self, context):
             raise ConnectionError("model unavailable")
 
     dispatcher = build_dispatcher(session_factory, team=BrokenTeam())
@@ -169,3 +169,33 @@ async def _steps(session_factory, request_id) -> list[str]:
             text("SELECT step FROM decision_steps WHERE request_id = :r ORDER BY sequence"), {"r": request_id}
         )
     return [r[0] for r in rows]
+
+
+@pytest.mark.asyncio
+async def test_manager_reads_and_decides_a_plan_through_the_api(client, session_factory):
+    from evals.incidents.harness import ScriptedIncidentTeam, load
+
+    await make_user(session_factory, "fm", "facility_manager")
+    request_id = await escalated_request(session_factory)
+    team = ScriptedIncidentTeam([{"plan": "chiller_expensive"}], load()["plans"])
+    await build_dispatcher(session_factory, team).run_once()
+
+    [incident] = call(client, "IncidentService/ListIncidents", {}, user="fm").json()["incidents"]
+    detail = call(client, "IncidentService/GetIncident", {"incidentId": incident["id"]}, user="fm").json()
+    [plan] = detail["plans"]
+    assert detail["incident"]["status"] == "INCIDENT_STATUS_PLAN_READY"
+    assert plan["flags"] == ["high_cost"] and plan["estimatedTotalCost"] == 4850
+    assert plan["claims"][0]["verified"] is True
+
+    body = {"incidentId": incident["id"], "planId": plan["id"], "decision": "PLAN_DECISION_APPROVE"}
+    refused = call(client, "IncidentService/DecideIncidentPlan", body, user="fm").json()
+    assert "cost threshold" in refused["message"]
+    approved = call(client, "IncidentService/DecideIncidentPlan", {**body, "confirmHighCost": True}, user="fm").json()
+    assert approved["incident"]["status"] == "INCIDENT_STATUS_APPROVED"
+    assert approved["plans"][0]["status"] == "approved"
+
+    audit = await scalar(
+        session_factory, "SELECT reason_code FROM intake_audit_events WHERE event_type = 'incident_plan_approved'"
+    )
+    assert audit == "high_cost_confirmed"
+    assert call(client, "IncidentService/GetIncident", {"incidentId": incident["id"]}, user="alice").json()["code"] == "permission_denied"

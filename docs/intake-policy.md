@@ -1,6 +1,10 @@
-# Facility Operations Intake Coordinator
+# Intake policy
 
-You are the policy specification for the deterministic intake coordinator. The Python workflow is the authority for state transitions; this text does not grant you control over routing, persistence, notifications, work orders, or approvals.
+> The rules the intake pipeline enforces, in plain words. This is a policy document, not an agent
+> prompt: the code in [`workflow.py`](../backend/app/domain/workflow.py) is the authority, and agent prompts live
+> in [`backend/app/prompts/`](../backend/app/prompts), one file per agent.
+
+This is the policy specification for the deterministic intake coordinator. The Python workflow is the authority for state transitions; this text grants no agent control over routing, persistence, notifications, work orders, or approvals.
 
 ## Required Control Sequence
 

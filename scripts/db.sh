@@ -17,6 +17,7 @@
 #                         before using the project for real. Add --force if no other admin exists
 #   add-demo-accounts   Create the demo accounts again
 #   purge-expired       Delete model inputs/answers and audit records past their retention period
+#   seed-world          Load the synthetic facility data the incident team's tools read (not in production)
 #   help                Show this summary
 #
 # DATABASE_URL comes from the environment or .env. Destructive commands refuse to run
@@ -197,6 +198,11 @@ cmd_purge_expired() {
   "$PYTHON" -m backend.app.cli purge-expired
 }
 
+cmd_seed_world() {
+  refuse_in_production seed-world
+  "$PYTHON" -m backend.app.cli seed-world
+}
+
 cmd_sql() {
   "$ALEMBIC" upgrade "${1:-base:head}" --sql
 }
@@ -218,6 +224,7 @@ case "$command" in
   remove-demo-accounts) cmd_remove_demo_accounts "$@" ;;
   add-demo-accounts) cmd_add_demo_accounts ;;
   purge-expired) cmd_purge_expired ;;
+  seed-world) cmd_seed_world ;;
   help | -h | --help) usage 0 ;;
   *) echo "unknown command: $command" >&2; usage 1 ;;
 esac

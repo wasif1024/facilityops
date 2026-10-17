@@ -175,6 +175,9 @@ scripts/db.sh new "add vendor table"          # new migration from model changes
 # Transparency records past their retention period (model content 90 days, audit 2 years)
 scripts/db.sh purge-expired                   # run daily in production (cron, scheduled job)
 
+# Synthetic facility data the incident team's tools read (buildings, assets, history, parts, vendors, technicians)
+scripts/db.sh seed-world                      # safe to re-run; refused in production; seed_demo.py runs it too
+
 # Demo accounts (section 6.1)
 scripts/db.sh remove-demo-accounts            # before using the project for real
 scripts/db.sh add-demo-accounts               # bring them back locally
@@ -456,6 +459,10 @@ python -m evals.run_eval --mode live --samples 5 --concurrency 8 --store \
 
 # Write the full JSON report to a file (gitignored folder)
 python -m evals.run_eval --mode live --report evals/reports/live.json
+
+# Incident scenarios (scripted, no Azure): escalation -> worker -> plan -> decision, with hard gates.
+# Uses a scratch database (facilityops_scenarios); CI runs the same scenarios as integration tests.
+python -m evals.run_incident_scenarios --report evals/reports/incidents.json
 
 # Photo and scanned-document intake: synthetic files drawn in code, sent through the real services
 # (Vision, Document Intelligence, Content Safety image + Prompt Shields, Language, classifier). ~1 min.

@@ -16,7 +16,7 @@ from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, DE
 from protobuf import DescService
 
 from . import incidents_pb
-from .incidents_pb import EscalateRequestRequest, EscalateRequestResponse, GetIncidentRequest, GetIncidentResponse, ListIncidentsRequest, ListIncidentsResponse
+from .incidents_pb import DecideIncidentPlanRequest, DecideIncidentPlanResponse, EscalateRequestRequest, EscalateRequestResponse, GetIncidentRequest, GetIncidentResponse, ListIncidentsRequest, ListIncidentsResponse
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Iterable, Mapping
@@ -48,6 +48,14 @@ class IncidentService(Protocol):
     async def escalate_request(self, request: EscalateRequestRequest, ctx: RequestContext[EscalateRequestRequest, EscalateRequestResponse], /) -> EscalateRequestResponse:
         """
         Send a request to the incident team. Emergencies can't be escalated. Requires incidents:manage.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def decide_incident_plan(self, request: DecideIncidentPlanRequest, ctx: RequestContext[DecideIncidentPlanRequest, DecideIncidentPlanResponse], /) -> DecideIncidentPlanResponse:
+        """
+        Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
+        approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
+        application carries out approved actions. Requires incidents:manage.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -98,6 +106,16 @@ class IncidentServiceASGIApplication(ConnectASGIApplication[IncidentService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.escalate_request,
+                ),
+                "/facilityops.v1.IncidentService/DecideIncidentPlan": Endpoint.unary(
+                    method=MethodInfo(
+                        name="DecideIncidentPlan",
+                        service_name="facilityops.v1.IncidentService",
+                        input=DecideIncidentPlanRequest,
+                        output=DecideIncidentPlanResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.decide_incident_plan,
                 ),
             },
             interceptors=interceptors,
@@ -187,6 +205,31 @@ class IncidentServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def decide_incident_plan(
+        self,
+        request: DecideIncidentPlanRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> DecideIncidentPlanResponse:
+        """
+        Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
+        approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
+        application carries out approved actions. Requires incidents:manage.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="DecideIncidentPlan",
+                service_name="facilityops.v1.IncidentService",
+                input=DecideIncidentPlanRequest,
+                output=DecideIncidentPlanResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 class IncidentServiceSync(Protocol):
     """
     Incidents investigated by the Phase 2 incident team. A request is escalated automatically
@@ -208,6 +251,14 @@ class IncidentServiceSync(Protocol):
     def escalate_request(self, request: EscalateRequestRequest, ctx: RequestContext[EscalateRequestRequest, EscalateRequestResponse], /) -> EscalateRequestResponse:
         """
         Send a request to the incident team. Emergencies can't be escalated. Requires incidents:manage.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def decide_incident_plan(self, request: DecideIncidentPlanRequest, ctx: RequestContext[DecideIncidentPlanRequest, DecideIncidentPlanResponse], /) -> DecideIncidentPlanResponse:
+        """
+        Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
+        approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
+        application carries out approved actions. Requires incidents:manage.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -256,6 +307,16 @@ class IncidentServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.escalate_request,
+                ),
+                "/facilityops.v1.IncidentService/DecideIncidentPlan": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="DecideIncidentPlan",
+                        service_name="facilityops.v1.IncidentService",
+                        input=DecideIncidentPlanRequest,
+                        output=DecideIncidentPlanResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.decide_incident_plan,
                 ),
             },
             interceptors=interceptors,
@@ -337,6 +398,30 @@ class IncidentServiceClientSync(ConnectClientSync):
                 service_name="facilityops.v1.IncidentService",
                 input=EscalateRequestRequest,
                 output=EscalateRequestResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+    def decide_incident_plan(
+        self,
+        request: DecideIncidentPlanRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> DecideIncidentPlanResponse:
+        """
+        Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
+        approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
+        application carries out approved actions. Requires incidents:manage.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="DecideIncidentPlan",
+                service_name="facilityops.v1.IncidentService",
+                input=DecideIncidentPlanRequest,
+                output=DecideIncidentPlanResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

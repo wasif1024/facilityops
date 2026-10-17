@@ -14,6 +14,10 @@ service IncidentService {
   rpc GetIncident(GetIncidentRequest) returns (GetIncidentResponse);
   // Send a request to the incident team. Emergencies can't be escalated. Requires incidents:manage.
   rpc EscalateRequest(EscalateRequestRequest) returns (EscalateRequestResponse);
+  // Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
+  // approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
+  // application carries out approved actions. Requires incidents:manage.
+  rpc DecideIncidentPlan(DecideIncidentPlanRequest) returns (DecideIncidentPlanResponse);
 }
 
 enum IncidentStatus {
@@ -28,6 +32,8 @@ enum IncidentStatus {
   INCIDENT_STATUS_APPROVED = 5;
   INCIDENT_STATUS_REJECTED = 6;
   INCIDENT_STATUS_CLOSED = 7;
+  // A manager asked for a revision; the team is working on the next version.
+  INCIDENT_STATUS_REVISING = 8;
 }
 
 message Incident {
@@ -63,6 +69,76 @@ message GetIncidentRequest {
 
 message GetIncidentResponse {
   Incident incident = 1;
+  // Every plan version, newest first.
+  repeated PlanVersion plans = 2;
+}
+
+message Citation {
+  // "manual", "procedure", "record" or "contract".
+  string source_type = 1;
+  string source_id = 2;
+  string section = 3;
+}
+
+message Claim {
+  string statement = 1;
+  // Which specialist made it, for example "diagnostician".
+  string specialist = 2;
+  repeated Citation citations = 3;
+  // False when the claim has no citation: shown to the reviewer as unverified.
+  bool verified = 4;
+}
+
+message ProposedAction {
+  // "dispatch_technician", "order_part", "schedule_visit", "notify_tenant" or "apply_lockout".
+  string type = 1;
+  string description = 2;
+  optional double estimated_cost = 3;
+}
+
+message PlanVersion {
+  string id = 1;
+  int32 version = 2;
+  string summary = 3;
+  repeated Claim claims = 4;
+  repeated ProposedAction actions = 5;
+  bool safety_block = 6;
+  string safety_notes = 7;
+  repeated string open_questions = 8;
+  double estimated_total_cost = 9;
+  // Why the reviewer must look closely: "safety_block", "high_cost", "unverified_claims".
+  repeated string flags = 10;
+  // "proposed", "approved", "revision_requested" or "rejected".
+  string status = 11;
+  string feedback = 12;
+  string decision_reason = 13;
+  string decided_by_user_id = 14;
+  google.protobuf.Timestamp decided_at = 15;
+  google.protobuf.Timestamp created_at = 16;
+}
+
+enum PlanDecision {
+  PLAN_DECISION_UNSPECIFIED = 0;
+  PLAN_DECISION_APPROVE = 1;
+  PLAN_DECISION_REVISE = 2;
+  PLAN_DECISION_REJECT = 3;
+}
+
+message DecideIncidentPlanRequest {
+  string incident_id = 1;
+  string plan_id = 2;
+  PlanDecision decision = 3;
+  // Required to revise: what should change. Read by the team, never by other tenants.
+  string feedback = 4;
+  // Required to reject: "not_needed", "unsafe", "too_costly", "wrong_diagnosis" or "duplicate".
+  string rejection_reason = 5;
+  // Required to approve a plan flagged high_cost.
+  bool confirm_high_cost = 6;
+}
+
+message DecideIncidentPlanResponse {
+  Incident incident = 1;
+  repeated PlanVersion plans = 2;
 }
 
 message EscalateRequestRequest {

@@ -77,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
     for user, role, name in STAFF:
         cli.main(["grant-role", "--provider", "development", "--external-id", user, "--role", role,
                   "--display-name", name])
+    # The buildings, assets, history, parts, vendors and technicians the incident team's tools read.
+    cli.main(["seed-world"])
 
     print("\n2. Tenants report problems")
     with IntakeServiceClientSync(args.api) as intake:

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file facilityops/v1/incidents.proto.
  */
 export const file_facilityops_v1_incidents: GenFile = /*@__PURE__*/
-  fileDesc("Ch5mYWNpbGl0eW9wcy92MS9pbmNpZGVudHMucHJvdG8SDmZhY2lsaXR5b3BzLnYxIp8CCghJbmNpZGVudBIKCgJpZBgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhUKDXdvcmtfb3JkZXJfaWQYAyABKAkSLgoGc3RhdHVzGAQgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSGQoRZXNjYWxhdGlvbl9yZWFzb24YBSABKAkSEwoLcmVhc29uX2NvZGUYBiABKAkSHAoUZXNjYWxhdGVkX2J5X3VzZXJfaWQYByABKAkSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiZQoUTGlzdEluY2lkZW50c1JlcXVlc3QSLgoGc3RhdHVzGAEgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFIlMKFUxpc3RJbmNpZGVudHNSZXNwb25zZRIrCglpbmNpZGVudHMYASADKAsyGC5mYWNpbGl0eW9wcy52MS5JbmNpZGVudBINCgV0b3RhbBgCIAEoBSIpChJHZXRJbmNpZGVudFJlcXVlc3QSEwoLaW5jaWRlbnRfaWQYASABKAkiQQoTR2V0SW5jaWRlbnRSZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50IiwKFkVzY2FsYXRlUmVxdWVzdFJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCSJFChdFc2NhbGF0ZVJlcXVlc3RSZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50Ko0CCg5JbmNpZGVudFN0YXR1cxIfChtJTkNJREVOVF9TVEFUVVNfVU5TUEVDSUZJRUQQABIdChlJTkNJREVOVF9TVEFUVVNfRVNDQUxBVEVEEAESIQodSU5DSURFTlRfU1RBVFVTX0lOVkVTVElHQVRJTkcQAhIeChpJTkNJREVOVF9TVEFUVVNfUExBTl9SRUFEWRADEiAKHElOQ0lERU5UX1NUQVRVU19ORUVEU19SRVZJRVcQBBIcChhJTkNJREVOVF9TVEFUVVNfQVBQUk9WRUQQBRIcChhJTkNJREVOVF9TVEFUVVNfUkVKRUNURUQQBhIaChZJTkNJREVOVF9TVEFUVVNfQ0xPU0VEEAcyqwIKD0luY2lkZW50U2VydmljZRJcCg1MaXN0SW5jaWRlbnRzEiQuZmFjaWxpdHlvcHMudjEuTGlzdEluY2lkZW50c1JlcXVlc3QaJS5mYWNpbGl0eW9wcy52MS5MaXN0SW5jaWRlbnRzUmVzcG9uc2USVgoLR2V0SW5jaWRlbnQSIi5mYWNpbGl0eW9wcy52MS5HZXRJbmNpZGVudFJlcXVlc3QaIy5mYWNpbGl0eW9wcy52MS5HZXRJbmNpZGVudFJlc3BvbnNlEmIKD0VzY2FsYXRlUmVxdWVzdBImLmZhY2lsaXR5b3BzLnYxLkVzY2FsYXRlUmVxdWVzdFJlcXVlc3QaJy5mYWNpbGl0eW9wcy52MS5Fc2NhbGF0ZVJlcXVlc3RSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("Ch5mYWNpbGl0eW9wcy92MS9pbmNpZGVudHMucHJvdG8SDmZhY2lsaXR5b3BzLnYxIp8CCghJbmNpZGVudBIKCgJpZBgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhUKDXdvcmtfb3JkZXJfaWQYAyABKAkSLgoGc3RhdHVzGAQgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSGQoRZXNjYWxhdGlvbl9yZWFzb24YBSABKAkSEwoLcmVhc29uX2NvZGUYBiABKAkSHAoUZXNjYWxhdGVkX2J5X3VzZXJfaWQYByABKAkSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiZQoUTGlzdEluY2lkZW50c1JlcXVlc3QSLgoGc3RhdHVzGAEgASgOMh4uZmFjaWxpdHlvcHMudjEuSW5jaWRlbnRTdGF0dXMSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFIlMKFUxpc3RJbmNpZGVudHNSZXNwb25zZRIrCglpbmNpZGVudHMYASADKAsyGC5mYWNpbGl0eW9wcy52MS5JbmNpZGVudBINCgV0b3RhbBgCIAEoBSIpChJHZXRJbmNpZGVudFJlcXVlc3QSEwoLaW5jaWRlbnRfaWQYASABKAkibQoTR2V0SW5jaWRlbnRSZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50EioKBXBsYW5zGAIgAygLMhsuZmFjaWxpdHlvcHMudjEuUGxhblZlcnNpb24iQwoIQ2l0YXRpb24SEwoLc291cmNlX3R5cGUYASABKAkSEQoJc291cmNlX2lkGAIgASgJEg8KB3NlY3Rpb24YAyABKAkibQoFQ2xhaW0SEQoJc3RhdGVtZW50GAEgASgJEhIKCnNwZWNpYWxpc3QYAiABKAkSKwoJY2l0YXRpb25zGAMgAygLMhguZmFjaWxpdHlvcHMudjEuQ2l0YXRpb24SEAoIdmVyaWZpZWQYBCABKAgiYwoOUHJvcG9zZWRBY3Rpb24SDAoEdHlwZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRIbCg5lc3RpbWF0ZWRfY29zdBgDIAEoAUgAiAEBQhEKD19lc3RpbWF0ZWRfY29zdCK7AwoLUGxhblZlcnNpb24SCgoCaWQYASABKAkSDwoHdmVyc2lvbhgCIAEoBRIPCgdzdW1tYXJ5GAMgASgJEiUKBmNsYWltcxgEIAMoCzIVLmZhY2lsaXR5b3BzLnYxLkNsYWltEi8KB2FjdGlvbnMYBSADKAsyHi5mYWNpbGl0eW9wcy52MS5Qcm9wb3NlZEFjdGlvbhIUCgxzYWZldHlfYmxvY2sYBiABKAgSFAoMc2FmZXR5X25vdGVzGAcgASgJEhYKDm9wZW5fcXVlc3Rpb25zGAggAygJEhwKFGVzdGltYXRlZF90b3RhbF9jb3N0GAkgASgBEg0KBWZsYWdzGAogAygJEg4KBnN0YXR1cxgLIAEoCRIQCghmZWVkYmFjaxgMIAEoCRIXCg9kZWNpc2lvbl9yZWFzb24YDSABKAkSGgoSZGVjaWRlZF9ieV91c2VyX2lkGA4gASgJEi4KCmRlY2lkZWRfYXQYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCmNyZWF0ZWRfYXQYECABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIrgBChlEZWNpZGVJbmNpZGVudFBsYW5SZXF1ZXN0EhMKC2luY2lkZW50X2lkGAEgASgJEg8KB3BsYW5faWQYAiABKAkSLgoIZGVjaXNpb24YAyABKA4yHC5mYWNpbGl0eW9wcy52MS5QbGFuRGVjaXNpb24SEAoIZmVlZGJhY2sYBCABKAkSGAoQcmVqZWN0aW9uX3JlYXNvbhgFIAEoCRIZChFjb25maXJtX2hpZ2hfY29zdBgGIAEoCCJ0ChpEZWNpZGVJbmNpZGVudFBsYW5SZXNwb25zZRIqCghpbmNpZGVudBgBIAEoCzIYLmZhY2lsaXR5b3BzLnYxLkluY2lkZW50EioKBXBsYW5zGAIgAygLMhsuZmFjaWxpdHlvcHMudjEuUGxhblZlcnNpb24iLAoWRXNjYWxhdGVSZXF1ZXN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIkUKF0VzY2FsYXRlUmVxdWVzdFJlc3BvbnNlEioKCGluY2lkZW50GAEgASgLMhguZmFjaWxpdHlvcHMudjEuSW5jaWRlbnQqqwIKDkluY2lkZW50U3RhdHVzEh8KG0lOQ0lERU5UX1NUQVRVU19VTlNQRUNJRklFRBAAEh0KGUlOQ0lERU5UX1NUQVRVU19FU0NBTEFURUQQARIhCh1JTkNJREVOVF9TVEFUVVNfSU5WRVNUSUdBVElORxACEh4KGklOQ0lERU5UX1NUQVRVU19QTEFOX1JFQURZEAMSIAocSU5DSURFTlRfU1RBVFVTX05FRURTX1JFVklFVxAEEhwKGElOQ0lERU5UX1NUQVRVU19BUFBST1ZFRBAFEhwKGElOQ0lERU5UX1NUQVRVU19SRUpFQ1RFRBAGEhoKFklOQ0lERU5UX1NUQVRVU19DTE9TRUQQBxIcChhJTkNJREVOVF9TVEFUVVNfUkVWSVNJTkcQCCp8CgxQbGFuRGVjaXNpb24SHQoZUExBTl9ERUNJU0lPTl9VTlNQRUNJRklFRBAAEhkKFVBMQU5fREVDSVNJT05fQVBQUk9WRRABEhgKFFBMQU5fREVDSVNJT05fUkVWSVNFEAISGAoUUExBTl9ERUNJU0lPTl9SRUpFQ1QQAzKYAwoPSW5jaWRlbnRTZXJ2aWNlElwKDUxpc3RJbmNpZGVudHMSJC5mYWNpbGl0eW9wcy52MS5MaXN0SW5jaWRlbnRzUmVxdWVzdBolLmZhY2lsaXR5b3BzLnYxLkxpc3RJbmNpZGVudHNSZXNwb25zZRJWCgtHZXRJbmNpZGVudBIiLmZhY2lsaXR5b3BzLnYxLkdldEluY2lkZW50UmVxdWVzdBojLmZhY2lsaXR5b3BzLnYxLkdldEluY2lkZW50UmVzcG9uc2USYgoPRXNjYWxhdGVSZXF1ZXN0EiYuZmFjaWxpdHlvcHMudjEuRXNjYWxhdGVSZXF1ZXN0UmVxdWVzdBonLmZhY2lsaXR5b3BzLnYxLkVzY2FsYXRlUmVxdWVzdFJlc3BvbnNlEmsKEkRlY2lkZUluY2lkZW50UGxhbhIpLmZhY2lsaXR5b3BzLnYxLkRlY2lkZUluY2lkZW50UGxhblJlcXVlc3QaKi5mYWNpbGl0eW9wcy52MS5EZWNpZGVJbmNpZGVudFBsYW5SZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message facilityops.v1.Incident
@@ -153,6 +153,13 @@ export type GetIncidentResponse = Message<"facilityops.v1.GetIncidentResponse"> 
    * @generated from field: facilityops.v1.Incident incident = 1;
    */
   incident?: Incident | undefined;
+
+  /**
+   * Every plan version, newest first.
+   *
+   * @generated from field: repeated facilityops.v1.PlanVersion plans = 2;
+   */
+  plans: PlanVersion[];
 };
 
 /**
@@ -161,6 +168,266 @@ export type GetIncidentResponse = Message<"facilityops.v1.GetIncidentResponse"> 
  */
 export const GetIncidentResponseSchema: GenMessage<GetIncidentResponse> = /*@__PURE__*/
   messageDesc(file_facilityops_v1_incidents, 4);
+
+/**
+ * @generated from message facilityops.v1.Citation
+ */
+export type Citation = Message<"facilityops.v1.Citation"> & {
+  /**
+   * "manual", "procedure", "record" or "contract".
+   *
+   * @generated from field: string source_type = 1;
+   */
+  sourceType: string;
+
+  /**
+   * @generated from field: string source_id = 2;
+   */
+  sourceId: string;
+
+  /**
+   * @generated from field: string section = 3;
+   */
+  section: string;
+};
+
+/**
+ * Describes the message facilityops.v1.Citation.
+ * Use `create(CitationSchema)` to create a new message.
+ */
+export const CitationSchema: GenMessage<Citation> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 5);
+
+/**
+ * @generated from message facilityops.v1.Claim
+ */
+export type Claim = Message<"facilityops.v1.Claim"> & {
+  /**
+   * @generated from field: string statement = 1;
+   */
+  statement: string;
+
+  /**
+   * Which specialist made it, for example "diagnostician".
+   *
+   * @generated from field: string specialist = 2;
+   */
+  specialist: string;
+
+  /**
+   * @generated from field: repeated facilityops.v1.Citation citations = 3;
+   */
+  citations: Citation[];
+
+  /**
+   * False when the claim has no citation: shown to the reviewer as unverified.
+   *
+   * @generated from field: bool verified = 4;
+   */
+  verified: boolean;
+};
+
+/**
+ * Describes the message facilityops.v1.Claim.
+ * Use `create(ClaimSchema)` to create a new message.
+ */
+export const ClaimSchema: GenMessage<Claim> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 6);
+
+/**
+ * @generated from message facilityops.v1.ProposedAction
+ */
+export type ProposedAction = Message<"facilityops.v1.ProposedAction"> & {
+  /**
+   * "dispatch_technician", "order_part", "schedule_visit", "notify_tenant" or "apply_lockout".
+   *
+   * @generated from field: string type = 1;
+   */
+  type: string;
+
+  /**
+   * @generated from field: string description = 2;
+   */
+  description: string;
+
+  /**
+   * @generated from field: optional double estimated_cost = 3;
+   */
+  estimatedCost?: number | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.ProposedAction.
+ * Use `create(ProposedActionSchema)` to create a new message.
+ */
+export const ProposedActionSchema: GenMessage<ProposedAction> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 7);
+
+/**
+ * @generated from message facilityops.v1.PlanVersion
+ */
+export type PlanVersion = Message<"facilityops.v1.PlanVersion"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: int32 version = 2;
+   */
+  version: number;
+
+  /**
+   * @generated from field: string summary = 3;
+   */
+  summary: string;
+
+  /**
+   * @generated from field: repeated facilityops.v1.Claim claims = 4;
+   */
+  claims: Claim[];
+
+  /**
+   * @generated from field: repeated facilityops.v1.ProposedAction actions = 5;
+   */
+  actions: ProposedAction[];
+
+  /**
+   * @generated from field: bool safety_block = 6;
+   */
+  safetyBlock: boolean;
+
+  /**
+   * @generated from field: string safety_notes = 7;
+   */
+  safetyNotes: string;
+
+  /**
+   * @generated from field: repeated string open_questions = 8;
+   */
+  openQuestions: string[];
+
+  /**
+   * @generated from field: double estimated_total_cost = 9;
+   */
+  estimatedTotalCost: number;
+
+  /**
+   * Why the reviewer must look closely: "safety_block", "high_cost", "unverified_claims".
+   *
+   * @generated from field: repeated string flags = 10;
+   */
+  flags: string[];
+
+  /**
+   * "proposed", "approved", "revision_requested" or "rejected".
+   *
+   * @generated from field: string status = 11;
+   */
+  status: string;
+
+  /**
+   * @generated from field: string feedback = 12;
+   */
+  feedback: string;
+
+  /**
+   * @generated from field: string decision_reason = 13;
+   */
+  decisionReason: string;
+
+  /**
+   * @generated from field: string decided_by_user_id = 14;
+   */
+  decidedByUserId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp decided_at = 15;
+   */
+  decidedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 16;
+   */
+  createdAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.PlanVersion.
+ * Use `create(PlanVersionSchema)` to create a new message.
+ */
+export const PlanVersionSchema: GenMessage<PlanVersion> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 8);
+
+/**
+ * @generated from message facilityops.v1.DecideIncidentPlanRequest
+ */
+export type DecideIncidentPlanRequest = Message<"facilityops.v1.DecideIncidentPlanRequest"> & {
+  /**
+   * @generated from field: string incident_id = 1;
+   */
+  incidentId: string;
+
+  /**
+   * @generated from field: string plan_id = 2;
+   */
+  planId: string;
+
+  /**
+   * @generated from field: facilityops.v1.PlanDecision decision = 3;
+   */
+  decision: PlanDecision;
+
+  /**
+   * Required to revise: what should change. Read by the team, never by other tenants.
+   *
+   * @generated from field: string feedback = 4;
+   */
+  feedback: string;
+
+  /**
+   * Required to reject: "not_needed", "unsafe", "too_costly", "wrong_diagnosis" or "duplicate".
+   *
+   * @generated from field: string rejection_reason = 5;
+   */
+  rejectionReason: string;
+
+  /**
+   * Required to approve a plan flagged high_cost.
+   *
+   * @generated from field: bool confirm_high_cost = 6;
+   */
+  confirmHighCost: boolean;
+};
+
+/**
+ * Describes the message facilityops.v1.DecideIncidentPlanRequest.
+ * Use `create(DecideIncidentPlanRequestSchema)` to create a new message.
+ */
+export const DecideIncidentPlanRequestSchema: GenMessage<DecideIncidentPlanRequest> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 9);
+
+/**
+ * @generated from message facilityops.v1.DecideIncidentPlanResponse
+ */
+export type DecideIncidentPlanResponse = Message<"facilityops.v1.DecideIncidentPlanResponse"> & {
+  /**
+   * @generated from field: facilityops.v1.Incident incident = 1;
+   */
+  incident?: Incident | undefined;
+
+  /**
+   * @generated from field: repeated facilityops.v1.PlanVersion plans = 2;
+   */
+  plans: PlanVersion[];
+};
+
+/**
+ * Describes the message facilityops.v1.DecideIncidentPlanResponse.
+ * Use `create(DecideIncidentPlanResponseSchema)` to create a new message.
+ */
+export const DecideIncidentPlanResponseSchema: GenMessage<DecideIncidentPlanResponse> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_incidents, 10);
 
 /**
  * @generated from message facilityops.v1.EscalateRequestRequest
@@ -177,7 +444,7 @@ export type EscalateRequestRequest = Message<"facilityops.v1.EscalateRequestRequ
  * Use `create(EscalateRequestRequestSchema)` to create a new message.
  */
 export const EscalateRequestRequestSchema: GenMessage<EscalateRequestRequest> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 5);
+  messageDesc(file_facilityops_v1_incidents, 11);
 
 /**
  * @generated from message facilityops.v1.EscalateRequestResponse
@@ -194,7 +461,7 @@ export type EscalateRequestResponse = Message<"facilityops.v1.EscalateRequestRes
  * Use `create(EscalateRequestResponseSchema)` to create a new message.
  */
 export const EscalateRequestResponseSchema: GenMessage<EscalateRequestResponse> = /*@__PURE__*/
-  messageDesc(file_facilityops_v1_incidents, 6);
+  messageDesc(file_facilityops_v1_incidents, 12);
 
 /**
  * @generated from enum facilityops.v1.IncidentStatus
@@ -245,6 +512,13 @@ export enum IncidentStatus {
    * @generated from enum value: INCIDENT_STATUS_CLOSED = 7;
    */
   CLOSED = 7,
+
+  /**
+   * A manager asked for a revision; the team is working on the next version.
+   *
+   * @generated from enum value: INCIDENT_STATUS_REVISING = 8;
+   */
+  REVISING = 8,
 }
 
 /**
@@ -252,6 +526,37 @@ export enum IncidentStatus {
  */
 export const IncidentStatusSchema: GenEnum<IncidentStatus> = /*@__PURE__*/
   enumDesc(file_facilityops_v1_incidents, 0);
+
+/**
+ * @generated from enum facilityops.v1.PlanDecision
+ */
+export enum PlanDecision {
+  /**
+   * @generated from enum value: PLAN_DECISION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: PLAN_DECISION_APPROVE = 1;
+   */
+  APPROVE = 1,
+
+  /**
+   * @generated from enum value: PLAN_DECISION_REVISE = 2;
+   */
+  REVISE = 2,
+
+  /**
+   * @generated from enum value: PLAN_DECISION_REJECT = 3;
+   */
+  REJECT = 3,
+}
+
+/**
+ * Describes the enum facilityops.v1.PlanDecision.
+ */
+export const PlanDecisionSchema: GenEnum<PlanDecision> = /*@__PURE__*/
+  enumDesc(file_facilityops_v1_incidents, 1);
 
 /**
  * Incidents investigated by the Phase 2 incident team. A request is escalated automatically
@@ -290,6 +595,18 @@ export const IncidentService: GenService<{
     methodKind: "unary";
     input: typeof EscalateRequestRequestSchema;
     output: typeof EscalateRequestResponseSchema;
+  },
+  /**
+   * Approve, revise or reject the latest proposed plan. A plan with a safety block can't be
+   * approved; a high-cost plan needs confirm_high_cost. Approval doesn't act by itself: the
+   * application carries out approved actions. Requires incidents:manage.
+   *
+   * @generated from rpc facilityops.v1.IncidentService.DecideIncidentPlan
+   */
+  decideIncidentPlan: {
+    methodKind: "unary";
+    input: typeof DecideIncidentPlanRequestSchema;
+    output: typeof DecideIncidentPlanResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_facilityops_v1_incidents, 0);

@@ -91,13 +91,13 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-20 | Escalate a non-emergency request to the incident team when it meets the escalation criteria (§4.3): automatically for priority ≥ 4 in HVAC, electrical or plumbing (the work order is still created, pending approval), or manually by a facility manager (`IncidentService/EscalateRequest`). Emergencies can never be escalated. The repeat-failure criterion arrives with the asset-history tools. | ✅ |
 | FR-21 | A Magentic manager plans, delegates to specialists, tracks progress and re-plans within fixed budgets (§6). | ⬜ |
 | FR-22 | Specialists: diagnostician, asset historian, safety & compliance, procurement, scheduler, communicator (§5.2). | ⬜ |
-| FR-23 | Produce a structured **incident plan** whose factual claims cite manual sections or records. | ⬜ |
-| FR-24 | Facility manager approves, revises or rejects the plan before any side effect. | ⬜ |
+| FR-23 | Produce a structured **incident plan** whose factual claims cite manual sections or records. *Plan model, versioning and review flags (`safety_block`, `high_cost`, `unverified_claims`) done; producing plans waits for the team.* | 🚧 |
+| FR-24 | Facility manager approves, revises or rejects the plan before any side effect (`IncidentService/DecideIncidentPlan`). The gate is code: a safety-blocked plan can't be approved, a high-cost plan needs explicit confirmation, rejections use fixed reason codes, revisions go back to the team with the feedback and previous plan. | ✅ |
 | FR-25 | After approval, the application (not an agent) executes actions: purchase request, technician assignment, tenant notice. | ⬜ |
 | FR-26 | Checkpoint runs so a run paused for human review can resume. | ⬜ |
 | FR-27 | Incidents run off the request path: escalations and plan decisions are published as events (transactional outbox, §6.2) and handled by an incident worker (`python -m backend.app.worker`). Until the team exists, the worker fails closed to a person (`incident_team_unavailable`). | ✅ |
 | FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). | ⬜ |
-| FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). | ⬜ |
+| FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). *Scripted harness with 9 scenarios and 5 hard gates runs on every PR (`evals/incidents/`); live mode and tool fixtures arrive with the team.* | 🚧 |
 
 ### 4.2.1 Language support with Azure Translator (Phase 2)
 
@@ -189,11 +189,11 @@ Every specialist is read-only. Tools return data; nothing in the team can change
 | Agent | Responsibility | Tools (read-only) | Data source | Model tier |
 |---|---|---|---|---|
 | **Manager** | Builds the task ledger, assigns steps, judges progress, re-plans, writes the final plan | — | — | Large |
-| **Diagnostician** | Likely causes and checks, citing manuals | `search_manuals` | Azure AI Search over synthetic manuals | Small |
-| **Asset historian** | Asset details, past failures, repeat patterns | `get_asset`, `get_maintenance_history` | PostgreSQL | Small |
-| **Safety & compliance** | Lockout/tagout steps, permits, regulatory flags; can mark a plan **blocked** | `get_safety_procedure`, `check_permit_requirements` | Synthetic policy library | Small |
-| **Procurement** | Parts, stock, vendor SLA and contract terms, cost estimate | `find_parts`, `get_vendor_terms` | PostgreSQL | Small |
-| **Scheduler** | Technicians with the right skills and availability | `find_available_technicians` | PostgreSQL | Small |
+| **Diagnostician** | Likely causes and checks, citing manuals | `search_manuals` (step 4), `find_assets`, `get_asset` | Foundry IQ knowledge base over synthetic manuals; PostgreSQL | Small |
+| **Asset historian** | Asset details, past failures, repeat patterns | `find_assets`, `get_asset`, `get_maintenance_history` | PostgreSQL | Small |
+| **Safety & compliance** | Lockout/tagout steps, permits, regulatory flags; can mark a plan **blocked** | `get_safety_procedure` (step 4), `get_asset`, `check_permit_requirements` | Knowledge base; PostgreSQL | Small |
+| **Procurement** | Parts, stock, vendor SLA and contract terms, cost estimate | `get_asset`, `find_parts`, `get_vendor_terms` | PostgreSQL | Small |
+| **Scheduler** | Technicians with the right skills and availability (ids and skills, never names) | `find_available_technicians` | PostgreSQL | Small |
 | **Communicator** | Draft the tenant notice in the tenant's language | — | Redacted request + plan summary | Small |
 
 Each specialist returns a structured finding: `{claims[], citations[], confidence, open_questions[]}`. A claim
@@ -233,6 +233,15 @@ Three ways a specialist gets what it needs, kept separate:
 | **Knowledge** | Facts retrieved from documents, with citations | Equipment manuals, lockout/tagout procedures, vendor contracts | A **Foundry IQ knowledge base** on the project's existing serverless Azure AI Search service, reached only through the `search_manuals` / `get_safety_procedure` tools, with Entra ID (no query keys) |
 | **Tools** | Read-only functions over FacilityOps data | `get_maintenance_history`, `find_parts`, `find_available_technicians` | Python, in `backend/app/agents/tools/`, running with the incident's permissions |
 | **Skills** | Procedures the agent loads on demand | "Cite manual sections", "Assess a repeat failure" | Markdown files, harness `skills_paths` |
+
+**How the tools run** ([`agents/tools/`](../backend/app/agents/tools)): each call opens a `SET TRANSACTION READ ONLY`
+transaction, so the database refuses a write whatever the tool's code does; each specialist has 5 calls per run and
+then gets a refusal it can read; every call is a decision-trail step (tool, specialist, outcome, duration, argument
+codes, result count; free-text arguments are recorded as a length only); errors return only their type. Every result
+carries a citation (`asset:…`, `work_order:…`, `part:…`, `contract:…`, `technician:…`, `permit:…`). Data comes from
+the synthetic world in [`fixtures/synthetic_world.json`](../backend/app/fixtures/synthetic_world.json)
+(`scripts/db.sh seed-world`): 2 buildings, 6 assets, maintenance history (one repeat failure), parts, vendors with
+SLAs, technician shifts and permits (one expired).
 
 All documents are synthetic. Retrieved passages pass Prompt Shields' document-attack check before they reach a
 model; a flagged passage is dropped and recorded as a reason code. Each tool call is checked against the per-run
@@ -437,6 +446,12 @@ serve the fixture data, record every call, and can inject faults.
 | Safety block | Lockout/tagout requirement blocks the plan |
 | Human rejection or revision | Run resumes from its checkpoint, or the incident closes |
 | Emergency mis-escalation | An emergency never reaches the team |
+
+**Today** ([`evals/incidents/`](../evals/incidents)): the scripted team returns canned plans, reasons or errors, and the
+real worker, outbox, decision service and trail run around it. 9 scenarios (success, revision, rejection, safety
+block, high cost, grounding, tool failure, budget exhaustion, emergency) and 5 hard gates
+(`no_side_effects_before_approval`, `emergency_never_enters`, `events_ids_only`, `no_stuck_incidents`,
+`trail_complete`) pass on every PR. Run locally with `python -m evals.run_incident_scenarios`.
 
 It runs in two modes. **Scripted** mode replaces the models with a scripted chat client, so it is deterministic,
 free and runs on **every PR**: it tests the harness, budgets, events and gates, not model quality. **Live** mode

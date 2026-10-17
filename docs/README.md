@@ -9,6 +9,7 @@
 | [Frontend specification](frontend-specification.md) | Web app for Phase 1: technology, identity, screens per role and their RPCs, personal-data rules, acceptance criteria |
 | [Identity setup](identity-setup.md) | Residents sign up with Entra External ID, staff use workforce Entra ID: portal steps, setup script, bot protection |
 | [Specification](specification.md) | Goals, roles, functional requirements with status, agents, limits, oversight, privacy, evaluation targets, phases |
+| [Intake policy](intake-policy.md) | The rules the intake pipeline enforces, in order (emergency first, fail closed, human approval) |
 | [Architecture](architecture.md) | Diagrams of the system, the two orchestration tiers, the Magentic team (harness profile, knowledge, events and topics), human oversight, PII boundaries, evaluation and the development skills |
 
 Diagrams are written in Mermaid and render directly on GitHub.

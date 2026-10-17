@@ -1,0 +1,47 @@
+{
+  "notes": "Invented facility data for development, demos and evals. No real buildings, companies, people or equipment. Dates are relative (days_ago / days_from_now) so history always looks current.",
+  "buildings": [
+    {"id": "bldg-harbor-view", "name": "Harbor View Apartments", "units": 64},
+    {"id": "bldg-maple-court", "name": "Maple Court Residences", "units": 40}
+  ],
+  "assets": [
+    {"id": "asset-hv-boiler-1", "building_id": "bldg-harbor-view", "category": "hvac", "kind": "gas boiler", "manufacturer": "Thermacore", "model": "HX-200", "location": "Plant room B", "installed_years_ago": 9, "manual_id": "manual:boiler-hx200", "criticality": "critical"},
+    {"id": "asset-hv-chiller-1", "building_id": "bldg-harbor-view", "category": "hvac", "kind": "chiller", "manufacturer": "CoolAxis", "model": "CX90", "location": "Roof plant", "installed_years_ago": 7, "manual_id": "manual:chiller-cx90", "criticality": "high"},
+    {"id": "asset-hv-db3", "building_id": "bldg-harbor-view", "category": "electrical", "kind": "distribution board", "manufacturer": "Voltaris", "model": "DB-400", "location": "Level 3 riser cupboard", "installed_years_ago": 12, "manual_id": "manual:db-400", "criticality": "high"},
+    {"id": "asset-hv-riser-8", "building_id": "bldg-harbor-view", "category": "plumbing", "kind": "water riser", "manufacturer": "PipeLine", "model": "RS-50", "location": "Riser above unit 8F", "installed_years_ago": 15, "manual_id": "manual:riser-rs50", "criticality": "normal"},
+    {"id": "asset-mc-boiler-1", "building_id": "bldg-maple-court", "category": "hvac", "kind": "gas boiler", "manufacturer": "Thermacore", "model": "HX-200", "location": "Basement plant room", "installed_years_ago": 4, "manual_id": "manual:boiler-hx200", "criticality": "critical"},
+    {"id": "asset-mc-pump-1", "building_id": "bldg-maple-court", "category": "plumbing", "kind": "booster pump", "manufacturer": "Hydroflow", "model": "BP-12", "location": "Basement pump room", "installed_years_ago": 6, "manual_id": "manual:pump-bp12", "criticality": "high"}
+  ],
+  "maintenance_records": [
+    {"id": "wo-1042", "asset_id": "asset-hv-boiler-1", "days_ago": 12, "kind": "repair", "fault_code": "E04", "summary": "Low system pressure; repressurised to 1.5 bar, no leak found.", "cost": 95},
+    {"id": "wo-0987", "asset_id": "asset-hv-boiler-1", "days_ago": 41, "kind": "service", "summary": "Annual service; flue and burner checked.", "cost": 180},
+    {"id": "wo-0812", "asset_id": "asset-hv-boiler-1", "days_ago": 210, "kind": "inspection", "summary": "Gas safety inspection passed.", "cost": 90},
+    {"id": "wo-1015", "asset_id": "asset-hv-chiller-1", "days_ago": 30, "kind": "service", "summary": "Seasonal service; compressor current at upper limit.", "cost": 420},
+    {"id": "wo-0650", "asset_id": "asset-hv-riser-8", "days_ago": 320, "kind": "repair", "summary": "Riser coupling above 8F replaced after weeping joint.", "cost": 260},
+    {"id": "wo-1051", "asset_id": "asset-mc-pump-1", "days_ago": 5, "kind": "repair", "fault_code": "P2", "summary": "Pump tripped on overload; reset and bearings noted noisy.", "cost": 110},
+    {"id": "wo-1033", "asset_id": "asset-mc-pump-1", "days_ago": 21, "kind": "repair", "fault_code": "P2", "summary": "Pump tripped on overload; reset.", "cost": 110}
+  ],
+  "vendors": [
+    {"id": "vendor-thermaserve", "name": "ThermaServe Heating", "trades": ["hvac"], "sla_hours": 4, "callout_fee": 120, "contract_id": "contract:thermaserve-2026", "contract_ends_days_from_now": 200},
+    {"id": "vendor-coolserve", "name": "CoolServe Chillers", "trades": ["hvac"], "sla_hours": 48, "callout_fee": 650, "contract_id": "contract:coolserve-2026", "contract_ends_days_from_now": 90},
+    {"id": "vendor-brightline", "name": "Brightline Electrical", "trades": ["electrical"], "sla_hours": 8, "callout_fee": 180, "contract_id": "contract:brightline-2026", "contract_ends_days_from_now": 150},
+    {"id": "vendor-flowfix", "name": "FlowFix Plumbing", "trades": ["plumbing"], "sla_hours": 6, "callout_fee": 110, "contract_id": "contract:flowfix-2026", "contract_ends_days_from_now": 300}
+  ],
+  "parts": [
+    {"sku": "exp-vessel-24l", "name": "Expansion vessel 24 L", "fits_models": ["HX-200"], "stock": 2, "unit_cost": 60, "vendor_id": "vendor-thermaserve", "lead_time_days": 0},
+    {"sku": "hx200-pressure-sensor", "name": "Pressure sensor HX-200", "fits_models": ["HX-200"], "stock": 0, "unit_cost": 85, "vendor_id": "vendor-thermaserve", "lead_time_days": 3},
+    {"sku": "cx90-compressor", "name": "Compressor CX90-C", "fits_models": ["CX90"], "stock": 0, "unit_cost": 4200, "vendor_id": "vendor-coolserve", "lead_time_days": 2},
+    {"sku": "db400-breaker-63a", "name": "Breaker 63 A for DB-400", "fits_models": ["DB-400"], "stock": 4, "unit_cost": 45, "vendor_id": "vendor-brightline", "lead_time_days": 0},
+    {"sku": "rs50-coupling", "name": "Riser coupling RS-50", "fits_models": ["RS-50"], "stock": 6, "unit_cost": 22, "vendor_id": "vendor-flowfix", "lead_time_days": 0},
+    {"sku": "bp12-bearing-kit", "name": "Bearing kit BP-12", "fits_models": ["BP-12"], "stock": 1, "unit_cost": 140, "vendor_id": "vendor-flowfix", "lead_time_days": 1}
+  ],
+  "technicians": [
+    {"id": "tech-001", "user_external_id": "tech", "skills": ["hvac", "gas_safe", "plumbing"], "shift_start_hour": 7, "shift_end_hour": 15, "weekdays": [0, 1, 2, 3, 4], "on_call": false},
+    {"id": "tech-002", "user_external_id": "tech2", "skills": ["electrical", "hvac"], "shift_start_hour": 12, "shift_end_hour": 20, "weekdays": [0, 1, 2, 3, 4, 5], "on_call": true},
+    {"id": "tech-003", "skills": ["plumbing"], "shift_start_hour": 8, "shift_end_hour": 16, "weekdays": [0, 1, 2, 3, 4], "on_call": false}
+  ],
+  "permits": [
+    {"id": "permit:p-77", "asset_id": "asset-hv-db3", "kind": "electrical_isolation", "valid_days_from_now": 30},
+    {"id": "permit:p-12", "asset_id": "asset-hv-boiler-1", "kind": "gas_work", "valid_days_from_now": -10}
+  ]
+}

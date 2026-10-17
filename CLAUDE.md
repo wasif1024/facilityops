@@ -18,7 +18,12 @@ audited), prompt_versions, GetDecisionTrail (decisions:read), append-only audit 
 purge-expired`, structured logs with request_id/trace_id (core/logs.py). Every new agent or step must write to the
 trail. Phase 2 in progress: FR-60 (Translator), FR-70–76 (transparency), FR-20/FR-27 (escalation, outbox, event bus,
 incident worker: services/events.py, services/incident_worker.py, worker.py; UnavailableIncidentTeam fails closed)
-done. Next: incident plan model, scenario harness, read-only tools, Foundry IQ knowledge, Magentic team.
+done; incident plans (domain/incident_plan.py, versioned incident_plans, DecideIncidentPlan with safety/cost
+gate in code) and the scripted scenario harness (evals/incidents/, 9 scenarios, 5 gates, runs in the integration
+suite) done. The team returns TeamOutcome(plan|reason) and never writes or acts. Next: synthetic fixture world +
+read-only tools (done: backend/app/agents/tools/, runtime.run_tool = READ ONLY txn + budget + trail step;
+registry.SPECIALIST_TOOLS least privilege; world in backend/app/fixtures/synthetic_world.json, `scripts/db.sh
+seed-world`), then Foundry IQ knowledge, Magentic team behind IncidentTeam.
 Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
 Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
 scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport).

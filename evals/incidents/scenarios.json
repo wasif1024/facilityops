@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "notes": "Synthetic incidents for the scenario harness (spec 10.1). team_script lists what the incident team returns on each call: a plan, a reason it couldn't make one, or an error it raises. decisions are what the facility manager does after each plan. Buildings, assets and manuals are invented.",
+  "plans": {
+    "boiler_grounded": {
+      "summary": "Boiler HX-200 in plant room B shows E04 (low water pressure). Repressurise, check the expansion vessel, dispatch an HVAC technician today.",
+      "claims": [
+        {"statement": "E04 on the HX-200 means system pressure below 0.8 bar.", "specialist": "diagnostician",
+         "citations": [{"source_type": "manual", "source_id": "manual:boiler-hx200", "section": "6.2 Error codes"}]},
+        {"statement": "The same boiler had a pressure fault 12 days ago.", "specialist": "asset_historian",
+         "citations": [{"source_type": "record", "source_id": "work_order:wo-1042"}]},
+        {"statement": "Isolate the boiler's electrical supply before opening the casing.", "specialist": "safety",
+         "citations": [{"source_type": "procedure", "source_id": "procedure:loto-gas-boilers", "section": "Step 2"}]}
+      ],
+      "actions": [
+        {"type": "dispatch_technician", "description": "HVAC technician to plant room B today", "estimated_cost": 120},
+        {"type": "order_part", "description": "Expansion vessel 24 L (if the pre-charge test fails)", "estimated_cost": 60},
+        {"type": "notify_tenant", "description": "Tell residents heating is being restored this afternoon"}
+      ]
+    },
+    "boiler_after_feedback": {
+      "summary": "Revised: test the expansion vessel pre-charge before ordering parts; dispatch today.",
+      "claims": [
+        {"statement": "A failed expansion vessel causes repeated pressure loss.", "specialist": "diagnostician",
+         "citations": [{"source_type": "manual", "source_id": "manual:boiler-hx200", "section": "7.4 Pressure loss"}]}
+      ],
+      "actions": [
+        {"type": "dispatch_technician", "description": "HVAC technician: pre-charge test first", "estimated_cost": 120}
+      ]
+    },
+    "electrical_blocked": {
+      "summary": "Burning smell at distribution board DB-3. Replace the board.",
+      "claims": [
+        {"statement": "Work on DB-3 requires an isolation permit and a qualified electrician.", "specialist": "safety",
+         "citations": [{"source_type": "procedure", "source_id": "procedure:electrical-isolation", "section": "1.1"}]}
+      ],
+      "actions": [{"type": "dispatch_technician", "description": "Electrician to DB-3", "estimated_cost": 300}],
+      "safety_block": true,
+      "safety_notes": "No isolation permit is on record for DB-3."
+    },
+    "electrical_permitted": {
+      "summary": "Isolate DB-3 under permit P-77, then inspect before any replacement.",
+      "claims": [
+        {"statement": "Permit P-77 covers isolation of DB-3.", "specialist": "safety",
+         "citations": [{"source_type": "record", "source_id": "permit:p-77"}]}
+      ],
+      "actions": [
+        {"type": "apply_lockout", "description": "Lock out DB-3 under permit P-77"},
+        {"type": "dispatch_technician", "description": "Qualified electrician to inspect DB-3", "estimated_cost": 250}
+      ]
+    },
+    "chiller_expensive": {
+      "summary": "Chiller compressor failure on the roof plant. Replace the compressor.",
+      "claims": [
+        {"statement": "Compressor current draw is outside the manufacturer's range.", "specialist": "diagnostician",
+         "citations": [{"source_type": "manual", "source_id": "manual:chiller-cx90", "section": "9.1"}]},
+        {"statement": "The vendor's SLA guarantees a replacement within 48 hours.", "specialist": "procurement",
+         "citations": [{"source_type": "contract", "source_id": "contract:coolserve-2026", "section": "SLA"}]}
+      ],
+      "actions": [
+        {"type": "order_part", "description": "Replacement compressor CX90-C", "estimated_cost": 4200},
+        {"type": "schedule_visit", "description": "Vendor engineer within 48 hours", "estimated_cost": 650}
+      ]
+    },
+    "leak_unverified": {
+      "summary": "Water ingress above unit 8F. Likely a failed riser joint.",
+      "claims": [
+        {"statement": "The riser joint above 8F was replaced last year.", "specialist": "asset_historian"},
+        {"statement": "Isolate the riser at valve V-8 before work.", "specialist": "safety",
+         "citations": [{"source_type": "procedure", "source_id": "procedure:water-isolation"}]}
+      ],
+      "actions": [{"type": "dispatch_technician", "description": "Plumber to the riser above 8F", "estimated_cost": 150}]
+    }
+  },
+  "scenarios": [
+    {"id": "inc-success-001", "family": "success",
+     "description": "A grounded plan is approved; nothing happens before approval",
+     "team_script": [{"plan": "boiler_grounded"}],
+     "decisions": [{"decision": "approve"}],
+     "expect": {"final_status": "approved", "plan_versions": 1, "team_calls": 1, "flags": []}},
+
+    {"id": "inc-revision-001", "family": "revision",
+     "description": "The manager asks for a revision; the team gets the feedback and its previous plan",
+     "team_script": [{"plan": "boiler_grounded"}, {"plan": "boiler_after_feedback"}],
+     "decisions": [{"decision": "revise", "feedback": "Test the expansion vessel before ordering parts."}, {"decision": "approve"}],
+     "expect": {"final_status": "approved", "plan_versions": 2, "team_calls": 2, "feedback_seen": "Test the expansion vessel before ordering parts."}},
+
+    {"id": "inc-rejection-001", "family": "human_rejection",
+     "description": "The manager rejects the plan; the team is not called again",
+     "team_script": [{"plan": "boiler_grounded"}],
+     "decisions": [{"decision": "reject", "rejection_reason": "not_needed"}],
+     "expect": {"final_status": "rejected", "plan_versions": 1, "team_calls": 1}},
+
+    {"id": "inc-safety-001", "family": "safety_block",
+     "description": "A plan with a safety block can't be approved; a revised, permitted plan can",
+     "team_script": [{"plan": "electrical_blocked"}, {"plan": "electrical_permitted"}],
+     "decisions": [
+       {"decision": "approve", "expect_error": "safety block"},
+       {"decision": "revise", "feedback": "Find the isolation permit or raise one first."},
+       {"decision": "approve"}],
+     "expect": {"final_status": "approved", "plan_versions": 2, "team_calls": 2, "first_flags": ["safety_block"]}},
+
+    {"id": "inc-cost-001", "family": "high_cost",
+     "description": "A plan above the cost threshold needs an explicit cost confirmation",
+     "team_script": [{"plan": "chiller_expensive"}],
+     "decisions": [{"decision": "approve", "expect_error": "cost threshold"}, {"decision": "approve", "confirm_high_cost": true}],
+     "expect": {"final_status": "approved", "plan_versions": 1, "team_calls": 1, "flags": ["high_cost"]}},
+
+    {"id": "inc-grounding-001", "family": "grounding",
+     "description": "A claim without a citation is flagged as unverified",
+     "team_script": [{"plan": "leak_unverified"}],
+     "decisions": [],
+     "expect": {"final_status": "plan_ready", "plan_versions": 1, "team_calls": 1, "flags": ["unverified_claims"]}},
+
+    {"id": "inc-failure-001", "family": "tool_failure",
+     "description": "The team keeps failing: retried, dead-lettered, and handed to a person",
+     "team_script": [{"raise": "ConnectionError"}, {"raise": "ConnectionError"}, {"raise": "ConnectionError"}],
+     "decisions": [],
+     "expect": {"final_status": "needs_review", "reason_code": "event_delivery_failed", "plan_versions": 0, "team_calls": 3}},
+
+    {"id": "inc-budget-001", "family": "budget_exhaustion",
+     "description": "The team stops at its budget without a plan: a person decides",
+     "team_script": [{"reason": "budget_exhausted"}],
+     "decisions": [],
+     "expect": {"final_status": "needs_review", "reason_code": "budget_exhausted", "plan_versions": 0, "team_calls": 1}},
+
+    {"id": "inc-emergency-001", "family": "emergency",
+     "description": "An emergency can never be sent to the incident team",
+     "emergency": true,
+     "team_script": [],
+     "decisions": [],
+     "expect": {"escalation_refused": true, "team_calls": 0}}
+  ]
+}
