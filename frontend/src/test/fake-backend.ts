@@ -16,8 +16,9 @@ export const rolePermissions: Record<string, string[]> = {
     "pii:reveal_all",
     "evaluations:read",
     "monitoring:read",
+    "decisions:read",
   ],
-  admin: ["users:read", "users:manage", "roles:read", "audit:read", "evaluations:read", "evaluations:run", "monitoring:read"],
+  admin: ["users:read", "users:manage", "roles:read", "audit:read", "evaluations:read", "evaluations:run", "monitoring:read", "decisions:read"],
 }
 
 /**

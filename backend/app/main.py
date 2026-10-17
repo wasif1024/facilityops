@@ -15,6 +15,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend.app.api.auth import DEV_USER_HEADER
 from backend.app.api.container import Container
 from backend.app.api.interceptors import AuthInterceptor, ErrorBoundaryInterceptor
+from backend.app.api.rpc.incidents import IncidentRpc
 from backend.app.api.rpc.intake import IntakeRpc
 from backend.app.api.rpc.operations import ReviewQueueRpc, WorkOrderRpc
 from backend.app.api.rpc.reports import EvaluationRpc, MonitoringRpc
@@ -26,6 +27,7 @@ from backend.app.gen.facilityops.v1.account_connect import AccountServiceASGIApp
 from backend.app.gen.facilityops.v1.evaluations_connect import (
     EvaluationServiceASGIApplication,
 )
+from backend.app.gen.facilityops.v1.incidents_connect import IncidentServiceASGIApplication
 from backend.app.gen.facilityops.v1.intake_connect import IntakeServiceASGIApplication
 from backend.app.gen.facilityops.v1.monitoring_connect import (
     MonitoringServiceASGIApplication,
@@ -114,6 +116,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         MonitoringServiceASGIApplication(MonitoringRpc(services), **options),
         ReviewQueueServiceASGIApplication(ReviewQueueRpc(services), **options),
         WorkOrderServiceASGIApplication(WorkOrderRpc(services), **options),
+        IncidentServiceASGIApplication(IncidentRpc(services), **options),
     ):
         app.mount(rpc_app.path, rpc_app)
 

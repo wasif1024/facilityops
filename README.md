@@ -29,7 +29,8 @@ privacy, human oversight, evaluation, identity and access control. **New to AI?*
 [Enterprise AI concepts](docs/enterprise-ai-concepts.md), which explains each one in plain words. All data in the
 repository is synthetic.
 
-> **Status:** Phase 1 (intake) complete · Phase 2 (multi-agent incident team) next. See [Roadmap](#roadmap).
+> **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team) in progress: Azure Translator and the
+> transparency trail and the events foundation are done; the multi-agent team is being built. See [Roadmap](#roadmap).
 
 ## Features
 
@@ -46,7 +47,9 @@ repository is synthetic.
 - **Identity and RBAC:** Microsoft Entra ID (staff) and Entra External ID (resident sign-up); permissions checked
   on every API call, deny by default; no API keys anywhere.
 - **Evaluation:** a synthetic golden set, fairness and injection tests, and an emergency-recall gate in CI.
-- **Observability:** OpenTelemetry to Application Insights and agent monitoring dashboards, without storing content.
+- **Transparency:** a decision trail for every request (each check, its result and version), what the model was
+  sent and answered, append-only audit logs, and structured logs correlated with traces.
+- **Observability:** OpenTelemetry to Application Insights and agent monitoring dashboards.
 
 ## Architecture
 
@@ -87,7 +90,7 @@ cp .env.example .env                    # set DATABASE_URL; add Azure endpoints 
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 scripts/db.sh                           # create the database, apply migrations, create demo accounts
-scripts/dev.sh                          # backend + frontend → open http://localhost:5173
+scripts/dev.sh                          # API + incident worker + web app → open http://localhost:5173
 ```
 
 Without Azure the app still runs; AI steps fail closed to the human-review queue. Docker, running each side
@@ -120,7 +123,7 @@ The project applies Microsoft's six Responsible AI principles:
 | Reliability and safety | Emergency bypass, fail closed, human approval, emergency-recall gate on every pull request |
 | Privacy and security | Redaction before AI, encrypted role-gated reveal, no stored media, no API keys, deny-by-default access |
 | Inclusiveness | Three languages; report by voice or photo; works on a phone |
-| Transparency | A reason code on every decision; published metrics and [known limitations](docs/enterprise-ai-concepts.md#known-limitations) |
+| Transparency | A "Why this decision" trail for every request, the exact model input and answer, published metrics and [known limitations](docs/enterprise-ai-concepts.md#known-limitations) |
 | Accountability | People approve risky actions; every decision and data reveal is audited |
 
 ## Evaluation
@@ -162,9 +165,27 @@ docs/         documentation and diagrams
 
 ## Roadmap
 
-- [x] **Phase 1, intake:** multimodal intake, guardrails, PII, review queue and approvals, RBAC, monitoring, evals with a CI gate
-- [ ] **Phase 2, complex incidents:** Magentic multi-agent team, Foundry IQ knowledge base over equipment manuals, Azure Translator for staff and tenant notices, event-driven runs, scenario evaluation harness
-- [ ] **Phase 3, production:** `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md` transparency note
+**Phase 1, intake** ✅ complete
+
+- [x] Multimodal intake (text, photo, voice, scanned documents) with upload, image and injection guardrails
+- [x] PII redaction with audited, role-gated reveal
+- [x] Review queue, approvals and work-order lifecycle
+- [x] Identity (Entra ID, Entra External ID), RBAC, demo accounts
+- [x] Agent monitoring, OpenTelemetry, evaluation set with a CI gate
+
+**Phase 2, complex incidents** 🚧 in progress
+
+- [x] Azure Translator: staff see non-English requests in English, after redaction
+- [x] Transparency: decision trail, model input and output, append-only audit, correlated logs, retention
+- [x] Events foundation: escalation, transactional outbox, event bus, incident worker
+- [ ] Magentic multi-agent incident team on Agent Framework's harness, with budgets and approvals
+- [ ] Foundry IQ knowledge base over synthetic equipment manuals
+- [ ] Tenant notices in the tenant's language; translate-then-classify experiment
+- [ ] Scenario evaluation harness gating every PR
+
+**Phase 3, production**
+
+- [ ] `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md` transparency note
 
 ## Contributing
 

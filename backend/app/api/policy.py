@@ -34,6 +34,9 @@ RPC_PERMISSIONS: dict[str, frozenset[Permission]] = {
     _rpc("IntakeService", "ListRequests"): frozenset({Permission.INTAKE_READ_ALL}),
     _rpc("IntakeService", "GetRequest"): AnyOf({Permission.INTAKE_READ_OWN, Permission.INTAKE_READ_ALL}),
     _rpc("IntakeService", "GetDecisionTrail"): frozenset({Permission.DECISIONS_READ}),
+    _rpc("IncidentService", "ListIncidents"): frozenset({Permission.INCIDENTS_READ}),
+    _rpc("IncidentService", "GetIncident"): frozenset({Permission.INCIDENTS_READ}),
+    _rpc("IncidentService", "EscalateRequest"): frozenset({Permission.INCIDENTS_MANAGE}),
     _rpc("IntakeService", "RevealRequestDetails"): AnyOf(
         {Permission.PII_REVEAL_ALL, Permission.PII_REVEAL_ASSIGNED}
     ),

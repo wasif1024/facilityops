@@ -4,8 +4,9 @@
 # Usage: scripts/dev.sh [command] [--entra]     (run from anywhere)
 #
 #   (no command)   Same as "all"
-#   all            Backend and frontend together in one terminal; Ctrl+C stops both
+#   all            Backend, incident worker and frontend in one terminal; Ctrl+C stops them all
 #   backend        Backend only: apply migrations, then the API on http://localhost:8000
+#   worker         Incident worker only: delivers outbox events (escalated incidents)
 #   frontend       Frontend only: the web app on http://localhost:5173 (needs a running backend)
 #   help           Show this summary
 #
@@ -57,6 +58,12 @@ check_backend() {
   require_port "$API_PORT" "backend" API_PORT
 }
 
+# The worker needs the Python environment and .env, but no free port.
+check_backend_env() {
+  [ -x "$ROOT/.venv/bin/python" ] || die "no Python environment yet (see scripts/dev.sh backend)"
+  [ -f "$ROOT/.env" ] || die "no .env yet. Run once: cp .env.example .env"
+}
+
 check_frontend() {
   # nvm is a shell function, so it has to be loaded into this script (Homebrew or standard install).
   local nvm_sh="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
@@ -95,6 +102,11 @@ run_backend() {
     --factory --reload --port "$API_PORT"
 }
 
+run_worker() {
+  info "incident worker (delivers outbox events)"
+  exec "$ROOT/.venv/bin/python" -m backend.app.worker
+}
+
 run_frontend() {
   local mode=dev
   [ "$ENTRA" = 1 ] && mode=entra
@@ -118,17 +130,22 @@ run_all() {
   trap 'trap - INT TERM EXIT; kill 0 2>/dev/null' INT TERM EXIT
   prefixed "[api]" run_backend &
   local api=$!
+  # The worker starts once the API has applied the migrations.
+  (until curl -s -o /dev/null "http://localhost:$API_PORT/health/live"; do sleep 1; done
+   prefixed "[worker]" run_worker) &
+  local worker=$!
   prefixed "[web]" run_frontend &
   local web=$!
   echo
-  echo "    Web app: http://localhost:$WEB_PORT     API: http://localhost:$API_PORT     Ctrl+C stops both"
+  echo "    Web app: http://localhost:$WEB_PORT     API: http://localhost:$API_PORT     Ctrl+C stops everything"
   echo
   # Plain polling: macOS ships bash 3.2, which has no "wait -n".
-  while kill -0 "$api" 2>/dev/null && kill -0 "$web" 2>/dev/null; do
+  while kill -0 "$api" 2>/dev/null && kill -0 "$web" 2>/dev/null && kill -0 "$worker" 2>/dev/null; do
     sleep 1
   done
-  kill -0 "$api" 2>/dev/null || echo "==> backend stopped; stopping the frontend" >&2
-  kill -0 "$web" 2>/dev/null || echo "==> frontend stopped; stopping the backend" >&2
+  kill -0 "$api" 2>/dev/null || echo "==> backend stopped; stopping the rest" >&2
+  kill -0 "$worker" 2>/dev/null || echo "==> worker stopped; stopping the rest" >&2
+  kill -0 "$web" 2>/dev/null || echo "==> frontend stopped; stopping the rest" >&2
   exit 1
 }
 
@@ -136,6 +153,7 @@ command="${1:-all}"
 case "$command" in
   all) run_all ;;
   backend) check_backend && run_backend ;;
+  worker) check_backend_env && run_worker ;;
   frontend) check_frontend && run_frontend ;;
   help | -h | --help) usage 0 ;;
   *) echo "unknown command: $command" >&2; usage 1 ;;

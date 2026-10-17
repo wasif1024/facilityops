@@ -63,6 +63,19 @@ project implements, in plain words, with the file that implements it. It is writ
 | **Adversarial tests** | Injection attempts in text and hidden in scans are part of the evals | Attacks are certain once an AI is public | golden set, [media eval](../evals/run_media_eval.py) |
 | **Leak tests** | Fake identifiers are planted in test scans; the eval fails if one survives redaction | Proves the privacy claim instead of assuming it | [`run_media_eval.py`](../evals/run_media_eval.py) |
 
+## Transparency and traceability
+
+| Concept | What it means | Why it matters | Where |
+|---|---|---|---|
+| **Decision trail** | Every check recorded per request: what ran, what it found, which version, how long | "Why did the AI do that?" must have an answer months later | [`decision_trail.py`](../backend/app/domain/decision_trail.py), **Why this decision** on the request page |
+| **Model input and output** | The exact (redacted) text sent to the model, its answer, and the system instructions behind each prompt version | Explaining a model decision needs what it actually saw and said | [`agent_monitoring.py`](../backend/app/services/agent_monitoring.py) |
+| **Access to explanations** | Managers see prompts and answers; admins see only metadata; every view is audited | Explanations contain request content, so they get the same protection | `GetDecisionTrail` RPC |
+| **Correlated logs and traces** | Every log line, trace and trail step shares a request id and trace id | One request can be followed across all systems | [`logs.py`](../backend/app/core/logs.py) |
+| **Tamper-resistant audit** | Audit tables refuse edits and deletes at the database level | Evidence you can edit isn't evidence | migration [`0006`](../backend/migrations/versions/0006_decision_trail.py) |
+| **Retention** | Model content kept 90 days, audit two years, then purged | Keep what's needed, no longer | `scripts/db.sh purge-expired` |
+
+![The decision trail of a request: each check, the model call, and what it was sent and answered](images/decision-trail.png)
+
 ## Security and operations
 
 | Concept | What it means | Why it matters | Where |
@@ -71,7 +84,7 @@ project implements, in plain words, with the file that implements it. It is writ
 | **Customer and staff identity** | Residents sign up with Entra External ID (email verification); staff use the company directory | Real sign-up, password reset and MFA without storing passwords | [identity setup](identity-setup.md) |
 | **RBAC, deny by default** | Roles grant permissions; any API call without an explicit rule is refused | One forgotten check must not open a door | [`policy.py`](../backend/app/api/policy.py) |
 | **Rate limiting** | Each user can submit a limited number of requests per minute | Stops abuse and runaway cost | [`rate_limit.py`](../backend/app/services/rate_limit.py) |
-| **Observability without content** | OpenTelemetry traces to Application Insights, plus per-agent run records for latency, tokens and failures | You need to see how the AI behaves in production, without logging private text | admin **Monitoring** page |
+| **Observability without content** | OpenTelemetry traces to Application Insights, plus per-agent run records for latency, tokens and failures; content stays in the access-controlled database | You need to see how the AI behaves in production without spreading request text | admin **Monitoring** page |
 | **Idempotency** | Sending the same request twice never creates two work orders | Networks retry; duplicates cost money | [`intake_repository.py`](../backend/app/services/intake_repository.py) |
 
 ## Responsible AI, by Microsoft's six principles

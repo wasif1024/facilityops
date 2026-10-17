@@ -12,7 +12,13 @@ agent-run monitoring middleware, stored eval runs, admin report API. See docs/ f
 photo/voice/document intake (Vision caption+OCR, Speech, Document Intelligence prebuilt-read), upload checks by
 file bytes (backend/app/domain/media.py), image Content Safety, Prompt Shields with attachment text as documents,
 review queue, work-order lifecycle, audited PII reveal,
-OpenTelemetry to App Insights (no content). Next: Phase 2 (Magentic incident team).
+OpenTelemetry to App Insights (no content). Transparency: decision trail per request (decision_steps, adapters call
+`note(...)` with codes/counts only), model input/output in agent_run_contents (redacted; intake:read_all; views
+audited), prompt_versions, GetDecisionTrail (decisions:read), append-only audit triggers, `scripts/db.sh
+purge-expired`, structured logs with request_id/trace_id (core/logs.py). Every new agent or step must write to the
+trail. Phase 2 in progress: FR-60 (Translator), FR-70–76 (transparency), FR-20/FR-27 (escalation, outbox, event bus,
+incident worker: services/events.py, services/incident_worker.py, worker.py; UnavailableIncidentTeam fails closed)
+done. Next: incident plan model, scenario harness, read-only tools, Foundry IQ knowledge, Magentic team.
 Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
 Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
 scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport).

@@ -5,6 +5,7 @@ from uuid import uuid4
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
 from connectrpc.request import RequestContext
+from protobuf.wkt import Struct
 from pydantic import ValidationError
 
 from backend.app.api.auth import current_principal
@@ -22,6 +23,7 @@ from backend.app.api.rpc.convert import (
 from backend.app.domain.intake import IntakeCommand, IntakeResult, IntakeStatus, RequestSource
 from backend.app.gen.facilityops.v1 import intake_pb as pb
 from backend.app.services.agent_monitoring import monitoring_scope
+from backend.app.services.decision_trail import DecisionTrailView, read_decision_trail
 from backend.app.services.operations import OperationsService, RequestView
 from backend.app.services.intake_repository import (
     DuplicateRequestInProgress,
@@ -73,6 +75,56 @@ def to_proto_summary(view: RequestView) -> pb.IntakeRequestSummary:
         translated_description=text(request.translated_description),
         source_language=text(request.source_language),
         created_at=timestamp(request.created_at),
+    )
+
+
+def to_proto_trail(view: DecisionTrailView, retention_days: int) -> pb.GetDecisionTrailResponse:
+    return pb.GetDecisionTrailResponse(
+        request_id=str(view.request_id),
+        steps=[
+            pb.DecisionStep(
+                step=s.step,
+                outcome=s.outcome,
+                reason_code=text(s.reason_code),
+                service=text(s.service),
+                version=text(s.version),
+                duration_ms=s.duration_ms,
+                details=Struct.from_python(s.details or {}),
+                trace_id=text(s.trace_id),
+                started_at=timestamp(s.started_at),
+            )
+            for s in view.steps
+        ],
+        model_calls=[
+            pb.ModelCall(
+                id=str(c.run.id),
+                agent_name=c.run.agent_name,
+                model=text(c.run.model),
+                prompt_sha=text(c.run.prompt_sha),
+                status=c.run.status,
+                error_type=text(c.run.error_type),
+                duration_ms=c.run.duration_ms,
+                input_tokens=c.run.input_tokens,
+                output_tokens=c.run.output_tokens,
+                trace_id=text(c.run.trace_id),
+                started_at=timestamp(c.run.started_at),
+                input_text=c.content.input_text if c.content else "",
+                output_text=c.content.output_text if c.content else "",
+                instructions=text(c.instructions),
+            )
+            for c in view.model_calls
+        ],
+        human_actions=[
+            pb.HumanAction(
+                event_type=a.event_type,
+                reason_code=a.reason_code,
+                actor_user_id=text(a.actor_id),
+                created_at=timestamp(a.created_at),
+            )
+            for a in view.human_actions
+        ],
+        content_included=view.content_included,
+        content_retention_days=retention_days,
     )
 
 
@@ -166,6 +218,15 @@ class IntakeRpc:
             with operation_errors():
                 view = await OperationsService(session).get_request(request_id, viewer())
         return pb.GetRequestResponse(request=to_proto_summary(view))
+
+    async def get_decision_trail(
+        self, request: pb.GetDecisionTrailRequest, ctx: RequestContext
+    ) -> pb.GetDecisionTrailResponse:
+        request_id = parse_uuid(request.request_id, "request_id")
+        async with self._c.session_factory() as session:
+            with operation_errors():
+                view = await read_decision_trail(session, request_id, viewer())
+        return to_proto_trail(view, self._c.settings.model_content_retention_days)
 
     async def reveal_request_details(
         self, request: pb.RevealRequestDetailsRequest, ctx: RequestContext

@@ -5,14 +5,14 @@
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import { file_google_protobuf_struct, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file facilityops/v1/intake.proto.
  */
 export const file_facilityops_v1_intake: GenFile = /*@__PURE__*/
-  fileDesc("ChtmYWNpbGl0eW9wcy92MS9pbnRha2UucHJvdG8SDmZhY2lsaXR5b3BzLnYxIpsBChNTdWJtaXRJbnRha2VSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSLQoGc291cmNlGAIgASgOMh0uZmFjaWxpdHlvcHMudjEuUmVxdWVzdFNvdXJjZRIMCgR0ZXh0GAMgASgJEg0KBW1lZGlhGAQgASgMEhIKCm1lZGlhX3R5cGUYBSABKAkSEAoIbGFuZ3VhZ2UYBiABKAkiRAoUU3VibWl0SW50YWtlUmVzcG9uc2USLAoGcmVzdWx0GAEgASgLMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVzdWx0Iv8BCgxJbnRha2VSZXN1bHQSEgoKcmVxdWVzdF9pZBgBIAEoCRIsCgZzdGF0dXMYAiABKA4yHC5mYWNpbGl0eW9wcy52MS5JbnRha2VTdGF0dXMSEwoLcmVhc29uX2NvZGUYAyABKAkSNQoIY2F0ZWdvcnkYBCABKA4yIy5mYWNpbGl0eW9wcy52MS5NYWludGVuYW5jZUNhdGVnb3J5EhUKCHByaW9yaXR5GAUgASgFSACIAQESFwoKY29uZmlkZW5jZRgGIAEoAUgBiAEBEhUKDXdvcmtfb3JkZXJfaWQYByABKAlCCwoJX3ByaW9yaXR5Qg0KC19jb25maWRlbmNlItgDChRJbnRha2VSZXF1ZXN0U3VtbWFyeRISCgpyZXF1ZXN0X2lkGAEgASgJEi0KBnNvdXJjZRgCIAEoDjIdLmZhY2lsaXR5b3BzLnYxLlJlcXVlc3RTb3VyY2USLAoGc3RhdHVzGAMgASgOMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlU3RhdHVzEhMKC3JlYXNvbl9jb2RlGAQgASgJEjUKCGNhdGVnb3J5GAUgASgOMiMuZmFjaWxpdHlvcHMudjEuTWFpbnRlbmFuY2VDYXRlZ29yeRIVCghwcmlvcml0eRgGIAEoBUgAiAEBEhcKCmNvbmZpZGVuY2UYByABKAFIAYgBARIVCg13b3JrX29yZGVyX2lkGAggASgJEhkKEXdvcmtfb3JkZXJfc3RhdHVzGAkgASgJEhwKFHJlZGFjdGVkX2Rlc2NyaXB0aW9uGAogASgJEi4KCmNyZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEh4KFnRyYW5zbGF0ZWRfZGVzY3JpcHRpb24YDCABKAkSFwoPc291cmNlX2xhbmd1YWdlGA0gASgJQgsKCV9wcmlvcml0eUINCgtfY29uZmlkZW5jZSI2ChVMaXN0TXlSZXF1ZXN0c1JlcXVlc3QSDQoFbGltaXQYASABKAUSDgoGb2Zmc2V0GAIgASgFIl8KFkxpc3RNeVJlcXVlc3RzUmVzcG9uc2USNgoIcmVxdWVzdHMYASADKAsyJC5mYWNpbGl0eW9wcy52MS5JbnRha2VSZXF1ZXN0U3VtbWFyeRINCgV0b3RhbBgCIAEoBSJiChNMaXN0UmVxdWVzdHNSZXF1ZXN0EiwKBnN0YXR1cxgBIAEoDjIcLmZhY2lsaXR5b3BzLnYxLkludGFrZVN0YXR1cxINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiXQoUTGlzdFJlcXVlc3RzUmVzcG9uc2USNgoIcmVxdWVzdHMYASADKAsyJC5mYWNpbGl0eW9wcy52MS5JbnRha2VSZXF1ZXN0U3VtbWFyeRINCgV0b3RhbBgCIAEoBSInChFHZXRSZXF1ZXN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIksKEkdldFJlcXVlc3RSZXNwb25zZRI1CgdyZXF1ZXN0GAEgASgLMiQuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVxdWVzdFN1bW1hcnkiMQobUmV2ZWFsUmVxdWVzdERldGFpbHNSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAki6QEKHFJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2USEgoKcmVxdWVzdF9pZBgBIAEoCRIcChRyZWRhY3RlZF9kZXNjcmlwdGlvbhgCIAEoCRIeChZ0cmFuc2xhdGVkX2Rlc2NyaXB0aW9uGAQgASgJEkgKBnZhbHVlcxgDIAMoCzI4LmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2UuVmFsdWVzRW50cnkaLQoLVmFsdWVzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASqZAQoNUmVxdWVzdFNvdXJjZRIeChpSRVFVRVNUX1NPVVJDRV9VTlNQRUNJRklFRBAAEhcKE1JFUVVFU1RfU09VUkNFX1RFWFQQARIYChRSRVFVRVNUX1NPVVJDRV9QSE9UTxACEhgKFFJFUVVFU1RfU09VUkNFX1ZPSUNFEAMSGwoXUkVRVUVTVF9TT1VSQ0VfRE9DVU1FTlQQBCrZAQoMSW50YWtlU3RhdHVzEh0KGUlOVEFLRV9TVEFUVVNfVU5TUEVDSUZJRUQQABIjCh9JTlRBS0VfU1RBVFVTX0VNRVJHRU5DWV9IQU5ET0ZGEAESHgoaSU5UQUtFX1NUQVRVU19IVU1BTl9SRVZJRVcQAhIiCh5JTlRBS0VfU1RBVFVTX1BFTkRJTkdfQVBQUk9WQUwQAxIkCiBJTlRBS0VfU1RBVFVTX1dPUktfT1JERVJfQ1JFQVRFRBAEEhsKF0lOVEFLRV9TVEFUVVNfRElTTUlTU0VEEAUqrQIKE01haW50ZW5hbmNlQ2F0ZWdvcnkSJAogTUFJTlRFTkFOQ0VfQ0FURUdPUllfVU5TUEVDSUZJRUQQABIdChlNQUlOVEVOQU5DRV9DQVRFR09SWV9IVkFDEAESIQodTUFJTlRFTkFOQ0VfQ0FURUdPUllfUExVTUJJTkcQAhIjCh9NQUlOVEVOQU5DRV9DQVRFR09SWV9FTEVDVFJJQ0FMEAMSIQodTUFJTlRFTkFOQ0VfQ0FURUdPUllfU0VDVVJJVFkQBBIjCh9NQUlOVEVOQU5DRV9DQVRFR09SWV9TVFJVQ1RVUkFMEAUSIQodTUFJTlRFTkFOQ0VfQ0FURUdPUllfQ0xFQU5JTkcQBhIeChpNQUlOVEVOQU5DRV9DQVRFR09SWV9PVEhFUhAHMu4DCg1JbnRha2VTZXJ2aWNlElkKDFN1Ym1pdEludGFrZRIjLmZhY2lsaXR5b3BzLnYxLlN1Ym1pdEludGFrZVJlcXVlc3QaJC5mYWNpbGl0eW9wcy52MS5TdWJtaXRJbnRha2VSZXNwb25zZRJfCg5MaXN0TXlSZXF1ZXN0cxIlLmZhY2lsaXR5b3BzLnYxLkxpc3RNeVJlcXVlc3RzUmVxdWVzdBomLmZhY2lsaXR5b3BzLnYxLkxpc3RNeVJlcXVlc3RzUmVzcG9uc2USWQoMTGlzdFJlcXVlc3RzEiMuZmFjaWxpdHlvcHMudjEuTGlzdFJlcXVlc3RzUmVxdWVzdBokLmZhY2lsaXR5b3BzLnYxLkxpc3RSZXF1ZXN0c1Jlc3BvbnNlElMKCkdldFJlcXVlc3QSIS5mYWNpbGl0eW9wcy52MS5HZXRSZXF1ZXN0UmVxdWVzdBoiLmZhY2lsaXR5b3BzLnYxLkdldFJlcXVlc3RSZXNwb25zZRJxChRSZXZlYWxSZXF1ZXN0RGV0YWlscxIrLmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVxdWVzdBosLmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2ViBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChtmYWNpbGl0eW9wcy92MS9pbnRha2UucHJvdG8SDmZhY2lsaXR5b3BzLnYxIpsBChNTdWJtaXRJbnRha2VSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSLQoGc291cmNlGAIgASgOMh0uZmFjaWxpdHlvcHMudjEuUmVxdWVzdFNvdXJjZRIMCgR0ZXh0GAMgASgJEg0KBW1lZGlhGAQgASgMEhIKCm1lZGlhX3R5cGUYBSABKAkSEAoIbGFuZ3VhZ2UYBiABKAkiRAoUU3VibWl0SW50YWtlUmVzcG9uc2USLAoGcmVzdWx0GAEgASgLMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVzdWx0Iv8BCgxJbnRha2VSZXN1bHQSEgoKcmVxdWVzdF9pZBgBIAEoCRIsCgZzdGF0dXMYAiABKA4yHC5mYWNpbGl0eW9wcy52MS5JbnRha2VTdGF0dXMSEwoLcmVhc29uX2NvZGUYAyABKAkSNQoIY2F0ZWdvcnkYBCABKA4yIy5mYWNpbGl0eW9wcy52MS5NYWludGVuYW5jZUNhdGVnb3J5EhUKCHByaW9yaXR5GAUgASgFSACIAQESFwoKY29uZmlkZW5jZRgGIAEoAUgBiAEBEhUKDXdvcmtfb3JkZXJfaWQYByABKAlCCwoJX3ByaW9yaXR5Qg0KC19jb25maWRlbmNlItgDChRJbnRha2VSZXF1ZXN0U3VtbWFyeRISCgpyZXF1ZXN0X2lkGAEgASgJEi0KBnNvdXJjZRgCIAEoDjIdLmZhY2lsaXR5b3BzLnYxLlJlcXVlc3RTb3VyY2USLAoGc3RhdHVzGAMgASgOMhwuZmFjaWxpdHlvcHMudjEuSW50YWtlU3RhdHVzEhMKC3JlYXNvbl9jb2RlGAQgASgJEjUKCGNhdGVnb3J5GAUgASgOMiMuZmFjaWxpdHlvcHMudjEuTWFpbnRlbmFuY2VDYXRlZ29yeRIVCghwcmlvcml0eRgGIAEoBUgAiAEBEhcKCmNvbmZpZGVuY2UYByABKAFIAYgBARIVCg13b3JrX29yZGVyX2lkGAggASgJEhkKEXdvcmtfb3JkZXJfc3RhdHVzGAkgASgJEhwKFHJlZGFjdGVkX2Rlc2NyaXB0aW9uGAogASgJEi4KCmNyZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEh4KFnRyYW5zbGF0ZWRfZGVzY3JpcHRpb24YDCABKAkSFwoPc291cmNlX2xhbmd1YWdlGA0gASgJQgsKCV9wcmlvcml0eUINCgtfY29uZmlkZW5jZSI2ChVMaXN0TXlSZXF1ZXN0c1JlcXVlc3QSDQoFbGltaXQYASABKAUSDgoGb2Zmc2V0GAIgASgFIl8KFkxpc3RNeVJlcXVlc3RzUmVzcG9uc2USNgoIcmVxdWVzdHMYASADKAsyJC5mYWNpbGl0eW9wcy52MS5JbnRha2VSZXF1ZXN0U3VtbWFyeRINCgV0b3RhbBgCIAEoBSJiChNMaXN0UmVxdWVzdHNSZXF1ZXN0EiwKBnN0YXR1cxgBIAEoDjIcLmZhY2lsaXR5b3BzLnYxLkludGFrZVN0YXR1cxINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiXQoUTGlzdFJlcXVlc3RzUmVzcG9uc2USNgoIcmVxdWVzdHMYASADKAsyJC5mYWNpbGl0eW9wcy52MS5JbnRha2VSZXF1ZXN0U3VtbWFyeRINCgV0b3RhbBgCIAEoBSInChFHZXRSZXF1ZXN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIksKEkdldFJlcXVlc3RSZXNwb25zZRI1CgdyZXF1ZXN0GAEgASgLMiQuZmFjaWxpdHlvcHMudjEuSW50YWtlUmVxdWVzdFN1bW1hcnkiMQobUmV2ZWFsUmVxdWVzdERldGFpbHNSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAki6QEKHFJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2USEgoKcmVxdWVzdF9pZBgBIAEoCRIcChRyZWRhY3RlZF9kZXNjcmlwdGlvbhgCIAEoCRIeChZ0cmFuc2xhdGVkX2Rlc2NyaXB0aW9uGAQgASgJEkgKBnZhbHVlcxgDIAMoCzI4LmZhY2lsaXR5b3BzLnYxLlJldmVhbFJlcXVlc3REZXRhaWxzUmVzcG9uc2UuVmFsdWVzRW50cnkaLQoLVmFsdWVzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASItChdHZXREZWNpc2lvblRyYWlsUmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJIuUBCgxEZWNpc2lvblN0ZXASDAoEc3RlcBgBIAEoCRIPCgdvdXRjb21lGAIgASgJEhMKC3JlYXNvbl9jb2RlGAMgASgJEg8KB3NlcnZpY2UYBCABKAkSDwoHdmVyc2lvbhgFIAEoCRITCgtkdXJhdGlvbl9tcxgGIAEoBRIoCgdkZXRhaWxzGAcgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIQCgh0cmFjZV9pZBgIIAEoCRIuCgpzdGFydGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLiAgoJTW9kZWxDYWxsEgoKAmlkGAEgASgJEhIKCmFnZW50X25hbWUYAiABKAkSDQoFbW9kZWwYAyABKAkSEgoKcHJvbXB0X3NoYRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSEgoKZXJyb3JfdHlwZRgGIAEoCRITCgtkdXJhdGlvbl9tcxgHIAEoBRIZCgxpbnB1dF90b2tlbnMYCCABKAVIAIgBARIaCg1vdXRwdXRfdG9rZW5zGAkgASgFSAGIAQESEAoIdHJhY2VfaWQYCiABKAkSLgoKc3RhcnRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKaW5wdXRfdGV4dBgMIAEoCRITCgtvdXRwdXRfdGV4dBgNIAEoCRIUCgxpbnN0cnVjdGlvbnMYDiABKAlCDwoNX2lucHV0X3Rva2Vuc0IQCg5fb3V0cHV0X3Rva2VucyJ9CgtIdW1hbkFjdGlvbhISCgpldmVudF90eXBlGAEgASgJEhMKC3JlYXNvbl9jb2RlGAIgASgJEhUKDWFjdG9yX3VzZXJfaWQYAyABKAkSLgoKY3JlYXRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi+QEKGEdldERlY2lzaW9uVHJhaWxSZXNwb25zZRISCgpyZXF1ZXN0X2lkGAEgASgJEisKBXN0ZXBzGAIgAygLMhwuZmFjaWxpdHlvcHMudjEuRGVjaXNpb25TdGVwEi4KC21vZGVsX2NhbGxzGAMgAygLMhkuZmFjaWxpdHlvcHMudjEuTW9kZWxDYWxsEjIKDWh1bWFuX2FjdGlvbnMYBCADKAsyGy5mYWNpbGl0eW9wcy52MS5IdW1hbkFjdGlvbhIYChBjb250ZW50X2luY2x1ZGVkGAUgASgIEh4KFmNvbnRlbnRfcmV0ZW50aW9uX2RheXMYBiABKAUqmQEKDVJlcXVlc3RTb3VyY2USHgoaUkVRVUVTVF9TT1VSQ0VfVU5TUEVDSUZJRUQQABIXChNSRVFVRVNUX1NPVVJDRV9URVhUEAESGAoUUkVRVUVTVF9TT1VSQ0VfUEhPVE8QAhIYChRSRVFVRVNUX1NPVVJDRV9WT0lDRRADEhsKF1JFUVVFU1RfU09VUkNFX0RPQ1VNRU5UEAQq2QEKDEludGFrZVN0YXR1cxIdChlJTlRBS0VfU1RBVFVTX1VOU1BFQ0lGSUVEEAASIwofSU5UQUtFX1NUQVRVU19FTUVSR0VOQ1lfSEFORE9GRhABEh4KGklOVEFLRV9TVEFUVVNfSFVNQU5fUkVWSUVXEAISIgoeSU5UQUtFX1NUQVRVU19QRU5ESU5HX0FQUFJPVkFMEAMSJAogSU5UQUtFX1NUQVRVU19XT1JLX09SREVSX0NSRUFURUQQBBIbChdJTlRBS0VfU1RBVFVTX0RJU01JU1NFRBAFKq0CChNNYWludGVuYW5jZUNhdGVnb3J5EiQKIE1BSU5URU5BTkNFX0NBVEVHT1JZX1VOU1BFQ0lGSUVEEAASHQoZTUFJTlRFTkFOQ0VfQ0FURUdPUllfSFZBQxABEiEKHU1BSU5URU5BTkNFX0NBVEVHT1JZX1BMVU1CSU5HEAISIwofTUFJTlRFTkFOQ0VfQ0FURUdPUllfRUxFQ1RSSUNBTBADEiEKHU1BSU5URU5BTkNFX0NBVEVHT1JZX1NFQ1VSSVRZEAQSIwofTUFJTlRFTkFOQ0VfQ0FURUdPUllfU1RSVUNUVVJBTBAFEiEKHU1BSU5URU5BTkNFX0NBVEVHT1JZX0NMRUFOSU5HEAYSHgoaTUFJTlRFTkFOQ0VfQ0FURUdPUllfT1RIRVIQBzLVBAoNSW50YWtlU2VydmljZRJZCgxTdWJtaXRJbnRha2USIy5mYWNpbGl0eW9wcy52MS5TdWJtaXRJbnRha2VSZXF1ZXN0GiQuZmFjaWxpdHlvcHMudjEuU3VibWl0SW50YWtlUmVzcG9uc2USXwoOTGlzdE15UmVxdWVzdHMSJS5mYWNpbGl0eW9wcy52MS5MaXN0TXlSZXF1ZXN0c1JlcXVlc3QaJi5mYWNpbGl0eW9wcy52MS5MaXN0TXlSZXF1ZXN0c1Jlc3BvbnNlElkKDExpc3RSZXF1ZXN0cxIjLmZhY2lsaXR5b3BzLnYxLkxpc3RSZXF1ZXN0c1JlcXVlc3QaJC5mYWNpbGl0eW9wcy52MS5MaXN0UmVxdWVzdHNSZXNwb25zZRJTCgpHZXRSZXF1ZXN0EiEuZmFjaWxpdHlvcHMudjEuR2V0UmVxdWVzdFJlcXVlc3QaIi5mYWNpbGl0eW9wcy52MS5HZXRSZXF1ZXN0UmVzcG9uc2UScQoUUmV2ZWFsUmVxdWVzdERldGFpbHMSKy5mYWNpbGl0eW9wcy52MS5SZXZlYWxSZXF1ZXN0RGV0YWlsc1JlcXVlc3QaLC5mYWNpbGl0eW9wcy52MS5SZXZlYWxSZXF1ZXN0RGV0YWlsc1Jlc3BvbnNlEmUKEEdldERlY2lzaW9uVHJhaWwSJy5mYWNpbGl0eW9wcy52MS5HZXREZWNpc2lvblRyYWlsUmVxdWVzdBooLmZhY2lsaXR5b3BzLnYxLkdldERlY2lzaW9uVHJhaWxSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_struct, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message facilityops.v1.SubmitIntakeRequest
@@ -411,6 +411,262 @@ export const RevealRequestDetailsResponseSchema: GenMessage<RevealRequestDetails
   messageDesc(file_facilityops_v1_intake, 11);
 
 /**
+ * @generated from message facilityops.v1.GetDecisionTrailRequest
+ */
+export type GetDecisionTrailRequest = Message<"facilityops.v1.GetDecisionTrailRequest"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+};
+
+/**
+ * Describes the message facilityops.v1.GetDecisionTrailRequest.
+ * Use `create(GetDecisionTrailRequestSchema)` to create a new message.
+ */
+export const GetDecisionTrailRequestSchema: GenMessage<GetDecisionTrailRequest> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_intake, 12);
+
+/**
+ * One step of the intake pipeline. Details hold labels, scores and counts, never text.
+ *
+ * @generated from message facilityops.v1.DecisionStep
+ */
+export type DecisionStep = Message<"facilityops.v1.DecisionStep"> & {
+  /**
+   * For example "intake.emergency_screen", "intake.content_safety", "intake.classification".
+   *
+   * @generated from field: string step = 1;
+   */
+  step: string;
+
+  /**
+   * "passed", "flagged", "failed", "skipped" or "decided".
+   *
+   * @generated from field: string outcome = 2;
+   */
+  outcome: string;
+
+  /**
+   * @generated from field: string reason_code = 3;
+   */
+  reasonCode: string;
+
+  /**
+   * The service that ran it, for example "Azure AI Content Safety" or "Microsoft Foundry".
+   *
+   * @generated from field: string service = 4;
+   */
+  service: string;
+
+  /**
+   * Model, API or prompt version, for example "gpt-5.2" or "Prompt Shields 2024-09-01".
+   *
+   * @generated from field: string version = 5;
+   */
+  version: string;
+
+  /**
+   * @generated from field: int32 duration_ms = 6;
+   */
+  durationMs: number;
+
+  /**
+   * @generated from field: google.protobuf.Struct details = 7;
+   */
+  details?: JsonObject | undefined;
+
+  /**
+   * OpenTelemetry trace id: find the step in Application Insights.
+   *
+   * @generated from field: string trace_id = 8;
+   */
+  traceId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp started_at = 9;
+   */
+  startedAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.DecisionStep.
+ * Use `create(DecisionStepSchema)` to create a new message.
+ */
+export const DecisionStepSchema: GenMessage<DecisionStep> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_intake, 13);
+
+/**
+ * One call to a language model, with what it was sent and what it answered.
+ *
+ * @generated from message facilityops.v1.ModelCall
+ */
+export type ModelCall = Message<"facilityops.v1.ModelCall"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string agent_name = 2;
+   */
+  agentName: string;
+
+  /**
+   * @generated from field: string model = 3;
+   */
+  model: string;
+
+  /**
+   * Hash of the system instructions; the full text is in instructions.
+   *
+   * @generated from field: string prompt_sha = 4;
+   */
+  promptSha: string;
+
+  /**
+   * "succeeded" or "failed".
+   *
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * @generated from field: string error_type = 6;
+   */
+  errorType: string;
+
+  /**
+   * @generated from field: int32 duration_ms = 7;
+   */
+  durationMs: number;
+
+  /**
+   * @generated from field: optional int32 input_tokens = 8;
+   */
+  inputTokens?: number | undefined;
+
+  /**
+   * @generated from field: optional int32 output_tokens = 9;
+   */
+  outputTokens?: number | undefined;
+
+  /**
+   * @generated from field: string trace_id = 10;
+   */
+  traceId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp started_at = 11;
+   */
+  startedAt?: Timestamp | undefined;
+
+  /**
+   * Content: empty unless the caller has intake:read_all. Redacted text only.
+   *
+   * @generated from field: string input_text = 12;
+   */
+  inputText: string;
+
+  /**
+   * @generated from field: string output_text = 13;
+   */
+  outputText: string;
+
+  /**
+   * @generated from field: string instructions = 14;
+   */
+  instructions: string;
+};
+
+/**
+ * Describes the message facilityops.v1.ModelCall.
+ * Use `create(ModelCallSchema)` to create a new message.
+ */
+export const ModelCallSchema: GenMessage<ModelCall> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_intake, 14);
+
+/**
+ * A person's action on the request: review resolution, approval, assignment, completion.
+ *
+ * @generated from message facilityops.v1.HumanAction
+ */
+export type HumanAction = Message<"facilityops.v1.HumanAction"> & {
+  /**
+   * @generated from field: string event_type = 1;
+   */
+  eventType: string;
+
+  /**
+   * @generated from field: string reason_code = 2;
+   */
+  reasonCode: string;
+
+  /**
+   * @generated from field: string actor_user_id = 3;
+   */
+  actorUserId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
+   */
+  createdAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message facilityops.v1.HumanAction.
+ * Use `create(HumanActionSchema)` to create a new message.
+ */
+export const HumanActionSchema: GenMessage<HumanAction> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_intake, 15);
+
+/**
+ * @generated from message facilityops.v1.GetDecisionTrailResponse
+ */
+export type GetDecisionTrailResponse = Message<"facilityops.v1.GetDecisionTrailResponse"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: repeated facilityops.v1.DecisionStep steps = 2;
+   */
+  steps: DecisionStep[];
+
+  /**
+   * @generated from field: repeated facilityops.v1.ModelCall model_calls = 3;
+   */
+  modelCalls: ModelCall[];
+
+  /**
+   * @generated from field: repeated facilityops.v1.HumanAction human_actions = 4;
+   */
+  humanActions: HumanAction[];
+
+  /**
+   * Whether model inputs and answers are included (the caller may read requests).
+   *
+   * @generated from field: bool content_included = 5;
+   */
+  contentIncluded: boolean;
+
+  /**
+   * Days that model inputs and answers are kept before they are purged.
+   *
+   * @generated from field: int32 content_retention_days = 6;
+   */
+  contentRetentionDays: number;
+};
+
+/**
+ * Describes the message facilityops.v1.GetDecisionTrailResponse.
+ * Use `create(GetDecisionTrailResponseSchema)` to create a new message.
+ */
+export const GetDecisionTrailResponseSchema: GenMessage<GetDecisionTrailResponse> = /*@__PURE__*/
+  messageDesc(file_facilityops_v1_intake, 16);
+
+/**
  * @generated from enum facilityops.v1.RequestSource
  */
 export enum RequestSource {
@@ -607,6 +863,18 @@ export const IntakeService: GenService<{
     methodKind: "unary";
     input: typeof RevealRequestDetailsRequestSchema;
     output: typeof RevealRequestDetailsResponseSchema;
+  },
+  /**
+   * Why the AI did what it did: every pipeline step, every model call and every human action
+   * for one request. Requires decisions:read. Model inputs and answers (redacted text) are
+   * included only with intake:read_all; viewing them is audited.
+   *
+   * @generated from rpc facilityops.v1.IntakeService.GetDecisionTrail
+   */
+  getDecisionTrail: {
+    methodKind: "unary";
+    input: typeof GetDecisionTrailRequestSchema;
+    output: typeof GetDecisionTrailResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_facilityops_v1_intake, 0);

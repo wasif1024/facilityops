@@ -67,6 +67,32 @@ describe("routing by permission", () => {
   })
 })
 
+describe("decision trail for administrators", () => {
+  it("opens from a link without access to the request, and shows no model content", async () => {
+    const transport = fakeBackend("admin", (router) =>
+      router.service(IntakeService, {
+        getDecisionTrail: (request) => ({
+          requestId: request.requestId,
+          steps: [{ step: "intake.emergency_screen", outcome: "passed" }],
+          modelCalls: [{ id: "run-1", agentName: "Maintenance Triage Classifier", model: "gpt-5.2", status: "succeeded" }],
+          contentIncluded: false,
+          contentRetentionDays: 90,
+        }),
+      }),
+    )
+    renderApp(transport, "/decisions/request-1")
+    expect(await screen.findByRole("heading", { name: "Decision trail" })).toBeInTheDocument()
+    expect(await screen.findByText("Emergency screen")).toBeInTheDocument()
+    expect(screen.getByText(/visible to facility managers/)).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /What was sent/ })).not.toBeInTheDocument()
+  })
+
+  it("is closed to tenants", async () => {
+    renderApp(fakeBackend("tenant"), "/decisions/request-1")
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument()
+  })
+})
+
 describe("report a problem", () => {
   it("reuses the same requestId when a failed submit is retried", async () => {
     const requestIds: string[] = []

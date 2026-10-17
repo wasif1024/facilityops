@@ -1,4 +1,4 @@
-# Run FacilityOps AI locally with Docker: PostgreSQL, migrations and the API.
+# Run FacilityOps AI locally with Docker: PostgreSQL, migrations, the API and the incident worker.
 #
 #   docker compose up --build          # start everything; API on http://localhost:8000
 #   docker compose --profile tools up  # also start pgAdmin on http://localhost:5050
@@ -59,6 +59,16 @@ services:
     <<: *app
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Delivers outbox events (escalated incidents) off the request path. Scale with
+  # `docker compose up --scale worker=3`: each event is claimed by exactly one worker.
+  worker:
+    <<: *app
+    command: ["python", "-m", "backend.app.worker"]
     depends_on:
       migrate:
         condition: service_completed_successfully

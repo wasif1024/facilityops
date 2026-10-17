@@ -7,6 +7,7 @@ from backend.app.api.policy import RPC_PERMISSIONS
 from backend.app.gen.facilityops.v1 import (
     account_connect,
     evaluations_connect,
+    incidents_connect,
     intake_connect,
     monitoring_connect,
     operations_connect,
@@ -18,6 +19,7 @@ from .rpc_fakes import call, make_client
 SERVICES = (
     account_connect.AccountService,
     intake_connect.IntakeService,
+    incidents_connect.IncidentService,
     users_connect.UserAdminService,
     evaluations_connect.EvaluationService,
     monitoring_connect.MonitoringService,

@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package facilityops.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Incidents investigated by the Phase 2 incident team. A request is escalated automatically
+// (priority 4+ in HVAC, electrical or plumbing) or by a facility manager. Escalation writes an
+// intake.escalated event; the incident worker picks it up off the request path.
+service IncidentService {
+  // Newest first. Requires incidents:read.
+  rpc ListIncidents(ListIncidentsRequest) returns (ListIncidentsResponse);
+  // Requires incidents:read.
+  rpc GetIncident(GetIncidentRequest) returns (GetIncidentResponse);
+  // Send a request to the incident team. Emergencies can't be escalated. Requires incidents:manage.
+  rpc EscalateRequest(EscalateRequestRequest) returns (EscalateRequestResponse);
+}
+
+enum IncidentStatus {
+  INCIDENT_STATUS_UNSPECIFIED = 0;
+  // Waiting for the incident worker.
+  INCIDENT_STATUS_ESCALATED = 1;
+  INCIDENT_STATUS_INVESTIGATING = 2;
+  // The team produced a plan for a facility manager to decide.
+  INCIDENT_STATUS_PLAN_READY = 3;
+  // The team couldn't finish (budget, error, unavailable, undeliverable event): a person decides.
+  INCIDENT_STATUS_NEEDS_REVIEW = 4;
+  INCIDENT_STATUS_APPROVED = 5;
+  INCIDENT_STATUS_REJECTED = 6;
+  INCIDENT_STATUS_CLOSED = 7;
+}
+
+message Incident {
+  string id = 1;
+  string request_id = 2;
+  string work_order_id = 3;
+  IncidentStatus status = 4;
+  // Why it was escalated: "high_priority_equipment" or "manual_escalation".
+  string escalation_reason = 5;
+  // Why it last changed state, for example "incident_team_unavailable".
+  string reason_code = 6;
+  // Empty for automatic escalation.
+  string escalated_by_user_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ListIncidentsRequest {
+  IncidentStatus status = 1;
+  // 1 to 100; defaults to 20.
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListIncidentsResponse {
+  repeated Incident incidents = 1;
+  int32 total = 2;
+}
+
+message GetIncidentRequest {
+  string incident_id = 1;
+}
+
+message GetIncidentResponse {
+  Incident incident = 1;
+}
+
+message EscalateRequestRequest {
+  string request_id = 1;
+}
+
+message EscalateRequestResponse {
+  Incident incident = 1;
+}

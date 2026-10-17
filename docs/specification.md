@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Version** | 0.4 (draft) |
-| **Status** | Phase 1 complete (2026-10-17); Phase 2 next |
+| **Status** | Phase 1 complete (2026-10-17); Phase 2 in progress (Translator FR-60, transparency FR-70–76, escalation and events FR-20/FR-27 done) |
 | **Last updated** | 2026-10-17 |
 | **Related** | [Architecture](architecture.md) · [README](../README.md) |
 
@@ -88,14 +88,14 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-20 | Escalate a non-emergency request to the incident team when it meets the escalation criteria (§4.3). | ⬜ |
+| FR-20 | Escalate a non-emergency request to the incident team when it meets the escalation criteria (§4.3): automatically for priority ≥ 4 in HVAC, electrical or plumbing (the work order is still created, pending approval), or manually by a facility manager (`IncidentService/EscalateRequest`). Emergencies can never be escalated. The repeat-failure criterion arrives with the asset-history tools. | ✅ |
 | FR-21 | A Magentic manager plans, delegates to specialists, tracks progress and re-plans within fixed budgets (§6). | ⬜ |
 | FR-22 | Specialists: diagnostician, asset historian, safety & compliance, procurement, scheduler, communicator (§5.2). | ⬜ |
 | FR-23 | Produce a structured **incident plan** whose factual claims cite manual sections or records. | ⬜ |
 | FR-24 | Facility manager approves, revises or rejects the plan before any side effect. | ⬜ |
 | FR-25 | After approval, the application (not an agent) executes actions: purchase request, technician assignment, tenant notice. | ⬜ |
 | FR-26 | Checkpoint runs so a run paused for human review can resume. | ⬜ |
-| FR-27 | Incidents run off the request path: escalations and plan decisions are published as events (transactional outbox, §6.2) and handled by an incident worker. | ⬜ |
+| FR-27 | Incidents run off the request path: escalations and plan decisions are published as events (transactional outbox, §6.2) and handled by an incident worker (`python -m backend.app.worker`). Until the team exists, the worker fails closed to a person (`incident_team_unavailable`). | ✅ |
 | FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). | ⬜ |
 | FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). | ⬜ |
 
@@ -136,10 +136,25 @@ Emergencies never enter the team, before or after the on-call handoff.
 | FR-44 | Store every evaluation run (CLI, CI or admin-started) with metrics, gates and per-case results by case id. | ✅ |
 | FR-45 | Admins start an offline or live evaluation run (`StartEvaluationRun`); one run at a time. | ✅ |
 | FR-46 | Metric trends across runs, tagged with model, prompt hash and dataset hash. | ✅ |
-| FR-47 | Record every agent run (agent, model, prompt hash, duration, tokens, outcome, error type) via Agent Framework middleware; never prompts or responses. | ✅ |
+| FR-47 | Record every agent run (agent, model, prompt hash, duration, tokens, outcome, error type, trace id) via Agent Framework middleware. What was sent and answered is stored separately under FR-71. | ✅ |
 | FR-48 | Agent report: volume, failure rate, p50/p95 latency, tokens, daily series and error breakdown; production and evaluation traffic kept apart. | ✅ |
 | FR-49 | Intake report: outcomes by status, category and priority, human-review and automation rates, top reason codes, pending approvals. | ✅ |
 | FR-50 | Cost per run, derived from token counts and model prices. | ⬜ |
+
+### 4.4.1 Transparency and traceability
+
+Every AI decision must be explainable after the fact: what ran, what it found, what the model was asked and what it
+answered, and who acted on it.
+
+| ID | Requirement | Status |
+|---|---|---|
+| FR-70 | **Decision trail.** Every intake step is recorded per request (`decision_steps`): step, outcome (passed, flagged, failed, skipped, decided), reason code, service and version (model, prompt hash, API version), duration, non-personal details (safety severities, Prompt Shields results, entity categories, the classifier's answer and confidence, confirmation votes, routing thresholds) and trace id. Details never hold text: free-text values are refused in code. | ✅ |
+| FR-71 | **Model input and output.** For every model call, store what was sent (redacted text) and what the model answered (`agent_run_contents`), and the exact system instructions behind each prompt hash (`prompt_versions`). Content capture is on by default (`CAPTURE_MODEL_CONTENT`). | ✅ |
+| FR-72 | **Access to the trail.** `GetDecisionTrail` requires `decisions:read` (facility managers, administrators); administrators open it from Monitoring → Recent runs → Decision trail (`/decisions/:requestId`). Model inputs and answers are included only with `intake:read_all` (facility managers); administrators see metadata only. Every view of model content is written to the security audit log. | ✅ |
+| FR-73 | **"Why this decision" view.** The request page shows staff the steps, model calls and human actions, loaded on demand. | ✅ |
+| FR-74 | **Correlated, structured logs.** Every log line carries `request_id`, `trace_id` and `span_id`; `LOG_FORMAT=json` for production. One log line per decision step; logs never contain request text, prompts, answers or exception messages. Trace ids are created locally too, without Application Insights. | ✅ |
+| FR-75 | **Tamper-resistant audit.** `intake_audit_events`, `security_audit_events` and `decision_steps` are append-only (database triggers refuse updates and deletes). | ✅ |
+| FR-76 | **Retention.** `scripts/db.sh purge-expired` deletes model content after `MODEL_CONTENT_RETENTION_DAYS` (90) and audit records after `AUDIT_RETENTION_DAYS` (730); it is the only path allowed past the append-only triggers. | ✅ |
 
 ### 4.5 Product (Phase 3)
 
@@ -294,11 +309,18 @@ Rules:
   `pii_mappings`, one row per request. Never sent to a model, log, trace or evaluation set.
 - **User records:** display name and email of people who sign in, readable only with `users:read`. Audit events
   record ids and role names, never email addresses.
-- **Agent runs and eval results:** ids, counts, timings and labels only. Prompts, responses and request text are
-  never stored there.
-- **Telemetry:** OpenTelemetry spans carry ids, reason codes, model and prompt versions, token counts and latency;
-  Agent Framework sensitive-data (message content) capture stays **off**.
-- **Retention (proposed):** PII mappings 90 days after a work order closes; audit events 2 years.
+- **Agent runs and eval results:** ids, counts, timings and labels only.
+- **Model inputs and answers (FR-71):** what each model was sent and answered, in `agent_run_contents`. Models only
+  ever receive redacted text, so this holds placeholders, not personal data. Readable only with `intake:read_all`,
+  every view audited, purged after 90 days.
+- **Decision trail (FR-70):** steps, outcomes, versions and non-personal details per request; append-only, kept two
+  years.
+- **Telemetry and logs:** OpenTelemetry spans and log lines carry ids, reason codes, model and prompt versions,
+  token counts and latency, never content. Agent Framework sensitive-data capture stays **off**: Application
+  Insights is usually readable by more people (operations, developers) than the database, so content stays in the
+  access-controlled database and traces link to it by trace id.
+- **Retention:** model inputs and answers 90 days, decision trail and audit events 2 years (`scripts/db.sh purge-expired`);
+  PII mappings 90 days after a work order closes (proposed).
 - **Azure AI Language** is called with `disable_service_logs=True`.
 
 ## 9. Non-functional requirements
@@ -311,7 +333,7 @@ Rules:
 | Reliability | Fail closed to human review; idempotent intake; checkpointed incident runs; transactional outbox with idempotent consumers and dead-lettering to human review |
 | Latency | Emergency handoff < 1 s (no network calls); routine intake p95 < 8 s |
 | Cost | Small models for specialists, budgets in §6; cost per incident reported by eval runs |
-| Observability | Agent runs recorded per call (FR-47) for admin reports. OpenTelemetry to Application Insights: RPC spans, Azure service calls, one span per intake step, Agent Framework GenAI spans (model, tokens). No content: GenAI sensitive data off, exception messages never recorded or logged |
+| Observability | Agent runs recorded per call (FR-47); decision trail and model input/output (FR-70, FR-71); structured logs correlated by request and trace id (FR-74). OpenTelemetry to Application Insights: RPC spans, Azure service calls, one span per intake step with its outcome, Agent Framework GenAI spans (model, tokens). No content in traces or logs; exception messages never recorded or logged |
 | Portability | Schema via Alembic migrations, checked for drift in CI |
 
 ### 9.1 Guardrails on intake

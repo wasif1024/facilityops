@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     # Application logs: "json" (one object per line, for Azure Monitor) or "text" (local reading).
     log_format: Literal["json", "text"] = "text"
     log_level: str = "INFO"
+    # Incident worker: seconds between outbox polls when idle.
+    worker_poll_seconds: float = Field(default=2.0, gt=0, le=60)
     rate_limit_requests: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
     rate_limit_hmac_secret: str = "development-only-change-me"

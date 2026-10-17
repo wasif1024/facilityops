@@ -3,7 +3,9 @@
 What is exported: HTTP/RPC spans, outbound calls to Azure services, intake pipeline
 step spans with ids and reason codes, and Agent Framework GenAI spans (model, token
 usage, latency). What is not: prompts, responses or request text. Agent Framework's
-sensitive-data capture is explicitly disabled, and our own spans carry no content.
+sensitive-data capture is explicitly disabled, and our own spans carry no content. What models
+were sent and answered is kept in the access-controlled database instead (agent_run_contents),
+linked to these traces by trace id.
 """
 
 from __future__ import annotations

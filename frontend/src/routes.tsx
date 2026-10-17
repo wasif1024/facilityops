@@ -9,6 +9,7 @@ import { ListSkeleton, NoAccess, NotFound } from "@/components/app/states"
 import { UsersPage } from "@/features/admin/users-page"
 import { AuditPage } from "@/features/admin/audit-page"
 import { ReportPage } from "@/features/report/report-page"
+import { DecisionTrailPage } from "@/features/requests/decision-trail"
 import { AllRequestsPage, MyRequestsPage, RequestDetailPage } from "@/features/requests/requests-pages"
 import { ReviewQueuePage } from "@/features/review/review-queue-page"
 import { WorkOrderDetailPage, WorkOrdersPage } from "@/features/work-orders/work-orders-pages"
@@ -60,6 +61,7 @@ export const routes: RouteObject[] = [
         path: "work-orders/:workOrderId",
         element: page([Permission.WorkOrdersReadAll, Permission.WorkOrdersReadAssigned], <WorkOrderDetailPage />),
       },
+      { path: "decisions/:requestId", element: page([Permission.DecisionsRead], <DecisionTrailPage />) },
       { path: "monitoring", element: page([Permission.MonitoringRead], <MonitoringPage />) },
       { path: "evaluations", element: page([Permission.EvaluationsRead], <EvaluationsPage />) },
       { path: "evaluations/:runId", element: page([Permission.EvaluationsRead], <EvaluationDetailPage />) },

@@ -18,6 +18,7 @@ export const Permission = {
   EvaluationsRead: "evaluations:read",
   EvaluationsRun: "evaluations:run",
   MonitoringRead: "monitoring:read",
+  DecisionsRead: "decisions:read",
 } as const
 
 export type PermissionId = (typeof Permission)[keyof typeof Permission]

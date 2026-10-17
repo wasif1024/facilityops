@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     PrimaryKeyConstraint,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -281,7 +283,7 @@ class EvaluationCaseResultRecord(Base):
 
 
 class AgentRunRecord(Base):
-    """One agent invocation: timing, tokens and outcome. Never prompts or responses."""
+    """One agent invocation: timing, tokens, outcome. Content is in agent_run_contents."""
 
     __tablename__ = "agent_runs"
 
@@ -365,3 +367,73 @@ class PromptVersionRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class IncidentRecord(Base):
+    """A request the incident team investigates (Phase 2). One per request.
+
+    Lifecycle: escalated -> investigating -> plan_ready -> (approved | rejected) -> closed, with
+    needs_review whenever the team can't finish (budget, error, team unavailable, dead letter).
+    """
+
+    __tablename__ = "incidents"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    request_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("intake_requests.request_id", ondelete="CASCADE"), unique=True
+    )
+    work_order_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    # Why it was escalated, for example "high_priority_equipment" or "manual_escalation".
+    escalation_reason: Mapped[str] = mapped_column(String(64))
+    # Why it last changed state, for example "incident_team_unavailable".
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    escalated_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class OutboxEventRecord(Base):
+    """Transactional outbox (spec 6.2): written with the state change, delivered afterwards.
+
+    Payloads hold ids and codes only. Delivery is at-least-once; after MAX_DELIVERY_ATTEMPTS
+    failures an event is dead-lettered and its incident goes to human review.
+    """
+
+    __tablename__ = "outbox_events"
+    # Delivery polls only undelivered events: a partial index keeps that cheap as the table grows.
+    __table_args__ = (
+        Index(
+            "ix_outbox_events_pending",
+            "created_at",
+            postgresql_where=text("published_at IS NULL AND dead_lettered_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    aggregate_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dead_lettered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class ProcessedEventRecord(Base):
+    """Which consumer handled which event: a redelivered event is skipped (idempotency)."""
+
+    __tablename__ = "processed_events"
+    __table_args__ = (PrimaryKeyConstraint("consumer", "event_id"),)
+
+    consumer: Mapped[str] = mapped_column(String(64))
+    event_id: Mapped[UUID] = mapped_column(Uuid)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

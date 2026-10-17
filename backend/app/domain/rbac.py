@@ -33,6 +33,9 @@ class Permission(StrEnum):
     # The decision trail of a request: steps, outcomes, model versions. The prompts and model
     # answers inside it additionally need intake:read_all (they contain the redacted request).
     DECISIONS_READ = "decisions:read"
+    # Incidents investigated by the Phase 2 team.
+    INCIDENTS_READ = "incidents:read"
+    INCIDENTS_MANAGE = "incidents:manage"
 
 
 class SystemRole(StrEnum):
@@ -66,6 +69,8 @@ SYSTEM_ROLE_PERMISSIONS: dict[SystemRole, frozenset[Permission]] = {
             Permission.EVALUATIONS_READ,
             Permission.MONITORING_READ,
             Permission.DECISIONS_READ,
+            Permission.INCIDENTS_READ,
+            Permission.INCIDENTS_MANAGE,
         }
     ),
     SystemRole.ADMIN: frozenset(

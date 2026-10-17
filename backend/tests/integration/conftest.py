@@ -40,6 +40,10 @@ _DATA_TABLES = (
     "agent_runs",
     "security_audit_events",
     "rate_limit_counters",
+    "decision_steps",
+    "prompt_versions",
+    "outbox_events",
+    "processed_events",
 )
 
 

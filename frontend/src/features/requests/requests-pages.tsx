@@ -15,6 +15,7 @@ import { PriorityBadge, StatusBadge } from "@/components/app/badges"
 import { Pagination, useFilterParam, usePage } from "@/components/app/pagination"
 import { RevealButton, useReveal } from "@/components/app/redacted-text"
 import { TranslatedText } from "@/components/app/translated-text"
+import { DecisionTrailCard } from "@/features/requests/decision-trail"
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/app/states"
 import { TimeAgo } from "@/components/app/time"
 import { Button } from "@/components/ui/button"
@@ -284,6 +285,7 @@ export function RequestDetailPage() {
               </ol>
             </CardContent>
           </Card>
+          {can(Permission.DecisionsRead) && <DecisionTrailCard requestId={request.requestId} />}
         </div>
       ) : null}
     </div>

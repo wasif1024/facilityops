@@ -1,5 +1,7 @@
 import { useQuery } from "@connectrpc/connect-query"
 import { Link } from "react-router"
+import { Permission } from "@/auth/permissions"
+import { useSession } from "@/auth/session"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import { categoryLabels, humanize, reasonLabel } from "@/api/labels"
@@ -300,6 +302,7 @@ function AgentReport({ days, includeEvaluations }: { days: number; includeEvalua
 function RecentRuns() {
   const page = usePage()
   const [status, setStatus] = useFilterParam("runStatus", "all")
+  const canSeeTrail = useSession().can(Permission.DecisionsRead)
   const { data, error, isLoading, refetch } = useQuery(MonitoringService.method.listAgentRuns, {
     ...page,
     status: status === "failed" ? AgentRunStatus.FAILED : status === "succeeded" ? AgentRunStatus.SUCCEEDED : AgentRunStatus.UNSPECIFIED,
@@ -357,7 +360,13 @@ function RecentRuns() {
                         Evaluation run
                       </Link>
                     ) : run.requestId ? (
-                      "Intake request"
+                      canSeeTrail ? (
+                        <Link to={`/decisions/${run.requestId}`} className="underline">
+                          Decision trail
+                        </Link>
+                      ) : (
+                        "Intake request"
+                      )
                     ) : (
                       "—"
                     )}

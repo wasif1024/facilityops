@@ -82,6 +82,9 @@ Set at least these in `.env`:
 | `SPEECH_ENDPOINT` | your Azure AI Speech endpoint | Voice intake (transcription) |
 | `DOCUMENT_INTELLIGENCE_ENDPOINT` | your Azure AI Document Intelligence endpoint (an AI Services resource works) | Scanned-document intake (read model) |
 | `TRANSLATOR_ENDPOINT` | your Azure AI Translator endpoint (an AI Services resource works) | Staff translation of Spanish and French requests (optional) |
+| `CAPTURE_MODEL_CONTENT` | `true` | Store what each model was sent and answered (redacted) for the decision trail |
+| `MODEL_CONTENT_RETENTION_DAYS` / `AUDIT_RETENTION_DAYS` | `90` / `730` | Retention used by `scripts/db.sh purge-expired` |
+| `LOG_FORMAT` / `LOG_LEVEL` | `text` / `INFO` | `json` in production: one object per line with `request_id` and `trace_id` |
 | `PII_MAPPING_ENCRYPTION_KEY` | see below | Storing and revealing the PII mapping |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | from your Application Insights resource | OpenTelemetry export (optional) |
 
@@ -116,8 +119,9 @@ creates `frontend/.env.local` if it's missing, and stops with a clear message if
 ```bash
 brew services start postgresql@18      # if PostgreSQL is not already running
 
-scripts/dev.sh                         # backend + frontend in one terminal (Ctrl+C stops both)
+scripts/dev.sh                         # API + incident worker + frontend in one terminal (Ctrl+C stops all)
 scripts/dev.sh backend                 # backend only:  http://localhost:8000
+scripts/dev.sh worker                  # incident worker only: delivers outbox events (escalated incidents)
 scripts/dev.sh frontend                # frontend only: http://localhost:5173 (start the backend first)
 
 scripts/dev.sh --entra                 # both, with Microsoft Entra sign-in (docs/identity-setup.md)
@@ -126,7 +130,8 @@ API_PORT=8001 WEB_PORT=5174 scripts/dev.sh   # other ports
 scripts/dev.sh help                    # summary
 ```
 
-In the combined mode every line is labelled `[api]` or `[web]`; if either side stops, the other is stopped too.
+In the combined mode every line is labelled `[api]`, `[worker]` or `[web]`; if one stops, the others are stopped too.
+`python -m backend.app.worker --once` delivers what is pending and exits (handy in scripts and tests).
 Run the two sides in separate terminals when you want their logs apart. The script works from any folder and
 needs no activated virtual environment.
 
@@ -166,6 +171,9 @@ scripts/db.sh reset                           # undo everything, then re-apply (
 
 # Create
 scripts/db.sh new "add vendor table"          # new migration from model changes -> 0005_add_vendor_table.py
+
+# Transparency records past their retention period (model content 90 days, audit 2 years)
+scripts/db.sh purge-expired                   # run daily in production (cron, scheduled job)
 
 # Demo accounts (section 6.1)
 scripts/db.sh remove-demo-accounts            # before using the project for real

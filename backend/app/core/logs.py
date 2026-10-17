@@ -99,6 +99,6 @@ def configure_logging(settings: Settings) -> None:
     root.handlers = [h for h in root.handlers if not isinstance(h, logging.StreamHandler)] + [handler]
     root.setLevel(settings.log_level.upper())
     # Our own modules log at the configured level; noisy libraries stay at warnings.
-    for noisy in ("azure", "httpx", "httpcore", "urllib3", "opentelemetry"):
+    for noisy in ("azure", "httpx", "httpx2", "httpcore", "urllib3", "opentelemetry", "agent_framework"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
     _configured = True

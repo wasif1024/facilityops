@@ -438,7 +438,7 @@ sequenceDiagram
 | | Local and tests | Azure (Phase 3) |
 |---|---|---|
 | Bus | PostgreSQL outbox, polled with `SKIP LOCKED` | Azure Service Bus topic `facilityops-events`, one subscription per consumer, filtered by event type |
-| Worker | `python -m backend.app.worker`, or a Compose service | Container App scaled on subscription length |
+| Worker | `scripts/dev.sh worker` (`python -m backend.app.worker`), or the Compose `worker` service | Container App scaled on subscription length |
 | Auth | Database connection | Managed identity, no connection strings |
 
 Both transports implement one `EventBus` port, so the domain code and the scenario tests don't know which is used.
@@ -606,7 +606,8 @@ tried without Entra. Production refuses to start with authentication disabled.
 ## 9. Evaluation and agent monitoring
 
 Two streams feed the admin reports. **Agent runs** are recorded by Agent Framework middleware on every call: one row
-per run with agent, model, prompt hash, duration, tokens and outcome, never prompts or responses. **Evaluation runs**
+per run with agent, model, prompt hash, duration, tokens, outcome and trace id; what was sent and answered is kept
+separately and access-controlled (§9.1). **Evaluation runs**
 store metrics, gates and per-case results by case id. A context variable tags each agent run with the intake request
 or evaluation run it served, so production and evaluation traffic are reported separately and an evaluation's model
 cost is visible.
@@ -681,6 +682,46 @@ distro (RPC spans, Azure service calls), one span per intake step (`intake.pii_r
 (`invoke_agent`, `chat <model>` with token usage). Content is excluded on purpose: GenAI sensitive-data capture
 is off, step spans don't record exception messages, and the error interceptor logs only the exception type,
 because any of these could otherwise carry request text into telemetry. Tests never export.
+
+### 9.1 Transparency: the decision trail
+
+Every request can be explained after the fact, long after traces expire. Four records connect through the request
+id and the OpenTelemetry trace id:
+
+```mermaid
+flowchart LR
+    req(["Intake request<br/>request_id"])
+    subgraph db["PostgreSQL · access-controlled"]
+        steps[("decision_steps<br/>step · outcome · reason ·<br/>service · version · details")]
+        runs[("agent_runs<br/>model · prompt hash ·<br/>tokens · trace id")]
+        content[("agent_run_contents<br/>redacted input · answer<br/>90 days")]
+        prompts[("prompt_versions<br/>exact instructions")]
+        audit[("intake / security audit<br/>append-only")]
+    end
+    logs["Structured logs<br/>request_id · trace_id"]
+    appi["Application Insights<br/>traces, no content"]
+
+    req --> steps & runs & audit
+    runs --> content
+    runs --> prompts
+    steps -. trace_id .-> appi
+    runs -. trace_id .-> appi
+    logs -. trace_id .-> appi
+    steps --> ui["Why this decision<br/>(request page)"]
+    content --> ui
+```
+
+| Question | Answered by | Who can see it |
+|---|---|---|
+| Which checks ran, what did each find, which version ran it? | `decision_steps` | `decisions:read` (facility managers, admins) |
+| Which model and prompt version answered, how many tokens, how long? | `agent_runs`, `prompt_versions` | `decisions:read` |
+| What exactly was the model sent, and what did it answer? | `agent_run_contents` (redacted text) | `intake:read_all` (facility managers); every view audited |
+| Who approved, assigned, dismissed or revealed? | `intake_audit_events`, `security_audit_events` | staff / `audit:read` |
+| How did this request travel through the services? | Application Insights trace (by `trace_id`) | operations |
+
+Content stays out of traces on purpose: Application Insights is usually readable by more people than the database.
+The audit tables are append-only (database triggers); `scripts/db.sh purge-expired` is the only path past them,
+and only for rows older than their retention period.
 
 ## 10. Development skills
 
@@ -769,6 +810,8 @@ being routed to on-call.
 | Connect RPC over protobuf instead of REST | One typed contract generates server stubs and browser clients; gRPC-Web without a proxy; `buf breaking` protects clients | Not browsable like Swagger (use `buf curl`); Python Connect library is still Beta; native gRPC needs an HTTP/2 server |
 | Confirm borderline classifications by agreement | Model confidence clusters on a few values; a single threshold flipped identical requests between automation and review. Agreement automates more (89% vs 74%) at the same accuracy | About 1.7 classifier calls per request instead of 1 |
 | Agent monitoring as framework middleware in PostgreSQL | One hook covers every agent; reports join with eval runs and intake | Not a replacement for distributed tracing |
+| Store model inputs and answers in the database, not in traces | Transparency needs the exact prompt and answer; the database has role-based access, audit and retention, App Insights doesn't | Extra storage; content is purged after 90 days |
+| Append-only audit tables enforced by triggers | Evidence must not be editable, even by the application | Corrections are new records; the purge needs a special session flag |
 | Specialists on Agent Framework's harness, most features off | Reuse a maintained tool loop, compaction and history instead of writing them; switching off memory, web search, planning and auto-approval keeps least privilege | Profile must be re-checked when the harness adds default-on features |
 | Foundry IQ knowledge base, only through our tools | Managed agentic retrieval with citations, on the existing serverless search service; our wrapper gives retrieval the same budget, injection screening and audit as any tool call | Agents don't use the knowledge base's MCP endpoint directly; serverless tier may still be in preview |
 | Events with a transactional outbox; topics only between runs | Long runs and human waits leave the request path; no lost or phantom events; same code on PostgreSQL locally and Service Bus in Azure | At-least-once delivery means every consumer must be idempotent |

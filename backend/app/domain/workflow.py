@@ -17,6 +17,7 @@ from backend.app.domain.decision_trail import (
     open_step,
 )
 from backend.app.domain.emergency import detect_emergency
+from backend.app.domain.escalation import escalation_reason
 from backend.app.domain.intake import (
     ATTACHMENT_HEADROOM_CHARS,
     MAX_ATTACHMENT_CHARS,
@@ -140,7 +141,11 @@ class IntakeDecisionWriter(Protocol):
         encrypted_mapping: bytes | None,
         translation: Translation | None = None,
         decision_steps: Sequence[DecisionStep] = (),
-    ) -> None: ...
+        escalation_reason: str | None = None,
+    ) -> None:
+        """Store the outcome. With an escalation reason, also open an incident and write its
+        intake.escalated event, in the same transaction (transactional outbox)."""
+        ...
 
 
 class IntakeCoordinator:
@@ -158,6 +163,7 @@ class IntakeCoordinator:
         media_transcriber: MediaTranscriber | None = None,
         translator: TextTranslator | None = None,
         staff_language: str = "en",
+        escalate_incidents: bool = True,
         minimum_confidence: float = 0.75,
         approval_priority_threshold: int = 4,
         policy: ClassificationPolicy | None = None,
@@ -178,6 +184,7 @@ class IntakeCoordinator:
         self._media_transcriber = media_transcriber
         self._translator = translator
         self._staff_language = staff_language
+        self._escalate_incidents = escalate_incidents
         # Staff translations run alongside the safety checks and classifier, one per request.
         self._translations: dict[UUID, asyncio.Task[Translation | None]] = {}
 
@@ -338,6 +345,15 @@ class IntakeCoordinator:
                 redaction.encrypted_mapping,
             )
 
+        escalation = escalation_reason(classification) if self._escalate_incidents else None
+        if escalation is not None:
+            current_trail().record(
+                "intake.escalation",
+                StepOutcome.DECIDED,
+                reason_code=escalation,
+                category=classification.category.value,
+                priority=classification.priority,
+            )
         return await self._finish(
             command,
             IntakeResult(
@@ -355,6 +371,7 @@ class IntakeCoordinator:
             ),
             redacted_text,
             redaction.encrypted_mapping,
+            escalation_reason=escalation,
         )
 
     async def _read_media(self, command: IntakeCommand) -> tuple[str, str | None] | IntakeResult:
@@ -437,6 +454,7 @@ class IntakeCoordinator:
         result: IntakeResult,
         redacted_text: str | None = None,
         encrypted_mapping: bytes | None = None,
+        escalation_reason: str | None = None,
     ) -> IntakeResult:
         translation = await self._collect_translation(command)
         trail = current_trail()
@@ -462,6 +480,7 @@ class IntakeCoordinator:
             encrypted_mapping=encrypted_mapping,
             translation=translation,
             decision_steps=trail.ordered(),
+            escalation_reason=escalation_reason,
         )
         return result
 

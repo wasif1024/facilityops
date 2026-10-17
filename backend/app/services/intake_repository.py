@@ -16,6 +16,7 @@ from backend.app.db.models import (
     WorkOrderRecord,
 )
 from backend.app.domain.decision_trail import DecisionStep
+from backend.app.services.incidents import open_incident
 from backend.app.domain.intake import Classification, IntakeCommand, IntakeResult, Translation
 
 
@@ -124,6 +125,7 @@ class SqlIntakeRepository:
         encrypted_mapping: bytes | None,
         translation: Translation | None = None,
         decision_steps: Sequence[DecisionStep] = (),
+        escalation_reason: str | None = None,
     ) -> None:
         request = await self._session.scalar(
             select(IntakeRequestRecord).where(
@@ -169,6 +171,15 @@ class SqlIntakeRepository:
                     trace_id=step.trace_id,
                     started_at=step.started_at,
                 )
+            )
+
+        if escalation_reason is not None:
+            # Same transaction as the outcome: the incident and its event exist together or not at all.
+            open_incident(
+                self._session,
+                request_id=command.request_id,
+                work_order_id=result.work_order_id,
+                reason_code=escalation_reason,
             )
 
         if encrypted_mapping:
