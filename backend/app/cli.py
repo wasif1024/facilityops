@@ -3,6 +3,8 @@
     python -m backend.app.cli grant-role --external-id <entra-object-id> --role admin
     python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
     python -m backend.app.cli list-users
+    python -m backend.app.cli remove-demo-accounts [--force]
+    python -m backend.app.cli add-demo-accounts
 
 ``grant-role`` is how the first administrator is created; after that, use the admin API.
 """
@@ -15,6 +17,7 @@ import sys
 
 from backend.app.db.session import SessionLocal
 from backend.app.domain.rbac import IdentityProvider
+from backend.app.services.demo_accounts import add_demo_accounts, remove_demo_accounts
 from backend.app.services.users import UserDirectory, UserDirectoryError
 
 
@@ -47,6 +50,24 @@ async def _list_users(_: argparse.Namespace) -> int:
     return 0
 
 
+async def _remove_demo(args: argparse.Namespace) -> int:
+    async with SessionLocal() as session:
+        try:
+            removed = await remove_demo_accounts(session, force=args.force)
+        except UserDirectoryError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 1
+    print(f"removed demo accounts: {', '.join(removed)}" if removed else "no demo accounts to remove")
+    return 0
+
+
+async def _add_demo(_: argparse.Namespace) -> int:
+    async with SessionLocal() as session:
+        added = await add_demo_accounts(session)
+    print("demo accounts ready: " + ", ".join(added))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m backend.app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -64,6 +85,17 @@ def main(argv: list[str] | None = None) -> int:
 
     listing = commands.add_parser("list-users", help="List users and their roles")
     listing.set_defaults(handler=_list_users)
+
+    remove = commands.add_parser(
+        "remove-demo-accounts", help="Delete the demo accounts (alice, fm, tech, local-developer)"
+    )
+    remove.add_argument(
+        "--force", action="store_true", help="Remove even if no other administrator remains"
+    )
+    remove.set_defaults(handler=_remove_demo)
+
+    add = commands.add_parser("add-demo-accounts", help="Create the demo accounts again")
+    add.set_defaults(handler=_add_demo)
 
     args = parser.parse_args(argv)
     return asyncio.run(args.handler(args))

@@ -24,8 +24,7 @@ Prerequisite: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 docker compose up --build -d                  # PostgreSQL + migrations + API on http://localhost:8000
 docker compose ps                             # api "healthy", migrate "Exited (0)"
 
-# Make yourself an admin (the first admin always comes from the CLI)
-docker compose exec api python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+# The migrate step also creates the demo accounts (local-developer is an admin); see section 6.1
 
 # Try it
 curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
@@ -102,9 +101,7 @@ az login
 # 5. Create the database and apply all migrations
 scripts/db.sh create
 scripts/db.sh up
-
-# 6. Make yourself an admin for local development
-python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+# The migrations also create the demo accounts, including the local admin (section 6.1)
 ```
 
 Without the Azure AI settings the app still runs, but every non-emergency request is routed to human review on
@@ -167,7 +164,11 @@ scripts/db.sh down base                       # undo every migration (empty sche
 scripts/db.sh reset                           # undo everything, then re-apply (fresh empty schema)
 
 # Create
-scripts/db.sh new "add vendor table"          # new migration from model changes -> 0004_add_vendor_table.py
+scripts/db.sh new "add vendor table"          # new migration from model changes -> 0005_add_vendor_table.py
+
+# Demo accounts (section 6.1)
+scripts/db.sh remove-demo-accounts            # before using the project for real
+scripts/db.sh add-demo-accounts               # bring them back locally
 
 # Options
 scripts/db.sh down --yes                      # skip the confirmation (scripts and CI only)
@@ -215,8 +216,7 @@ Never delete a migration that is already committed or applied elsewhere; write a
 **Start over with an empty local database**
 
 ```bash
-scripts/db.sh reset                           # all data in the local database is lost
-python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+scripts/db.sh reset                           # all data is lost; the demo accounts are created again
 ```
 
 Roles and permissions are seed data. Change them only in a new migration, and keep
@@ -248,7 +248,8 @@ protobuf), gRPC-Web (what browsers use) and gRPC. The contracts live in `proto/f
 HTTP endpoint is `GET /health/live`.
 
 **Local identities.** With `AUTH_ENABLED=false` (the default in `.env.example`), the `X-Dev-User` header chooses
-who you are. A new name is created as a `tenant` on first use; without the header you are `local-developer`.
+who you are. A new name is created as a `tenant` on first use. For `curl` convenience, a call without the header
+is treated as `local-developer`; the web app never relies on this (it always sends the chosen account).
 
 **Calling RPCs with curl** (Connect protocol, JSON). Field names are camelCase, enums are their full names
 (`"USER_STATUS_DISABLED"`), and 64-bit integers come back as strings:
@@ -322,14 +323,8 @@ scripts/dev.sh frontend          # http://localhost:5173
 The script selects Node 24, runs `npm install` on the first run, creates `frontend/.env.local` from
 `.env.example` if it's missing (the defaults work locally) and starts the Vite dev server.
 
-Pick who you are with the identity switcher in the header. Useful local identities (grant once):
-
-```bash
-python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
-python -m backend.app.cli grant-role --provider development --external-id fm --role facility_manager --display-name "Fran Manager"
-python -m backend.app.cli grant-role --provider development --external-id tech --role technician --display-name "Taylor Tech"
-# any other name, e.g. "alice", starts as a tenant automatically
-```
+The app opens on **Choose a demo account**; Sign out returns to it. The accounts (`alice` tenant, `fm` facility
+manager, `tech` technician, `local-developer` admin) are created by the migrations; see [section 6.1](#61-demo-accounts).
 
 **Demo data:** with the backend running, `python scripts/seed_demo.py` drives the API as tenants, a facility
 manager and technicians (synthetic requests in three languages, an emergency, approvals, assignments, a completed
@@ -393,6 +388,31 @@ curl -s localhost:8000/facilityops.v1.UserAdminService/SetUserRoles -H 'content-
 curl -s localhost:8000/facilityops.v1.UserAdminService/UpdateUser -H 'content-type: application/json' \
   -d '{"userId": "<user-id>", "status": "USER_STATUS_DISABLED"}'
 ```
+
+### 6.1 Demo accounts
+
+Migration `0004_demo_accounts` creates one account per role so a fresh clone can be explored at once:
+
+| Account | Role |
+|---|---|
+| `local-developer` | admin |
+| `alice` | tenant |
+| `fm` | facility_manager |
+| `tech` | technician |
+
+They are development identities without passwords, accepted only when `AUTH_ENABLED=false` and `APP_ENV` is not
+`production`. They exist for learning and demos; **remove them before using the project for real**:
+
+```bash
+python -m backend.app.cli grant-role --external-id <your-entra-object-id> --role admin   # your own admin first
+scripts/db.sh remove-demo-accounts           # refuses if no other admin would remain
+scripts/db.sh remove-demo-accounts --force   # remove anyway
+scripts/db.sh add-demo-accounts              # create them again (not in production)
+SEED_DEMO_ACCOUNTS=false scripts/db.sh       # migrate a new database without them
+```
+
+With `APP_ENV=production` the migration never creates them. Their requests and work orders stay when they are removed
+(without an author), and each creation and removal is written to the security audit log.
 
 ## 7. Tests
 

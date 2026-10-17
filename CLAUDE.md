@@ -26,6 +26,9 @@ optional Azure settings in gitignored `.env.docker`).
 Before writing agent code, check the current Microsoft Agent Framework and Foundry SDK APIs
 (they change quickly); don't rely on memory.
 
+Demo accounts (alice tenant, fm, tech, local-developer admin; no passwords, dev identities) are created by
+migration 0004 unless APP_ENV=production or SEED_DEMO_ACCOUNTS=false; `scripts/db.sh remove-demo-accounts` /
+`add-demo-accounts`; keep backend/app/services/demo_accounts.py in step with the migration's frozen list.
 Migrations: `scripts/db.sh` (no args = create DB if needed + apply all), `up|down|status|new "msg"|check|reset|sql`
 (wraps Alembic; user-facing docs show only db.sh commands; new files are named
 `NNNN_slug.py`). Commands (run from repo root): `python -m pytest -q backend/tests/unit`,

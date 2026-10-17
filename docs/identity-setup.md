@@ -6,7 +6,7 @@ How people sign in to FacilityOps AI outside local development, and how to set i
 |---|---|---|---|
 | **Residents** | Microsoft Entra **External ID** (`<subdomain>.ciamlogin.com`) | Sign up themselves: email + password, email verified with a one-time code | `tenant` |
 | **Staff** | Your organisation's **workforce** Entra ID | Their existing work account | none: an administrator assigns `technician`, `facility_manager` or `admin` |
-| Developers | none (local only) | `X-Dev-User` header from the identity switcher | `tenant` |
+| Developers | none (local only) | Choose a demo account (sent as the `X-Dev-User` header) | `tenant` |
 
 FacilityOps never stores passwords. Sign-up, email verification, password reset and multi-factor
 authentication happen on Microsoft's hosted pages; the app receives a signed access token, and the backend
@@ -68,7 +68,7 @@ It ends by printing the settings to paste.
 ## 3. Run with Entra sign-in
 
 Paste the printed settings into the backend `.env` and `frontend/.env.local`, then restart both. With
-`AUTH_ENABLED=true` the development identity switcher is gone and every call needs a token.
+`AUTH_ENABLED=true` the demo accounts are gone and every call needs a token.
 
 ```bash
 uvicorn backend.app.main:create_app --factory --reload

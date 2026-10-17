@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # Role granted on first sign-in to residents (External ID) and development identities.
     # Leave empty to give new users no access until an administrator assigns a role.
     default_user_role: str | None = "tenant"
+    # Demo accounts (alice, fm, tech, local-developer) created by migration 0004 for local
+    # development. Never created when APP_ENV=production. Remove: scripts/db.sh remove-demo-accounts.
+    seed_demo_accounts: bool = True
     rate_limit_requests: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
     rate_limit_hmac_secret: str = "development-only-change-me"

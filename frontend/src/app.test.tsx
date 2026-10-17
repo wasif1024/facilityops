@@ -2,7 +2,7 @@ import { Code, ConnectError, createRouterTransport, type Transport } from "@conn
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter } from "react-router"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 
 import { App } from "@/app"
 import { AccountService } from "@/gen/facilityops/v1/account_pb"
@@ -12,9 +12,35 @@ import { fakeBackend } from "@/test/fake-backend"
 
 function renderApp(transport: Transport, path = "/") {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(<App transport={transport} router={router} />)
+  render(<App transport={transport} router={router} devUser="test-user" />)
   return router
 }
+
+describe("development sign-in", () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it("starts on the demo account page, with no default identity", async () => {
+    const router = createMemoryRouter(routes, { initialEntries: ["/admin/users"] })
+    render(<App transport={fakeBackend("tenant")} router={router} />)
+    expect(await screen.findByText("Choose a demo account")).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Users" })).not.toBeInTheDocument()
+
+    // Signing in starts on the account's own page, not on the admin URL that was opened.
+    await userEvent.setup().click(screen.getByRole("button", { name: /Tenant/ }))
+    expect(await screen.findByRole("heading", { name: "Report a problem" })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe("/report")
+  })
+
+  it("signs in as the chosen account and signs out back to the chooser", async () => {
+    const user = userEvent.setup()
+    render(<App transport={fakeBackend("tenant")} router={createMemoryRouter(routes, { initialEntries: ["/"] })} />)
+    await user.click(await screen.findByRole("button", { name: /Tenant/ }))
+    expect(await screen.findByRole("heading", { name: "Report a problem" })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Sign out/ }))
+    expect(await screen.findByText("Choose a demo account")).toBeInTheDocument()
+  })
+})
 
 describe("routing by permission", () => {
   it("lands a tenant on Report a problem and shows only tenant sections", async () => {

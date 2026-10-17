@@ -6,6 +6,8 @@ import { RouterProvider, type createBrowserRouter } from "react-router"
 import { Building2 } from "lucide-react"
 
 import { createApiTransport } from "@/api/transport"
+import { authMode } from "@/auth/config"
+import { DevSignInPage } from "@/auth/dev-sign-in-page"
 import { IdentityProvider, SessionProvider, useIdentity, useSession } from "@/auth/session"
 import { ErrorState } from "@/components/app/states"
 import { ThemeProvider } from "@/components/app/theme"
@@ -81,18 +83,35 @@ function SessionGate({ router }: { router: DataRouter }) {
   return <RouterProvider router={router} />
 }
 
-/** `transport` and `router` are for tests: an in-memory backend and a memory router. */
-export function App({ transport, router = browserRouter }: { transport?: Transport; router?: DataRouter } = {}) {
+/** Development mode: nobody is signed in until a demo account is chosen. No default identity. */
+function DevSignInGate({ router, children }: { router: DataRouter; children: ReactNode }) {
+  const { devUser } = useIdentity()
+  // After choosing an account, start on its own landing page, never on a page left in the URL.
+  if (authMode === "dev" && !devUser) return <DevSignInPage onSignedIn={() => void router.navigate("/", { replace: true })} />
+  return children
+}
+
+/**
+ * `transport`, `router` and `devUser` are for tests: an in-memory backend, a memory router
+ * and an already chosen development identity.
+ */
+export function App({
+  transport,
+  router = browserRouter,
+  devUser,
+}: { transport?: Transport; router?: DataRouter; devUser?: string } = {}) {
   const [queryClient] = useState(createQueryClient)
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <IdentityProvider>
+        <IdentityProvider initialDevUser={devUser}>
           <Transport override={transport}>
             <TooltipProvider>
-              <SessionProvider>
-                <SessionGate router={router} />
-              </SessionProvider>
+              <DevSignInGate router={router}>
+                <SessionProvider>
+                  <SessionGate router={router} />
+                </SessionProvider>
+              </DevSignInGate>
             </TooltipProvider>
           </Transport>
         </IdentityProvider>

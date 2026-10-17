@@ -13,6 +13,9 @@
 #   check               Fail if the models and migrations disagree
 #   reset               Roll back everything and re-apply (DESTROYS ALL DATA, asks first)
 #   sql [range]         Print the SQL instead of running it (default: "base:head")
+#   remove-demo-accounts  Delete the demo accounts (alice, fm, tech, local-developer); do this
+#                         before using the project for real. Add --force if no other admin exists
+#   add-demo-accounts   Create the demo accounts again
 #   help                Show this summary
 #
 # DATABASE_URL comes from the environment or .env. Destructive commands refuse to run
@@ -178,6 +181,16 @@ cmd_reset() {
   cmd_status
 }
 
+cmd_remove_demo_accounts() {
+  info "removing demo accounts from $(safe_url)"
+  "$PYTHON" -m backend.app.cli remove-demo-accounts "$@"
+}
+
+cmd_add_demo_accounts() {
+  refuse_in_production add-demo-accounts
+  "$PYTHON" -m backend.app.cli add-demo-accounts
+}
+
 cmd_sql() {
   "$ALEMBIC" upgrade "${1:-base:head}" --sql
 }
@@ -196,6 +209,8 @@ case "$command" in
   check) cmd_check ;;
   reset) cmd_reset ;;
   sql) cmd_sql "$@" ;;
+  remove-demo-accounts) cmd_remove_demo_accounts "$@" ;;
+  add-demo-accounts) cmd_add_demo_accounts ;;
   help | -h | --help) usage 0 ;;
   *) echo "unknown command: $command" >&2; usage 1 ;;
 esac

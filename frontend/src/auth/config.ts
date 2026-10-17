@@ -11,10 +11,20 @@ export type AuthMode = "dev" | "entra"
 export const authMode: AuthMode = import.meta.env.VITE_AUTH_MODE === "entra" ? "entra" : "dev"
 
 export const DEV_USER_PATTERN = /^[a-z0-9._-]{1,64}$/
-export const DEFAULT_DEV_USER = "local-developer"
 
-/** Handy starting identities for a fresh database; grant roles with the backend CLI. */
-export const SUGGESTED_DEV_USERS = ["local-developer", "alice", "fm", "tech"]
+/**
+ * Demo accounts offered on the development sign-in page. Roles live in the database, not here:
+ * migration 0004 creates these accounts with their roles (backend/app/services/demo_accounts.py),
+ * and any other name starts as a tenant.
+ */
+export const DEMO_ACCOUNTS = [
+  { user: "alice", role: "Tenant", description: "Report problems by text, photo, voice or scan, and follow them" },
+  { user: "fm", role: "Facility manager", description: "Review queue, approvals, assigning technicians" },
+  { user: "tech", role: "Technician", description: "Work orders assigned to you" },
+  { user: "local-developer", role: "Administrator", description: "Users and roles, audit log, monitoring" },
+] as const
+
+export const SUGGESTED_DEV_USERS = DEMO_ACCOUNTS.map((account) => account.user)
 
 const STORAGE_KEY = "facilityops.devUser"
 const RECENT_KEY = "facilityops.recentDevUsers"
@@ -36,9 +46,18 @@ function write(key: string, value: string): void {
   }
 }
 
-export function loadDevUser(): string {
+/** The chosen development identity, or null when nobody is signed in (show the sign-in page). */
+export function loadDevUser(): string | null {
   const stored = read(STORAGE_KEY)
-  return stored && DEV_USER_PATTERN.test(stored) ? stored : DEFAULT_DEV_USER
+  return stored && DEV_USER_PATTERN.test(stored) ? stored : null
+}
+
+export function clearDevUser(): void {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Nothing stored.
+  }
 }
 
 export function saveDevUser(user: string): void {

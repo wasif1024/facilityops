@@ -107,12 +107,13 @@ fails if they are stale, mirroring the backend.
 
 | | Development (`VITE_AUTH_MODE=dev`) | Production (`VITE_AUTH_MODE=entra`) |
 |---|---|---|
-| Sign-in | None; an **identity switcher** in the header chooses who you are | A sign-in page with two doors (MSAL redirect): **residents** sign in or create an account with **Entra External ID**; **staff** use their **workforce Entra ID** account. See [identity setup](identity-setup.md) |
+| Sign-in | A **Choose a demo account** page (no passwords) before anything loads; no default identity. Sign out returns to it; an identity switcher in the header changes account | A sign-in page with two doors (MSAL redirect): **residents** sign in or create an account with **Entra External ID**; **staff** use their **workforce Entra ID** account. See [identity setup](identity-setup.md) |
 | Request header | `X-Dev-User: <name>` | `Authorization: Bearer <access token>` for the API scope |
 | Backend setting | `AUTH_ENABLED=false` | `AUTH_ENABLED=true` plus `ENTRA_EXTERNAL_*` (residents) and/or `ENTRA_TENANT_ID`, `ENTRA_API_AUDIENCE` (staff) |
 | Token storage | none | MSAL `sessionStorage` cache; never `localStorage` |
 
-The dev switcher offers recent names and free text (validated against the backend rule `^[a-z0-9._-]{1,64}$`),
+Development mode never falls back to a default identity: until an account is chosen, no API call is made, and
+choosing (or switching) always starts on that account's landing page. The dev switcher offers recent names and free text (validated against the backend rule `^[a-z0-9._-]{1,64}$`),
 remembers the choice in `localStorage` (a convenience, not a secret) and shows a persistent "Development
 identity" badge so screenshots can't be mistaken for production.
 

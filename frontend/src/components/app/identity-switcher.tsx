@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router"
 import { Check, UserRoundCog } from "lucide-react"
 
 import { DEV_USER_PATTERN, SUGGESTED_DEV_USERS, loadRecentDevUsers } from "@/auth/config"
@@ -14,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
  */
 export function IdentitySwitcher() {
   const { devUser, switchDevUser } = useIdentity()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
   const valid = DEV_USER_PATTERN.test(draft)
@@ -23,6 +25,8 @@ export function IdentitySwitcher() {
     switchDevUser(user)
     setDraft("")
     setOpen(false)
+    // Start the new identity on its own landing page, not on a page it may not be allowed to see.
+    navigate("/", { replace: true })
   }
 
   return (

@@ -2,22 +2,25 @@ import { useQuery } from "@connectrpc/connect-query"
 import { useQueryClient } from "@tanstack/react-query"
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react"
 
-import { authMode, loadDevUser, saveDevUser } from "@/auth/config"
+import { authMode, clearDevUser, loadDevUser, saveDevUser } from "@/auth/config"
 import type { PermissionId } from "@/auth/permissions"
 import { AccountService } from "@/gen/facilityops/v1/account_pb"
 
 /** Who is calling the API. The transport reads this on every request. */
 interface IdentityValue {
-  devUser: string
+  /** Development mode only: who is signed in, or null before anyone has chosen an identity. */
+  devUser: string | null
   switchDevUser: (user: string) => void
+  signOutDev: () => void
   getAuthHeaders: () => Promise<Record<string, string>>
 }
 
 const IdentityContext = createContext<IdentityValue | null>(null)
 
-export function IdentityProvider({ children }: { children: ReactNode }) {
+/** `initialDevUser` is for tests; the app reads the stored identity. */
+export function IdentityProvider({ children, initialDevUser }: { children: ReactNode; initialDevUser?: string }) {
   const queryClient = useQueryClient()
-  const [devUser, setDevUser] = useState(loadDevUser)
+  const [devUser, setDevUser] = useState<string | null>(() => initialDevUser ?? loadDevUser())
   // The transport keeps one stable callback; a ref lets it see the current user.
   const devUserRef = useRef(devUser)
 
@@ -32,16 +35,27 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
     [queryClient],
   )
 
+  const signOutDev = useCallback(() => {
+    clearDevUser()
+    devUserRef.current = null
+    setDevUser(null)
+    queryClient.clear()
+  }, [queryClient])
+
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     if (authMode === "entra") {
       // Loaded only in Entra builds, so development bundles don't carry MSAL.
       const { accessToken } = await import("@/auth/msal")
       return { Authorization: `Bearer ${await accessToken()}` }
     }
-    return { "X-Dev-User": devUserRef.current }
+    // Never fall back to a default identity: without a choice, no request is sent (the sign-in page shows).
+    return devUserRef.current ? { "X-Dev-User": devUserRef.current } : {}
   }, [])
 
-  const value = useMemo(() => ({ devUser, switchDevUser, getAuthHeaders }), [devUser, switchDevUser, getAuthHeaders])
+  const value = useMemo(
+    () => ({ devUser, switchDevUser, signOutDev, getAuthHeaders }),
+    [devUser, switchDevUser, signOutDev, getAuthHeaders],
+  )
   return <IdentityContext.Provider value={value}>{children}</IdentityContext.Provider>
 }
 
@@ -76,6 +90,7 @@ const SessionContext = createContext<SessionValue | null>(null)
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
+  const { signOutDev } = useIdentity()
   const me = useQuery(AccountService.method.getMe, {}, { retry: false, staleTime: 60_000 })
 
   const value = useMemo<SessionValue>(() => {
@@ -97,9 +112,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut: () => {
         queryClient.clear()
         if (authMode === "entra") void import("@/auth/msal").then((msal) => msal.signOut())
+        else signOutDev()
       },
     }
-  }, [me, queryClient])
+  }, [me, queryClient, signOutDev])
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

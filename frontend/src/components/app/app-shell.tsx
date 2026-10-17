@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { NavLink, Outlet } from "react-router"
+import { NavLink, Outlet, useNavigate } from "react-router"
 import { Building2, LogOut, Menu, Moon, Sun } from "lucide-react"
 
 import { roleLabel } from "@/api/labels"
@@ -67,6 +67,12 @@ function Brand() {
 
 export function AppShell() {
   const { session, signOut } = useSession()
+  const navigate = useNavigate()
+  // Back to the home page first, so the next person doesn't open on the previous user's page.
+  const leave = () => {
+    navigate("/", { replace: true })
+    signOut()
+  }
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
@@ -111,13 +117,11 @@ export function AppShell() {
                 ))}
               </div>
             )}
-            {authMode === "dev" ? (
-              <IdentitySwitcher />
-            ) : (
-              <Button variant="ghost" size="sm" onClick={signOut}>
-                <LogOut aria-hidden /> Sign out
-              </Button>
-            )}
+            {authMode === "dev" && <IdentitySwitcher />}
+            <Button variant="ghost" size="sm" onClick={leave}>
+              <LogOut aria-hidden /> <span className="hidden sm:inline">Sign out</span>
+              <span className="sr-only sm:hidden">Sign out</span>
+            </Button>
             <ThemeToggle />
           </div>
         </header>
