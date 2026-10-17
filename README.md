@@ -31,10 +31,6 @@ privacy, human oversight, evaluation, identity and access control. **New to AI?*
 [Enterprise AI concepts](docs/enterprise-ai-concepts.md), which explains each one in plain words. All data in the
 repository is synthetic.
 
-> **Status:** ✅ Phase 1 (intake) complete · 🚧 Phase 2 (incident team): every feature built and tested, live
-> incident evaluation not yet run · 🚧 Phase 3: web app, Azure infrastructure as code and the transparency note
-> done; deployment and red-team scan pending (both use paid resources). See [Roadmap](#roadmap).
-
 ## Features
 
 - **Multimodal intake:** text, photos (Azure AI Vision), voice notes (Azure AI Speech) and scanned documents
@@ -87,8 +83,8 @@ flowchart LR
     F & P & S & C -. failure or flagged .-> Q[Human review]
 ```
 
-The incident team runs in Phase 2: escalation, the event-driven worker, the seven agents, their read-only tools and
-knowledge base, plans and the approval gate are in place. Details: [architecture and agent orchestration](docs/architecture.md).
+Details of the incident team (escalation, the event-driven worker, the seven agents, their read-only tools and
+knowledge base, plans and the approval gate): [architecture and agent orchestration](docs/architecture.md).
 
 ## Tech stack
 
@@ -178,7 +174,7 @@ works, its known limitations and how people stay in control.
 | [Getting started](docs/getting-started.md) | Installation, running locally, demo accounts, Azure setup |
 | [Enterprise AI concepts](docs/enterprise-ai-concepts.md) | Each enterprise and Responsible AI concept, explained for newcomers |
 | [Architecture](docs/architecture.md) | System, orchestration tiers, multi-agent design, trust boundaries |
-| [Specification](docs/specification.md) | Requirements, guardrails, privacy, evaluation targets, phases |
+| [Specification](docs/specification.md) | Requirements, guardrails, privacy, evaluation targets |
 | [Developer commands](docs/commands.md) | Every command: database, backend, frontend, tests, evals, troubleshooting |
 | [Identity setup](docs/identity-setup.md) | Entra External ID for residents, workforce Entra ID for staff |
 | [Deploying to Azure](docs/deployment.md) | `azd up`: what is created and why, roles, steps, cost, removal |
@@ -198,52 +194,20 @@ scripts/      db.sh (database), dev.sh (run locally), setup scripts
 docs/         documentation and diagrams
 ```
 
-## Roadmap
+## Ideas for further work
 
-**Phase 1, intake** ✅ complete
+Everything above is built and tested. These are natural next steps; the first three are ready to run but use paid
+Azure resources, so they are left to whoever deploys the project:
 
-- [x] Multimodal intake (text, photo, voice, scanned documents) with upload, image and injection guardrails
-- [x] PII redaction with audited, role-gated reveal
-- [x] Review queue, approvals and work-order lifecycle
-- [x] Identity (Entra ID, Entra External ID), RBAC, demo accounts
-- [x] Agent monitoring, OpenTelemetry, evaluation set with a CI gate
+- **Deploy to Azure** with `azd up` ([deployment guide](docs/deployment.md)); the templates are validated, not yet
+  deployed.
+- **Run the live incident evaluation** (`python -m evals.run_incident_scenarios --mode live --store`): Foundry's
+  Groundedness and Tool Call Accuracy evaluators on the real team, targets ≥ 0.90.
+- **Red-team scan** with the Azure AI Red Teaming Agent (PyRIT), and publish the report.
+- **Resume a paused incident run from a checkpoint**; today a revision starts a new run with the manager's feedback
+  and the previous plan.
 
-**Phase 2, complex incidents** 🚧 features complete, live evaluation pending
-
-- [x] Azure Translator: staff see non-English requests in English, after redaction
-- [x] Transparency: decision trail, model input and output, append-only audit, correlated logs, retention
-- [x] Events foundation: escalation, transactional outbox, event bus, incident worker
-- [x] Incident plans with citations and review flags; manager approve / revise / reject with a safety and cost gate in code
-- [x] Scenario evaluation harness (scripted): 9 incident scenarios and 5 hard gates on every PR
-- [x] Synthetic facility world and 7 read-only tools (read-only transactions, budgets, recorded on the trail)
-- [x] Magentic incident team: Incident Manager (gpt-5.2) and 6 harness specialists (gpt-5.4-mini), with budgets; a live boiler incident produced a fully cited, correctly safety-blocked plan
-- [x] Foundry IQ knowledge base over synthetic manuals and procedures; Prompt Shields drops injected passages
-- [x] Approved plans are carried out by the application, not an agent: one approval opens the work order, assigns the
-  named technician, raises purchase and visit requests and records lockout, each step recorded on the trail
-- [x] Incident screens: the plan with its evidence, flags and actions on the request and work order pages; approve
-  (with cost confirmation, never when safety-blocked), revise or reject; "Send to incident team"; tenants see "Being
-  investigated"
-- [x] Tenant notices in the tenant's language: the communicator drafts in English, a manager approves, the
-  application translates with Azure AI Translator and keeps both
-- [x] Translate-then-classify experiment (FR-62): measured on two live runs, not adopted (no fairness gain; the
-  French priority effect comes from wording that translation keeps)
-- [x] Live incident evaluation, built: 5 scenarios on the real team, scored by Foundry's Groundedness and Tool Call
-  Accuracy evaluators plus deterministic checks (`python -m evals.run_incident_scenarios --mode live --store`)
-- [ ] Run the live incident evaluation twice and meet its targets (groundedness and tool-call accuracy ≥ 0.90,
-  safety-block recall 1.00): the exit criterion for Phase 2
-- [ ] Resume a paused run from a Magentic checkpoint (FR-26); today a revision starts a new run with the feedback
-  and the previous plan
-
-**Phase 3, production**
-
-- [x] Web views for tenants, technicians, facility managers and administrators
-- [x] `azd` + Bicep infrastructure: Container Apps, PostgreSQL with Entra-only sign-in, Service Bus topic, Key Vault,
-  Application Insights, one managed identity with least-privilege roles; validated against Azure, not yet deployed
-- [x] Service Bus event transport (same consumers and idempotency as locally; retries and dead letters by Service Bus)
-- [x] `RESPONSIBLE_AI.md` transparency note
-- [ ] Deploy with `azd up` (creates paid resources)
-- [ ] Red-team scan and report (Azure AI Red Teaming Agent, PyRIT)
-- [x] Demo GIF of the web app
+Known limitations are listed in the [transparency note](RESPONSIBLE_AI.md#known-limitations).
 
 ## Contributing
 
