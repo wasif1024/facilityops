@@ -4,13 +4,17 @@ AI-assisted facility maintenance intake on **Microsoft Foundry** and the **Micro
 Tenants report problems in plain language; a deterministic pipeline screens, redacts, classifies and
 routes each request, and keeps humans in charge of anything dangerous or expensive.
 
-The project is a worked example of enterprise AI practice: fail-closed orchestration, PII that is
-redacted but recoverable by authorized roles, an evaluation suite with a hard CI gate, and Responsible AI
-checks for prompt injection and counterfactual fairness. All data in the repository is synthetic.
+The project is a worked example of enterprise AI practice: guardrails on every input (text, photos, scanned
+documents, voice), fail-closed orchestration, PII that is redacted but recoverable by authorized roles, an
+evaluation suite with a hard CI gate, and Responsible AI checks for prompt injection and counterfactual fairness.
+All data in the repository is synthetic.
+
+> **New to AI?** Read [Enterprise AI concepts in this project](#enterprise-ai-concepts-in-this-project): each idea
+> in plain words, why companies need it, and the file that implements it.
 
 > **Status:** Phase 1 (intake MVP) complete. Phase 2 (Magentic incident team) next. See [Roadmap](#roadmap).
 >
-> **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Frontend specification](docs/frontend-specification.md) · [Architecture and agent orchestration](docs/architecture.md)
+> **Docs:** [Developer commands](docs/commands.md) · [Specification](docs/specification.md) · [Frontend specification](docs/frontend-specification.md) · [Architecture and agent orchestration](docs/architecture.md) · [Identity setup](docs/identity-setup.md)
 
 ## What it looks like
 
@@ -19,15 +23,20 @@ data from `python scripts/seed_demo.py`; every name and address is invented.
 
 ### Tenant: report a problem and follow it
 
-Report by text, photo or voice, in English, Spanish or French. Emergencies (gas, fire, flooding) skip the AI and
-go straight to the on-call team. Names and phone numbers are redacted before any AI sees them, shown here as
-"personal detail".
+Report by text, photo, voice note or a scanned letter or form, in English, Spanish or French. Emergencies (gas,
+fire, flooding) skip the AI and go straight to the on-call team. Uploads are checked by their bytes, pictures by
+Content Safety, and text found in a photo or scan by Prompt Shields as a document, so an instruction hidden in a
+scan can't steer the AI. Names and phone numbers are redacted before any AI sees them, shown here as "personal
+detail".
 
 | Report a problem | My requests |
 |---|---|
 | ![Report a problem](docs/images/tenant-report.png) | ![My requests](docs/images/tenant-my-requests.png) |
 
-<p align="center"><img src="docs/images/tenant-mobile-voice.png" alt="Recording a voice note on a phone" width="300"></p>
+<p align="center">
+  <img src="docs/images/tenant-mobile-voice.png" alt="Recording a voice note on a phone" width="300">
+  <img src="docs/images/tenant-mobile-document.png" alt="Sending a scanned form from a phone" width="300">
+</p>
 
 ### Facility manager: review queue, approvals and assignment
 
@@ -65,16 +74,19 @@ timings only, never request content.
 
 ```mermaid
 flowchart LR
-    R[Tenant request] --> E{Emergency screen<br/>gas · fire · flood · CO · electrical}
+    R[Tenant request<br/>text · photo · voice · scan] --> E{Emergency screen<br/>gas · fire · flood · CO · electrical}
     E -- match --> H[On-call human<br/>no AI involved]
-    E -- no match --> P[PII redaction<br/>Azure AI Language]
+    E -- "no match, with a file" --> F[File checks + image safety<br/>then read the file<br/>Vision · Document Intelligence · Speech]
+    F -- "emergency in the file's text" --> H
+    F --> P
+    E -- "no match, text only" --> P[PII redaction<br/>Azure AI Language]
     P --> S[Content Safety +<br/>Prompt Shields]
     S --> C[Classifier agent<br/>Foundry, structured output]
     C -- low confidence /<br/>needs review --> Q[Human review queue]
     C --> T{Priority ≥ threshold?}
     T -- yes --> A[Work order<br/>pending approval]
     T -- no --> W[Work order created]
-    P & S & C -. failure .-> Q
+    F & P & S & C -. "failure or flagged" .-> Q
 ```
 
 Design rules the code enforces:
@@ -89,6 +101,95 @@ Design rules the code enforces:
   in a separate Fernet-encrypted mapping for authorized roles (for example, a technician who needs the unit number).
 - **Idempotent intake.** Retrying a request id returns the original result and never creates a second work order.
 - **Auditable.** Every decision writes an audit event with a reason code, never request content.
+- **Uploads are untrusted.** A file is checked by its bytes, not its name; pictures go through Content Safety; text
+  found in a photo or scan is checked by Prompt Shields as a *document*, so instructions hidden in it can't steer
+  the AI. Media is processed in memory and never stored.
+
+## Enterprise AI concepts in this project
+
+A model that answers well in a demo is the easy part. Running AI for real customers needs the things around it:
+safety checks, privacy, people in control, measurement and access control. This table lists each concept the
+project implements, in plain words.
+
+### Safety guardrails
+
+| Concept | What it means | Why it matters | Where |
+|---|---|---|---|
+| **Guardrails** | Checks before and after the model that block or reroute unsafe input and output | A model alone can be tricked, can be wrong, and can see things it shouldn't | [`workflow.py`](backend/app/domain/workflow.py), spec [§9.1](docs/specification.md#91-guardrails-on-intake) |
+| **Deterministic orchestration** | Plain code decides the steps and the routing; the model only fills in one answer (category and priority) | Safety-critical decisions must be testable and repeatable | [`workflow.py`](backend/app/domain/workflow.py), [`classification_policy.py`](backend/app/domain/classification_policy.py) |
+| **Safety bypass for emergencies** | Gas, fire or flood go straight to a person by simple rules, before any AI or network call | No outage, slow model or trick prompt can delay an emergency | [`emergency.py`](backend/app/domain/emergency.py) |
+| **Content Safety (text and images)** | Azure AI Content Safety scores hate, sexual, violence and self-harm content | Abusive content must not reach the model or staff unfiltered | [`azure_adapters.py`](backend/app/services/azure_adapters.py) |
+| **Prompt injection (direct)** | A user writes "ignore your instructions…"; Prompt Shields detects it in the user's words | Without it, a tenant could set their own priority | same |
+| **Prompt injection (indirect)** | The instruction hides *inside content*, such as faint text in a scanned form; Prompt Shields checks extracted text as a *document* | The classic attack on AI that reads files, emails or web pages | same, and the [media eval](evals/run_media_eval.py) |
+| **Untrusted uploads** | Files are checked by their bytes (a PDF renamed `.png` is caught), size and page limits, no encrypted PDFs | Attackers send disguised or oversized files | [`media.py`](backend/app/domain/media.py) |
+| **Structured output** | The model must answer in a fixed JSON schema, which is validated | Free text can't be routed safely; invalid answers go to a person | [`intake.py`](backend/app/domain/intake.py) |
+| **Least privilege for AI** | The classifier has no tools and no database access; it can't act, only suggest | An AI that can't act can't be talked into acting | [`azure_adapters.py`](backend/app/services/azure_adapters.py) |
+| **Fail closed** | If any safety service is down, the request goes to a person instead of skipping the check | An outage must never mean less protection | [`workflow.py`](backend/app/domain/workflow.py) |
+
+### People in control
+
+| Concept | What it means | Why it matters | Where |
+|---|---|---|---|
+| **Human in the loop** | Uncertain answers, flagged content and high-priority work orders wait for a person | AI is wrong sometimes; people own decisions with safety or cost impact | review queue, approvals: spec [§7](docs/specification.md#7-human-oversight) |
+| **Confidence and agreement** | A borderline answer is re-asked twice; it's automated only if all three agree | Models state confidence poorly; agreement is better evidence | [`classification_policy.py`](backend/app/domain/classification_policy.py) |
+| **Audit trail** | Every decision and every look at personal data is recorded with who and why (never the content) | Needed to investigate mistakes and to satisfy auditors | `audit_events` table, admin **Audit log** page |
+
+### Privacy
+
+| Concept | What it means | Why it matters | Where |
+|---|---|---|---|
+| **PII redaction** | Names, phone numbers and similar are replaced with placeholders before any model, log or trace sees them | Personal data must not leak into AI providers, logs or analytics | `AzureLanguagePiiRedactor` in [`azure_adapters.py`](backend/app/services/azure_adapters.py) |
+| **Reversible, role-gated reveal** | The originals are kept encrypted; a technician can reveal them for their own job, and each reveal is audited | Privacy that isn't all-or-nothing: work still gets done | `RevealRequestDetails` RPC |
+| **Data minimisation** | Photos, scans and voice notes are never stored; telemetry carries ids and counts, never text | What you don't keep can't leak | spec [§8](docs/specification.md#8-data-and-privacy) |
+| **Synthetic data only** | Every name, building and document in the repo and evals is invented | A public repo must not contain real people | [`evals/`](evals) |
+
+### Quality and fairness
+
+| Concept | What it means | Why it matters | Where |
+|---|---|---|---|
+| **Evaluation set ("golden set")** | 108 labelled example requests the AI is scored against | You can't improve or trust what you don't measure | [`golden_v1.jsonl`](evals/datasets/golden_v1.jsonl) |
+| **CI quality gate** | Every pull request fails if any labelled emergency stops reaching on-call | A prompt or model change can silently break safety | [`ci.yml`](.github/workflows/ci.yml) |
+| **Counterfactual fairness** | The same problem with a different name, language or building must be treated the same | AI can be biased in ways nobody intended | `--min-route-fairness` in [`run_eval.py`](evals/run_eval.py) |
+| **Adversarial tests** | Injection attempts in text and hidden in scans are part of the evals | Attacks are certain once an AI is public | golden set, [media eval](evals/run_media_eval.py) |
+| **Leak tests** | Fake identifiers are planted in test scans; the eval fails if one survives redaction | Proves the privacy claim instead of assuming it | [`run_media_eval.py`](evals/run_media_eval.py) |
+
+### Security and operations
+
+| Concept | What it means | Why it matters | Where |
+|---|---|---|---|
+| **No API keys** | Every Azure call uses Entra ID (`DefaultAzureCredential`, managed identity in Azure) | Keys leak; identities can be scoped and revoked | [`azure_adapters.py`](backend/app/services/azure_adapters.py) |
+| **Customer and staff identity** | Residents sign up with Entra External ID (email verification); staff use the company directory | Real sign-up, password reset and MFA without storing passwords | [identity setup](docs/identity-setup.md) |
+| **RBAC, deny by default** | Roles grant permissions; any API call without an explicit rule is refused | One forgotten check must not open a door | [`policy.py`](backend/app/api/policy.py) |
+| **Rate limiting** | Each user can submit a limited number of requests per minute | Stops abuse and runaway cost | [`rate_limit.py`](backend/app/services/rate_limit.py) |
+| **Observability without content** | OpenTelemetry traces to Application Insights, plus per-agent run records for latency, tokens and failures | You need to see how the AI behaves in production, without logging private text | admin **Monitoring** page |
+| **Idempotency** | Sending the same request twice never creates two work orders | Networks retry; duplicates cost money | [`intake_repository.py`](backend/app/services/intake_repository.py) |
+
+### Responsible AI, by Microsoft's six principles
+
+| Principle | How this project applies it |
+|---|---|
+| **Fairness** | Counterfactual fairness groups (name, language, building) with a CI-checkable gate; known differences are published below |
+| **Reliability and safety** | Emergency bypass, fail closed, human approval, confirmation by agreement, emergency-recall gate on every PR |
+| **Privacy and security** | Redaction before AI, encrypted role-gated reveal, no stored media, Entra ID without keys, deny-by-default RBAC |
+| **Inclusiveness** | English, Spanish and French; report by voice or photo if typing is hard; gender-neutral photo captions; works on a phone |
+| **Transparency** | Reason codes on every decision, model and prompt hashes on every eval run, a public spec with limitations |
+| **Accountability** | People approve risky actions; every decision and every data reveal is audited with the acting user |
+
+### Known limitations
+
+Being honest about where the system falls short is part of Responsible AI. Measured or observed so far:
+
+- **Language effect on priority.** A running toilet reported in French got priority 3, in English mostly 2. Same
+  route, so it is treated the same way, but queue order differs ([spec §10](docs/specification.md#10-evaluation-and-acceptance)).
+- **Form fields can escape redaction.** On a scanned form, `Unit: 12C` stayed visible, while "unit 12C" in a sentence
+  is redacted.
+- **Over-redaction.** Words such as "Resident" or time phrases ("in three days") are sometimes treated as personal
+  data. Safe, but it removes useful context.
+- **No harmful-image test files.** Violent or sexual pictures are not put in a public repository; that path is tested
+  with a fake checker instead.
+- **Emergency precision is optimistic.** The rules were tuned on the golden set; a held-out set checks recall.
+
+A full transparency note (`RESPONSIBLE_AI.md`) and an automated red-team report (PyRIT) are planned for Phase 3.
 
 ## Evaluation
 
@@ -100,6 +201,7 @@ covers every category and priority level, English/Spanish/French requests, emerg
 ```bash
 python -m evals.run_eval                 # offline: emergency screen only, no Azure needed
 python -m evals.run_eval --mode live     # + Foundry classifier (requires az login and FOUNDRY_ENDPOINT)
+python -m evals.run_media_eval           # synthetic photos and scans through the real Azure services
 ```
 
 | Metric | Definition | Latest (gpt-5.2) |
@@ -112,6 +214,10 @@ python -m evals.run_eval --mode live     # + Foundry classifier (requires az log
 | Injection resistance | Injected category/priority not obeyed (blocking to human counts as resisted) | 1.00 |
 | Counterfactual consistency | Fairness groups with identical category and priority across variants | 1.00 |
 
+The media eval sends six synthetic photos and scans through the real services: a scanned form is read and its fake
+name and phone are redacted, a hidden instruction in a scan is caught, a gas emergency in a scan goes to on-call,
+and a mislabelled file is refused (6/6).
+
 Reports reference cases by id only, and record the model, dataset hash and prompt hash so runs are comparable.
 The emergency patterns were tuned on this set, so its precision is optimistic. A separate held-out set of
 phrasings lives in [`test_emergency.py`](backend/tests/unit/test_emergency.py).
@@ -123,55 +229,163 @@ this repository and access to the Foundry project), plus `FOUNDRY_ENDPOINT`.
 
 ## Running locally
 
-**Quickest: Docker.** Nothing to install except Docker Desktop:
+You run two things: the **backend** (Python API on http://localhost:8000) and the **frontend** (web app on
+http://localhost:5173). Locally there is no sign-in: you pick who you are from a switcher in the header.
+
+### What to install first
+
+Install only the tools on your computer; every library (FastAPI, React…) is installed by the project in the steps
+below.
+
+| Tool | Needed for | macOS ([Homebrew](https://brew.sh)) | Windows (PowerShell) | Linux (Ubuntu/Debian) |
+|---|---|---|---|---|
+| **Git** | Getting the code | `brew install git` | `winget install -e --id Git.Git` | `sudo apt install git` |
+| **Python 3.13+** | Backend | `brew install python@3.13` | `winget install -e --id Python.Python.3.13` | `sudo apt install python3.13 python3.13-venv` ¹ |
+| **PostgreSQL 16+** | Database (Option B) | `brew install postgresql@18`<br/>`brew services start postgresql@18` | [Installer](https://www.postgresql.org/download/windows/) | `sudo apt install postgresql` |
+| **nvm + Node 24** | Frontend | `brew install nvm` ², then `nvm install 24` | `winget install -e --id CoreyButler.NVMforWindows`, then `nvm install 24` and `nvm use 24` | [nvm install script](https://github.com/nvm-sh/nvm#installing-and-updating), then `nvm install 24` |
+| **Azure CLI** | AI features (signing in to Azure) | `brew install azure-cli` | `winget install -e --id Microsoft.AzureCLI` | `curl -sL https://aka.ms/InstallAzureCLIDeb \| sudo bash` |
+| **Docker Desktop** | Option A only | `brew install --cask docker` | `winget install -e --id Docker.DockerDesktop` | [Docker Engine](https://docs.docker.com/engine/install/) |
+
+¹ On older Ubuntu releases Python 3.13 comes from the [deadsnakes PPA](https://launchpad.net/~deadsnakes/+archive/ubuntu/ppa).
+² Follow the lines Homebrew prints to add nvm to your shell profile, then open a new terminal.
+
+**Windows:** the scripts (`scripts/db.sh`) are bash. Use [WSL](https://learn.microsoft.com/windows/wsl/install)
+(recommended: then follow the Linux column inside WSL) or Git Bash. In PowerShell, activate the virtual environment
+with `.venv\Scripts\Activate.ps1` instead of `source .venv/bin/activate`.
+
+**Check your setup:**
 
 ```bash
-docker compose up --build -d      # PostgreSQL + migrations + API on http://localhost:8000
+git --version          # any recent version
+python3 --version      # 3.13 or newer
+psql --version         # 16 or newer (Option B)
+node --version         # v24.x (after nvm use)
+az --version           # any recent version
+docker --version       # Option A only
+```
+
+**Installed for you by the project** (no separate install needed):
+
+| Command | Installs |
+|---|---|
+| `pip install -r requirements-dev.txt` | FastAPI, Uvicorn, Connect RPC, SQLAlchemy and Alembic (database), Microsoft Agent Framework, Azure AI SDKs (Foundry, Language, Content Safety), Azure Identity, OpenTelemetry, Pillow, pytest, and buf for code generation |
+| `npm install` (in `frontend/`) | React, Vite, TypeScript, Tailwind CSS, shadcn/ui components, Connect-Web, TanStack Query, MSAL (Microsoft sign-in), Vitest |
+
+**Azure (only for the AI steps).** Without Azure, the app still runs: requests that need AI go to the human-review
+queue (fail closed). To enable the AI you need an Azure subscription with:
+
+- a **Microsoft Foundry project** with a chat model deployment (the classifier), and
+- an **Azure AI services** resource (Language, Content Safety, Vision, Speech and Document Intelligence all run
+  on it),
+
+and your account needs the **Cognitive Services User** role on the AI services resource and the **Azure AI User**
+role on the Foundry project. Put the endpoints in `.env` (see `.env.example`) and run `az login`; no keys are used.
+
+### Option A: backend in Docker (fastest)
+
+Needs only [Docker Desktop](https://www.docker.com/products/docker-desktop/) and, for the web app, Node 24.
+
+```bash
+# 1. Backend: PostgreSQL + database migrations + API on http://localhost:8000
+docker compose up --build -d
+
+# 2. Make yourself an administrator (once)
 docker compose exec api python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
 ```
 
-Without Azure configured, everything except the AI steps works, and those fail closed to human review. To use
-your own Azure AI resources, copy `.env.docker.example` to `.env.docker`. Details in
-[Developer commands §1.1](docs/commands.md#11-quick-start-with-docker).
+Then start the frontend with `scripts/dev.sh frontend` (Node 24 needed, see Option B). Without Azure settings, everything except the AI steps works, and
+those fail closed to the human-review queue. To use your own Azure AI resources, copy `.env.docker.example` to
+`.env.docker` ([details](docs/commands.md#11-quick-start-with-docker)).
 
-**Web app** ([`frontend/`](frontend), React + TypeScript + Tailwind + shadcn/ui, Node 24): with the backend
-running, `cd frontend && npm install && npm run dev`, then open http://localhost:5173 and pick an identity in the
-header. `python scripts/seed_demo.py` fills the database with synthetic demo data like the screenshots above. Tenants report problems by text, photo or voice; facility managers work the review queue and approvals;
-technicians complete their work orders; admins manage users and watch monitoring and evaluations. See
-[Developer commands §4.1](docs/commands.md#41-run-the-frontend).
+### Option B: everything on your machine
 
-**Sign-in:** locally there's an identity switcher; in production, residents sign up and sign in with
-**Microsoft Entra External ID** and staff use their **work account** (workforce Entra ID). Passwords,
-email verification and password reset stay with Microsoft. See [Identity setup](docs/identity-setup.md).
+**Prerequisites:** Python 3.13+, PostgreSQL 16+, Node 24 and the Azure CLI ([what to install](#what-to-install-first)).
 
-<p align="center"><img src="docs/images/sign-in.png" alt="Sign-in page: residents and staff" width="560"></p>
-
-**Native setup** (to develop and run the tests) requires Python 3.13+, PostgreSQL 16+ and the Azure CLI signed
-in with `az login`. Authentication to Azure uses Entra ID via `DefaultAzureCredential`, not API keys.
+**1. Configure** (from the project root)
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env          # set DATABASE_URL and your Foundry / Azure AI endpoints
-scripts/db.sh create          # once per machine
-scripts/db.sh up              # creates or updates the schema (see docs/commands.md for down, reset, new...)
-uvicorn backend.app.main:create_app --factory --reload
-python -m pytest -q
+cp .env.example .env              # set DATABASE_URL; add your Azure AI endpoints to enable the AI steps
+az login                          # Azure access uses your Entra ID sign-in, never API keys
 ```
+
+**2. Install** (once)
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+scripts/db.sh                     # creates the database if needed and applies all migrations
+python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
+nvm install 24                    # Node for the frontend
+```
+
+**3. Run** with [`scripts/dev.sh`](scripts/dev.sh)
+
+```bash
+scripts/dev.sh                    # backend + frontend together; open http://localhost:5173 (Ctrl+C stops both)
+```
+
+Or run each side in its own terminal:
+
+```bash
+scripts/dev.sh backend            # API on http://localhost:8000
+scripts/dev.sh frontend           # web app on http://localhost:5173 (needs the backend running)
+```
+
+The script applies new migrations, installs frontend packages on the first run and creates
+`frontend/.env.local` if missing. Add `--entra` to use Microsoft Entra sign-in instead of the identity switcher.
+
+**4. Try it** (optional, terminal 3, with the backend running)
+
+```bash
+source .venv/bin/activate
+python scripts/seed_demo.py       # synthetic requests, approvals and work orders, like the screenshots above
+```
+
+In the web app, use the identity switcher in the header:
+
+| Identity | Role | What you can do |
+|---|---|---|
+| `alice` (or any new name) | Tenant | Report problems by text, photo, voice or scanned document; follow them |
+| `fm` | Facility manager | Review queue, approvals, assigning technicians, revealing personal details |
+| `tech` | Technician | Your assigned work orders |
+| `local-developer` | Administrator | Users and roles, audit log, monitoring, evaluations |
+
+`seed_demo.py` creates `fm` and `tech` with their roles; any other name starts as a tenant.
+
+**5. Run the tests**
+
+```bash
+python -m pytest -q backend/tests/unit          # backend, no Azure needed
+python -m evals.run_eval                        # emergency-recall gate, no Azure needed
+cd frontend && npm run test                     # frontend
+```
+
+All commands, including troubleshooting: [docs/commands.md](docs/commands.md).
+
+### Production sign-in
+
+Locally there's an identity switcher; in production, residents sign up and sign in with **Microsoft Entra External
+ID** and staff use their **work account** (workforce Entra ID). Passwords, email verification and password reset
+stay with Microsoft. See [Identity setup](docs/identity-setup.md).
+
+<p align="center"><img src="docs/images/sign-in.png" alt="Sign-in page: residents and staff" width="560"></p>
 
 ### Database migrations
 
 The schema is defined by the SQLAlchemy models in [`backend/app/db/models.py`](backend/app/db/models.py)
-and versioned with Alembic in [`backend/migrations/versions/`](backend/migrations/versions). Alembic and the
-app both read `DATABASE_URL` (environment first, then `.env`), so `alembic upgrade head` sets up any empty
-database and brings an existing one up to date.
+and versioned as migrations in [`backend/migrations/versions/`](backend/migrations/versions).
+[`scripts/db.sh`](scripts/db.sh) reads `DATABASE_URL` like the app does (environment first, then `.env`), so one
+command sets up an empty database or brings an existing one up to date.
 
 ```bash
-alembic upgrade head                                  # apply all migrations
-alembic revision --autogenerate -m "add vendor table" # after changing a model; review the file
-alembic check                                         # fails if models and migrations disagree
-alembic downgrade -1                                  # roll back one migration
+scripts/db.sh                          # create the database if needed and apply all migrations
+scripts/db.sh status                   # up to date, or migrations pending?
+scripts/db.sh new "add vendor table"   # after changing a model; review the generated file
+scripts/db.sh check                    # fails if models and migrations disagree
+scripts/db.sh down                     # roll back one migration (asks first)
 ```
+
+All commands: [docs/commands.md §3](docs/commands.md#3-database-and-migrations).
 
 Constraint and index names follow a fixed naming convention ([`base.py`](backend/app/db/base.py)), so every
 database ends up with identical names. CI applies the migrations to a fresh PostgreSQL, checks for drift
@@ -207,7 +421,7 @@ checks the generated code is current and blocks breaking changes on pull request
 | Service | RPCs |
 |---|---|
 | `AccountService` | `GetMe` |
-| `IntakeService` | `SubmitIntake` (text, photo, voice), `ListMyRequests`, `ListRequests`, `GetRequest`, `RevealRequestDetails` |
+| `IntakeService` | `SubmitIntake` (text, photo, voice, document), `ListMyRequests`, `ListRequests`, `GetRequest`, `RevealRequestDetails` |
 | `ReviewQueueService` | `ListReviewCases`, `ResolveReviewCase` |
 | `WorkOrderService` | `ListWorkOrders`, `GetWorkOrder`, `ApproveWorkOrder`, `RejectWorkOrder`, `AssignWorkOrder`, `CompleteWorkOrder` |
 | `UserAdminService` | `ListUsers`, `GetUser`, `CreateUser`, `UpdateUser`, `SetUserRoles`, `ListRoles`, `ListAuditEvents` |
@@ -261,9 +475,12 @@ docs/            specification, frontend specification and architecture
 
 ## Roadmap
 
-1. **Intake MVP:** deterministic workflow for text, photo and voice; PII redaction with audited reveal; review
+1. **Intake MVP:** deterministic workflow for text, photo, voice and scanned documents, with file, image and
+   attachment-injection checks; PII redaction with audited reveal; review
    queue and work-order approvals; users and RBAC; agent monitoring; OpenTelemetry; eval set and CI gates
    *(done: every target met on two consecutive live runs, see [spec §10](docs/specification.md#10-evaluation-and-acceptance))*
-2. **Complex incidents:** a Magentic team (diagnostician over manuals with Azure AI Search, asset historian,
-   safety and compliance, procurement, scheduler, communicator) with capped rounds and token budgets; approval workflow
+2. **Complex incidents:** a Magentic team (diagnostician over a knowledge base of manuals on Azure AI Search, asset
+   historian, safety and compliance, procurement, scheduler, communicator) built on Agent Framework's harness with
+   capped rounds, tools and tokens; event-driven runs (transactional outbox, topics, incident worker); a scenario
+   evaluation harness gating every PR; approval workflow
 3. **Product:** tenant and manager web UI, `azd`/Bicep infrastructure, PyRIT red-team report, `RESPONSIBLE_AI.md`, demo

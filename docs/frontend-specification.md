@@ -157,7 +157,7 @@ query string so views can be shared and survive reloads.
 
 **Report a problem** (`/report`) · `SubmitIntake` ✅
 
-- A three-way switch: **Describe it** (text), **Add a photo**, **Record a voice note**.
+- A four-way switch: **Describe it** (text), **Add a photo**, **Voice note**, **Scan a document** (two by two on phones).
 - Text: textarea, 1 to 10,000 characters with a live counter.
 - Photo: file picker with `accept="image/*" capture="environment"` (opens the camera on phones), preview, and an
   optional caption. Images larger than 2,048 px on the long side are downscaled in the browser to JPEG before
@@ -165,6 +165,9 @@ query string so views can be shared and survive reloads.
 - Voice: record and stop with `MediaRecorder` (WebM/Opus in Chromium and Firefox, MP4/AAC in Safari, both
   accepted by the backend), a timer, playback before sending, and a 2-minute cap. If the browser has no
   microphone permission, explain how to grant it and offer a file upload instead.
+- Document: file picker for PDF, TIFF, JPEG or PNG. PDF and TIFF are sent as they are (shown by file name);
+  a photo of a page is downscaled to 3,000 px on the long side, more than photos, so small print stays readable.
+  The hint says only the first 5 pages are read. Files over 8 MiB are refused in the browser with a clear message.
 - Language: English, Spanish or French (`language` field), defaulting to the browser language when supported.
 - A client-generated `requestId` (UUID) is created when the form opens and reused on retry, so a double submit
   or a flaky network never creates two requests (the backend is idempotent per `requestId`).
@@ -174,7 +177,7 @@ query string so views can be shared and survive reloads.
   - `WORK_ORDER_CREATED`: category, priority and "A technician will be assigned".
   - `PENDING_APPROVAL`: "A facility manager will review this shortly."
   - `HUMAN_REVIEW`: "A person will review your request." No reason codes are shown to tenants.
-- Acceptance: a text, photo and voice request each reach the backend with the right `source` and `mediaType`; a
+- Acceptance: a text, photo, voice and document request each reach the backend with the right `source` and `mediaType`; a
   network retry reuses the `requestId`; the emergency panel can't be dismissed by accident.
 
 **My requests** (`/requests/mine`) · `ListMyRequests` ✅

@@ -68,7 +68,7 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-2 | Accept photo and voice requests and normalize them to text before the pipeline: photo caption + OCR (Azure AI Vision), voice transcription (Azure AI Speech, optional `en`/`es`/`fr` hint). The typed caption is screened for emergencies before any network call, and the combined text again after transcription. | ✅ |
 | FR-3 | Screen raw text for emergency signals **before** any redaction or model call; on a match, hand off to on-call and stop. | ✅ |
 | FR-4 | Redact PII with Azure AI Language; store the reversible mapping encrypted and separately. | ✅ |
-| FR-5 | Check redacted text with Azure AI Content Safety (harm categories) and Prompt Shields (injection). | ✅ |
+| FR-5 | Check redacted text with Azure AI Content Safety (harm categories) and Prompt Shields (injection; attachment text as documents, FR-19). | ✅ |
 | FR-6 | Classify category (`hvac`, `plumbing`, `electrical`, `security`, `structural`, `cleaning`, `other`) and priority 1–5 with a schema-validated model response. | ✅ |
 | FR-7 | Route to human review when the classifier is unsure: `requires_human_review`, confidence below 0.70, or a borderline answer (0.70–0.80) that two re-classifications don't confirm. | ✅ |
 | FR-8 | Create a work order; mark it `pending_approval` when priority ≥ 4 (configurable). | ✅ |
@@ -79,6 +79,10 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-13 | Human-review queue (emergencies first) where facility managers create a work order or dismiss with a fixed reason code. | ✅ |
 | FR-14 | Work-order lifecycle: approve or reject `pending_approval` orders, assign an active technician, complete by the assignee. Every decision is audited with the acting user. | ✅ |
 | FR-15 | Tenants list and read their own requests with work-order status; managers list all. | ✅ |
+| FR-16 | Accept **scanned documents** (PDF, TIFF, or a phone photo of a page; up to 8 MiB) as `REQUEST_SOURCE_DOCUMENT` and read the first 5 pages with Azure AI Document Intelligence (`prebuilt-read`). | ✅ |
+| FR-17 | **Check every uploaded file before any service sees it**: the file's bytes must match the declared type, images must be 50 px to 40 MP, multi-page scans at most 20 pages, PDFs not encrypted. A failed check goes to human review with a reason code (`media_type_mismatch`, `image_too_large`, `document_encrypted`, …). | ✅ |
+| FR-18 | **Image content safety**: every photo and image scan is checked by Azure AI Content Safety (hate, sexual, violence, self-harm; severity ≥ 4 is flagged). A flagged image goes to human review (`harmful_image_<category>`) and never reaches the classifier, but the emergency screen still runs on its text first. If the check is unavailable, the request goes to human review (`image_safety_unavailable`). | ✅ |
+| FR-19 | **Prompt Shields on attachments**: text taken from a photo or document is checked as a *document* (indirect injection, `document_attack_detected`); the tenant's typed or spoken words as the *user prompt* (`prompt_attack_detected`). | ✅ |
 
 ### 4.2 Complex-incident team (Phase 2)
 
@@ -91,6 +95,9 @@ The first administrator is created with `python -m backend.app.cli grant-role`.
 | FR-24 | Facility manager approves, revises or rejects the plan before any side effect. | ⬜ |
 | FR-25 | After approval, the application (not an agent) executes actions: purchase request, technician assignment, tenant notice. | ⬜ |
 | FR-26 | Checkpoint runs so a run paused for human review can resume. | ⬜ |
+| FR-27 | Incidents run off the request path: escalations and plan decisions are published as events (transactional outbox, §6.2) and handled by an incident worker. | ⬜ |
+| FR-28 | Equipment manuals and safety procedures are searchable knowledge with section-level citations; retrieved text is screened for indirect prompt injection before an agent sees it (§5.4). | ⬜ |
+| FR-29 | A scenario evaluation harness replays incidents against fixture data with fault injection, in CI (scripted models) and live (§10.1). | ⬜ |
 
 ### 4.3 Escalation criteria (proposed)
 
@@ -123,7 +130,7 @@ Emergencies never enter the team, before or after the on-call handoff.
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-30 | Tenant web view: submit (text, photo, voice), track status, read notices in their language. | ⬜ |
+| FR-30 | Tenant web view: submit (text, photo, voice, document), track status, read notices in their language. | ⬜ |
 | FR-31 | Manager web view: review queue, approvals, incident plans with citations, PII reveal. | ⬜ |
 | FR-33 | Admin web view: users and roles, audit log, evaluation history and trends, agent and intake dashboards (API: FR-40–49). | ⬜ |
 | FR-32 | Infrastructure as code (`azd` + Bicep) using managed identity and Key Vault. | ⬜ |
@@ -162,22 +169,93 @@ Every specialist is read-only. Tools return data; nothing in the team can change
 Each specialist returns a structured finding: `{claims[], citations[], confidence, open_questions[]}`. A claim
 without a citation is shown to the reviewer as unverified.
 
-## 6. Orchestration limits
+The manager is Agent Framework's `StandardMagenticManager`. Specialists are created with `create_harness_agent`
+and the FacilityOps harness profile (§5.3).
 
-The Magentic builder in `agent-framework-orchestrations` provides `max_round_count`, `max_stall_count` and
-`max_reset_count`. It has no token budget, so the application enforces token, tool-call and time limits with
-agent and function middleware.
+### 5.3 Agent runtime: the harness profile
+
+Agent Framework's **harness** (`create_harness_agent`, released July 2026) is a ready-made agent runtime: tool-calling
+loop, history persistence, context compaction, todo and plan modes, file memory, skills, web search, tool
+auto-approval and OpenTelemetry. Every feature can be switched off. FacilityOps keeps the features that make a
+bounded specialist reliable and switches off everything that would let an agent act, remember or reach outside its
+tools.
+
+| Harness feature | Setting | Why |
+|---|---|---|
+| Tool-calling loop | On, `loop_max_iterations=5` | This is the per-specialist tool-call budget (§6) |
+| Context compaction | On, `max_context_window_tokens` per model | Long tool results don't overflow small models |
+| History persistence | On, `history_provider` in PostgreSQL, scoped to the run | A run survives a restart; only redacted text and tool results are stored, deleted with the run's retention |
+| Skills | On, `skills_paths` = `backend/app/agents/skills/` | Procedural know-how (how to cite a manual, how to read a lockout/tagout procedure), loaded only when needed |
+| Middleware | Monitoring (FR-47) + token budget | Same per-run records as Phase 1; tokens per run enforced here |
+| OpenTelemetry | On, sensitive data off | GenAI spans without content (§8) |
+| Todo list, plan/execute modes | **Off** (`disable_todo`, `disable_mode`) | The Magentic manager owns the plan; two planners would disagree |
+| File memory | **Off** (`disable_file_memory`) | No state outside the run; nothing that could accumulate request text |
+| Web search | **Off** (`disable_web_search`) | Answers come from synthetic manuals and records only; the open web is an injection and grounding risk |
+| Tool auto-approval | **Off** (`disable_tool_auto_approval`) | Tools are read-only; approvals of actions are application code (§7), never a heuristic |
+| Background agents, file access, shell, looping | **Never** (experimental, and outside least privilege) | |
+
+### 5.4 Knowledge, tools and skills
+
+Three ways a specialist gets what it needs, kept separate:
+
+| | What it is | Examples | Where it lives |
+|---|---|---|---|
+| **Knowledge** | Facts retrieved from documents, with citations | Equipment manuals, lockout/tagout procedures, vendor contracts | A **Foundry IQ knowledge base** on the project's existing serverless Azure AI Search service, reached only through the `search_manuals` / `get_safety_procedure` tools, with Entra ID (no query keys) |
+| **Tools** | Read-only functions over FacilityOps data | `get_maintenance_history`, `find_parts`, `find_available_technicians` | Python, in `backend/app/agents/tools/`, running with the incident's permissions |
+| **Skills** | Procedures the agent loads on demand | "Cite manual sections", "Assess a repeat failure" | Markdown files, harness `skills_paths` |
+
+All documents are synthetic. Retrieved passages pass Prompt Shields' document-attack check before they reach a
+model; a flagged passage is dropped and recorded as a reason code. Each tool call is checked against the per-run
+tool budget and recorded (tool name, duration, outcome; never arguments that could contain text).
+
+## 6. Orchestration limits and events
+
+### 6.1 Budgets
+
+`MagenticBuilder` (`agent_framework.orchestrations`) provides `max_round_count`, `max_stall_count` and
+`max_reset_count`. They are always set explicitly: recent releases default the round and reset limits to
+unlimited. Magentic has no token budget, so the application enforces tokens and time itself, and the harness
+loop limit caps tool calls.
 
 | Limit | Default | Enforced by | On breach |
 |---|---|---|---|
 | Coordination rounds | 10 | `max_round_count` | Stop; return partial plan to human review |
 | Rounds without progress before re-plan | 2 | `max_stall_count` | Re-plan, then human input on stall |
 | Re-plans | 1 | `max_reset_count` | Stop; human review |
-| Tokens per run | 60,000 | Middleware summing usage | Terminate; human review |
-| Tool calls per specialist per run | 5 | Function middleware | Tool returns a refusal |
-| Wall-clock time per run | 120 s | Run timeout | Terminate; human review |
+| Tokens per run | 60,000 | Agent middleware summing usage | Terminate; human review |
+| Tool calls per specialist per run | 5 | Harness `loop_max_iterations` + function middleware | Tool returns a refusal |
+| Wall-clock time per run | 120 s | Worker timeout | Terminate; human review |
+| Delivery attempts per event | 3 | Event consumer | Dead-letter; human review |
 
 Defaults are starting points to be tuned with evaluation data and cost per incident.
+
+### 6.2 Events and topics
+
+A Magentic run takes tens of seconds and may wait hours for a person, so it never runs inside an RPC. The request
+path records a decision and publishes an **event**; an **incident worker** subscribed to the relevant topic does the
+work. Agent Framework itself has no topics (agents inside a run talk through workflow edges), so topics sit
+*between* runs, at the application level.
+
+| Event | Published when | Consumed by |
+|---|---|---|
+| `intake.escalated` | A request meets the escalation criteria (§4.3) or a manager escalates it | Incident worker: starts a run |
+| `incident.plan_ready` | A run produces a plan, or stops on a budget or error | Review queue (manager notified) |
+| `incident.plan_decided` | A manager approves, revises or rejects a plan | Incident worker: resumes from checkpoint on *revise*; action executor on *approve* |
+| `incident.closed` | Actions finish or the incident is rejected | Reporting |
+
+Rules:
+
+- **Transactional outbox.** An event is written to `outbox_events` in the same database transaction as the state
+  change, then dispatched. No state change without its event, and no event without its state change.
+- **Ids only.** Events carry ids, types and reason codes, never request text or PII. Consumers read what they need
+  from the database with their own permissions.
+- **At-least-once, idempotent consumers.** Each consumer records the event ids it handled; a redelivery is a no-op.
+- **Dead letters go to people.** After 3 failed deliveries the event is dead-lettered and the incident goes to
+  human review, like any other failure.
+- **Two transports, one port.** Locally and in tests the bus is PostgreSQL (`SELECT … FOR UPDATE SKIP LOCKED`
+  on the outbox), so nothing new is needed to run the project. In Azure the dispatcher publishes to an **Azure
+  Service Bus topic** (`facilityops-events`) with one subscription per consumer, filtered by event type,
+  connected with managed identity.
 
 ## 7. Human oversight
 
@@ -193,8 +271,10 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 ## 8. Data and privacy
 
 - **What is stored:** redacted text, classification, routing outcome, work orders, audit events.
-- **Photos and voice notes:** sent only to Azure AI Vision and Speech for transcription, never to a language
-  model, and never stored. The transcript goes through PII redaction like typed text.
+- **Photos, documents and voice notes:** sent only to Azure AI Content Safety (images), Vision, Document
+  Intelligence and Speech, never to a language model, and never stored. Extracted text goes through the emergency
+  screen in full, is then capped (5,000 characters, and within the 10,000-character stored limit) and redacted like
+  typed text. Scanned forms often carry names and unit numbers, which is exactly what redaction is for.
 - **PII mapping:** placeholder → original value, encrypted with Fernet (key from Key Vault in Azure), in
   `pii_mappings`, one row per request. Never sent to a model, log, trace or evaluation set.
 - **User records:** display name and email of people who sign in, readable only with `users:read`. Audit events
@@ -213,11 +293,26 @@ Defaults are starting points to be tuned with evaluation data and cost per incid
 | API | Connect RPC with protobuf contracts in `proto/`; browsers use Connect or gRPC-Web without a proxy; contracts linted and checked for breaking changes in CI |
 | Security | Entra ID bearer tokens; permission-based RBAC from the database (RPC policy table, deny by default); managed identity to Azure services; no API keys; secrets in Key Vault; strict CORS and host allow-lists; security headers; request-size limit |
 | Abuse | Per-identity rate limiting (HMAC-hashed buckets in PostgreSQL) |
-| Reliability | Fail closed to human review; idempotent intake; checkpointed incident runs |
+| Reliability | Fail closed to human review; idempotent intake; checkpointed incident runs; transactional outbox with idempotent consumers and dead-lettering to human review |
 | Latency | Emergency handoff < 1 s (no network calls); routine intake p95 < 8 s |
 | Cost | Small models for specialists, budgets in §6; cost per incident reported by eval runs |
 | Observability | Agent runs recorded per call (FR-47) for admin reports. OpenTelemetry to Application Insights: RPC spans, Azure service calls, one span per intake step, Agent Framework GenAI spans (model, tokens). No content: GenAI sensitive data off, exception messages never recorded or logged |
 | Portability | Schema via Alembic migrations, checked for drift in CI |
+
+### 9.1 Guardrails on intake
+
+| Layer | Guardrail | On failure |
+|---|---|---|
+| Before anything | Emergency screen on typed text (local rules, no network) | On-call handoff |
+| File | Signature matches declared type; image 50 px–40 MP; scan ≤ 20 pages; PDF not encrypted; ≤ 8 MiB | Human review, reason code |
+| Image | Content Safety image analysis, severity ≥ 4 in any category | Human review; never classified |
+| Extracted text | Emergency screen again on the full text | On-call handoff |
+| Text | PII redaction before any model, log or trace | Human review if unavailable |
+| Text | Content Safety harm categories on all text; Prompt Shields: user prompt + documents | Human review |
+| Model | No tools; schema-validated output; confirmation band; routing in code | Human review |
+| Abuse | Per-user rate limit; request size limit; deny-by-default RPC permissions | Rejected |
+
+Every safety step fails closed. A flagged or unreadable request always reaches a person; nothing is silently dropped.
 
 ## 10. Evaluation and acceptance
 
@@ -235,8 +330,8 @@ Golden set: [`evals/datasets/golden_v1.jsonl`](../evals/datasets/golden_v1.jsonl
 | Route self-agreement (5 samples) | tracked | Report | 0.83, 0.89 |
 | Automation rate · accuracy of automated cases | tracked | Report | 0.90 · 0.96, 0.91 · 0.94 |
 | Classifier calls per request | tracked | Report | 1.70, 1.73 |
-| Groundedness of incident plans | ≥ 0.90 | Phase 2 (Foundry evaluator) | — |
-| Tool-call accuracy | ≥ 0.90 | Phase 2 (Foundry evaluator) | — |
+| Groundedness of incident plans | ≥ 0.90 | Phase 2 (§10.1) | — |
+| Tool-call accuracy | ≥ 0.90 | Phase 2 (§10.1) | — |
 
 "Current" is two consecutive live runs on 2026-10-17 (`2b0f21ce`, `6c9edb7e`): complete pipeline with PII
 redaction, gpt-5.2, prompt `2f091038960e`, confirmation policy below, every case classified five times.
@@ -274,19 +369,72 @@ way; only queue order differs. It is tracked by the label-consistency metric and
 `RESPONSIBLE_AI.md`. A fix would need more multilingual cases than the golden set has today, rather than a prompt
 tweak fitted to one example.
 
+**Media intake** ([`evals/run_media_eval.py`](../evals/run_media_eval.py), live): synthetic scans and photos drawn
+in code, through the real services. 6/6 pass on 2026-10-17: a scanned form is read and classified, and the fake
+name and phone number drawn on it are absent from the stored text (the eval fails on any planted identifier that
+survives redaction); a faint
+instruction to the AI inside a scan is caught as `document_attack_detected`; a gas emergency written in a scan is
+handed to on-call; a phone scan and a photo of a sign are read; a PDF declared as a PNG is refused. There is no
+harmful-image case on purpose (no violent or sexual pictures in a public repository); that path is covered by unit
+tests with a fake inspector.
+
+**Known limitation: form fields.** Azure AI Language finds names and numbers in sentences more reliably than in
+form layouts: on a scanned form, `Unit: 12C` stayed visible while "unit 12C" in a sentence is redacted. Unit numbers
+are operational details a technician needs, but a form-aware pass (Document Intelligence key-value pairs, then
+redaction of known personal fields) would be stricter. Tracked for `RESPONSIBLE_AI.md`.
+
+### 10.1 Phase 2: incident evaluation harness
+
+The golden set tests one model call. An incident run is many calls, tools and decisions, so Phase 2 adds a
+**scenario harness** in `evals/incidents/`: each scenario is a synthetic incident plus a fixture world (assets,
+maintenance history, parts, technicians, manual passages) and its expected outcome. Tools are replaced by fakes that
+serve the fixture data, record every call, and can inject faults.
+
+| Scenario family | What it checks |
+|---|---|
+| Success | A grounded plan with the expected actions |
+| Specialist disagreement | The manager reconciles or surfaces the conflict |
+| Tool failure / timeout | Partial plan to human review, never a guess |
+| Budget exhaustion | Run stops at the limit and goes to human review |
+| Injection in retrieved content | Poisoned manual passage is dropped; no instruction is followed |
+| Safety block | Lockout/tagout requirement blocks the plan |
+| Human rejection or revision | Run resumes from its checkpoint, or the incident closes |
+| Emergency mis-escalation | An emergency never reaches the team |
+
+It runs in two modes. **Scripted** mode replaces the models with a scripted chat client, so it is deterministic,
+free and runs on **every PR**: it tests the harness, budgets, events and gates, not model quality. **Live** mode
+uses the real models, stores an evaluation run like Phase 1, and adds Foundry evaluators.
+
+| Metric | Target | Gate |
+|---|---|---|
+| Side effects before approval | 0 | **Hard: every PR** (scripted) |
+| Budget adherence (runs that stop at their limits) | 1.00 | **Hard: every PR** (scripted) |
+| Emergencies reaching the team | 0 | **Hard: every PR** (scripted) |
+| Safety-block recall | 1.00 | Live eval |
+| Groundedness of incident plans | ≥ 0.90 | Live eval (Foundry evaluator) |
+| Tool-call accuracy | ≥ 0.90 | Live eval (Foundry evaluator) |
+| Claims with a citation | ≥ 0.95 | Report |
+| Cost and latency per incident | tracked | Report |
+
 Phase 3 adds a PyRIT red-team report and `RESPONSIBLE_AI.md` (transparency note).
 
 ## 11. Phases
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **1. Intake MVP** ✅ | FR-1–15, golden set, CI gate | All Phase 1 FRs ✅; every target in §10 met on two consecutive live runs (2026-10-17) |
-| **2. Incident team** | FR-20–26, synthetic manuals in AI Search, approvals | Scenario tests (success, disagreement, tool failure, budget exhaustion, injection in retrieved content, human rejection) pass; groundedness ≥ 0.90 |
-| **3. Product** | FR-30–32, red-team report, transparency note, demo | Deployed with `azd up` from a clean subscription |
+| **1. Intake MVP** ✅ | FR-1–19, golden set, media eval, CI gate | All Phase 1 FRs ✅; every target in §10 met on two consecutive live runs (2026-10-17) |
+| **2. Incident team** | FR-20–29: Magentic team on the harness profile, knowledge base over synthetic manuals, events with outbox and incident worker, scenario harness, approvals | Every scenario family in §10.1 passes in scripted mode on every PR; live targets in §10.1 met on two consecutive runs |
+| **3. Product** | FR-30–32, Service Bus topic in Bicep, red-team report, transparency note, demo | Deployed with `azd up` from a clean subscription |
 
 ## 12. Open questions
 
 1. Should the escalation thresholds in §4.3 be configurable per building?
 2. Cost-approval threshold: a fixed amount, or relative to the building's budget?
 3. Which languages must tenant notices support at launch? (Golden set covers English, Spanish and French.)
-4. ~~Where do photos and voice notes live?~~ Decided: nowhere. Raw media is transcribed in memory and discarded; only the redacted transcript is stored.
+4. ~~Where do photos, documents and voice notes live?~~ Decided: nowhere. Raw media is transcribed in memory and discarded; only the redacted transcript is stored.
+5. ~~Which search service?~~ Decided: the **existing** serverless Azure AI Search service beside the Foundry
+   resource (Foundry IQ Serverless), reached with Entra ID; no new resource. Phase 3 still needs a **Service Bus**
+   namespace, which needs the owner's approval before it is created.
+6. ~~Foundry IQ or direct AI Search queries?~~ Decided (2026-10-17): a **Foundry IQ knowledge base**, behind our own
+   tool wrapper, so budgets, injection screening and audit stay in our code. Check the current knowledge-base API
+   (and the preview status of the serverless tier) before building.

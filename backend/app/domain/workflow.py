@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Protocol, TypeVar
 from uuid import UUID
 
@@ -10,6 +10,9 @@ from opentelemetry import trace
 from backend.app.domain.classification_policy import ClassificationPolicy, Route
 from backend.app.domain.emergency import detect_emergency
 from backend.app.domain.intake import (
+    ATTACHMENT_HEADROOM_CHARS,
+    MAX_ATTACHMENT_CHARS,
+    MAX_STORED_TEXT_CHARS,
     Classification,
     IntakeCommand,
     IntakeResult,
@@ -17,6 +20,7 @@ from backend.app.domain.intake import (
     PiiRedaction,
     RequestSource,
 )
+from backend.app.domain.media import check_media, is_image
 
 
 # No-op unless telemetry is configured. Spans carry ids and reason codes, never text.
@@ -38,7 +42,12 @@ async def _step(name: str, awaitable: Awaitable[T]) -> T:
 
 
 class PiiRedactor(Protocol):
-    async def redact(self, text: str, language: str = "en") -> PiiRedaction: ...
+    async def redact(
+        self, text: str, language: str = "en", *, attachment: str = ""
+    ) -> PiiRedaction:
+        """Redact the tenant's words and, separately, text taken from an attachment, with one
+        placeholder numbering and one mapping."""
+        ...
 
 
 class MediaTranscriber(Protocol):
@@ -50,13 +59,23 @@ class MediaTranscriber(Protocol):
         media_type: str,
         language: str | None,
     ) -> str:
-        """Text found in a photo (caption and OCR) or spoken in a voice note."""
+        """Text found in a photo (caption and OCR), read from a document, or spoken in a
+        voice note."""
         ...
 
 
 class ContentSafetyInspector(Protocol):
-    async def assess(self, redacted_text: str) -> str | None:
-        """None when safe; otherwise a reason code such as "prompt_attack_detected"."""
+    async def assess(self, redacted_text: str, *, documents: Sequence[str] = ()) -> str | None:
+        """None when safe; otherwise a reason code such as "prompt_attack_detected".
+
+        ``redacted_text`` is what the tenant wrote or said (checked for jailbreaks);
+        ``documents`` is text taken from attachments (checked for injected instructions).
+        Harmful content is checked across both.
+        """
+        ...
+
+    async def assess_image(self, image: bytes) -> str | None:
+        """None when the image is safe; otherwise a reason code such as "harmful_image_violence"."""
         ...
 
 
@@ -133,36 +152,35 @@ class IntakeCoordinator:
         if (emergency_reason := self._emergency_reason(command.text)) is not None:
             return await self._hand_off(command, emergency_reason)
 
-        text = command.text
+        user_text = command.text.strip()
+        attachment = ""
+        image_reason: str | None = None
         if command.media is not None:
-            if self._media_transcriber is None:
-                return await self._finish(
-                    command, self._human_review(command, "media_transcription_unavailable")
-                )
-            try:
-                transcript = await _step(
-                    "intake.media_transcription",
-                    self._media_transcriber.transcribe(
-                        source=command.source,
-                        media=command.media,
-                        media_type=command.media_type or "",
-                        language=command.language,
-                    ),
-                )
-            except Exception:
-                return await self._finish(
-                    command, self._human_review(command, "media_transcription_unavailable")
-                )
-            text = "\n".join(part for part in (command.text.strip(), transcript.strip()) if part)
-            if not text:
-                return await self._finish(command, self._human_review(command, "media_unreadable"))
-            if (emergency_reason := self._emergency_reason(text)) is not None:
+            outcome = await self._read_media(command)
+            if isinstance(outcome, IntakeResult):
+                return outcome
+            extracted, image_reason = outcome
+            if command.source is RequestSource.VOICE:
+                # The tenant's own words, spoken: treated exactly like typed text.
+                user_text = "\n".join(part for part in (user_text, extracted) if part)
+            else:
+                attachment = extracted
+            if not user_text and not attachment:
+                reason = image_reason or "media_unreadable"
+                return await self._finish(command, self._human_review(command, reason))
+            # The whole extracted text is screened, before anything is shortened.
+            full_text = "\n".join(part for part in (user_text, attachment) if part)
+            if (emergency_reason := self._emergency_reason(full_text)) is not None:
                 return await self._hand_off(command, emergency_reason)
 
         try:
             redaction = await _step(
                 "intake.pii_redaction",
-                self._pii_redactor.redact(text, language=command.language or "en"),
+                self._pii_redactor.redact(
+                    user_text,
+                    language=command.language or "en",
+                    attachment=_fit_attachment(attachment, user_text),
+                ),
             )
         except Exception:
             return await self._finish(
@@ -176,9 +194,24 @@ class IntakeCoordinator:
                 self._human_review(command, "pii_redaction_empty_result"),
             )
 
+        if image_reason is not None:
+            # A flagged picture never reaches the classifier. A person sees the redacted text
+            # and the reason; the emergency screen above has already run on the same text.
+            return await self._finish(
+                command,
+                self._human_review(command, image_reason),
+                redacted_text,
+                redaction.encrypted_mapping,
+            )
+
+        if redaction.redacted_attachment:
+            user_part, documents = redaction.redacted_user_text, [redaction.redacted_attachment]
+        else:
+            user_part, documents = redacted_text, []
         try:
             safety_reason = await _step(
-                "intake.content_safety", self._safety_inspector.assess(redacted_text)
+                "intake.content_safety",
+                self._safety_inspector.assess(user_part, documents=documents),
             )
         except Exception:
             return await self._finish(
@@ -259,6 +292,44 @@ class IntakeCoordinator:
             redaction.encrypted_mapping,
         )
 
+    async def _read_media(self, command: IntakeCommand) -> tuple[str, str | None] | IntakeResult:
+        """Check the file, then extract its text and (for images) check the picture itself.
+
+        Returns the extracted text and an image-safety reason code, or a finished human-review
+        result when the file can't be processed.
+        """
+        media, media_type = command.media or b"", command.media_type or ""
+        if (file_problem := check_media(command.source, media, media_type)) is not None:
+            return await self._finish(command, self._human_review(command, file_problem))
+        if self._media_transcriber is None:
+            return await self._finish(
+                command, self._human_review(command, "media_transcription_unavailable")
+            )
+
+        check_picture = command.source is not RequestSource.VOICE and is_image(media_type)
+        transcription, picture = await asyncio.gather(
+            _step(
+                "intake.media_transcription",
+                self._media_transcriber.transcribe(
+                    source=command.source,
+                    media=media,
+                    media_type=media_type,
+                    language=command.language,
+                ),
+            ),
+            _step("intake.image_safety", self._safety_inspector.assess_image(media))
+            if check_picture
+            else _none(),
+            return_exceptions=True,
+        )
+        if isinstance(transcription, BaseException):
+            return await self._finish(
+                command, self._human_review(command, "media_transcription_unavailable")
+            )
+        # An unavailable image check fails closed, like every other safety step.
+        image_reason = "image_safety_unavailable" if isinstance(picture, BaseException) else picture
+        return transcription.strip(), image_reason
+
     async def _confirm(self, redacted_text: str) -> list[Classification | None]:
         """Independent re-classifications for a borderline answer; failures count as None."""
         results = await asyncio.gather(
@@ -315,3 +386,13 @@ class IntakeCoordinator:
             priority=classification.priority if classification else None,
             confidence=classification.confidence if classification else None,
         )
+
+
+async def _none() -> None:
+    return None
+
+
+def _fit_attachment(attachment: str, user_text: str) -> str:
+    """Attachment text shortened to what the classifier needs and the database can store."""
+    room = MAX_STORED_TEXT_CHARS - len(user_text) - ATTACHMENT_HEADROOM_CHARS
+    return attachment[: max(0, min(MAX_ATTACHMENT_CHARS, room))]

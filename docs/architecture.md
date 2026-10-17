@@ -38,14 +38,21 @@ flowchart LR
         lang["AI Language<br/>PII detection"]
         cs["AI Content Safety<br/>+ Prompt Shields"]
         foundry["Foundry project<br/>model deployments"]
-        search["AI Search<br/>manuals index<br/><i>Phase 2</i>"]
+        search["Foundry IQ<br/>knowledge base on AI Search<br/><i>Phase 2</i>"]
+        sb["Service Bus topic<br/><i>Phase 3</i>"]
         appi["Application Insights"]
         kv["Key Vault<br/><i>Phase 3</i>"]
     end
 
+    worker["Incident worker<br/><i>Phase 2</i>"]
+
     tenant & tech & fm --> ui
     ui -- "Connect / gRPC-Web<br/>protobuf" --> api
     api --> db
+    api -- "events (outbox)" --> sb
+    sb --> worker
+    worker --> db
+    worker --> foundry & search
     api -- "tokens, app roles" --> entra
     api --> lang & cs & foundry & search
     api -. "OpenTelemetry" .-> appi
@@ -145,18 +152,22 @@ Code and people decide.
 
 ```mermaid
 flowchart TB
-    req["Request<br/>text · photo · voice"] --> norm["Normalize to text<br/>photo: caption + OCR<br/>voice: speech-to-text"]
-    norm --> e{"Emergency<br/>screen"}
+    req["Request<br/>text · photo · voice · document"] --> e0{"Emergency screen<br/>typed text"}
+    e0 -- "signal" --> oncall
+    e0 -- "no signal" --> fc{"File checks<br/>bytes match type · size ·<br/>pages · not encrypted"}
+    fc -- "fails" --> hr
+    fc -- "ok" --> norm["Read the file · check the picture<br/>photo: Vision caption + OCR<br/>document: Document Intelligence<br/>voice: Speech<br/>images: Content Safety"]
+    norm --> e{"Emergency screen<br/>all text"}
     e -- "gas · fire · flood · CO · electrical" --> oncall["On-call human<br/>AI never involved"]
     e -- "no signal" --> t1
 
     subgraph t1["Tier 1 · deterministic intake workflow"]
         direction LR
-        pii["PII redaction"] --> safe["Content Safety<br/>+ Prompt Shields"] --> cls["Classifier agent<br/>no tools"]
+        pii["PII redaction<br/>user text + attachment"] --> safe["Content Safety<br/>+ Prompt Shields<br/>attachment as document"] --> cls["Classifier agent<br/>no tools"]
     end
 
     t1 --> route{"Routing rules<br/>in code"}
-    route -- "unsure / service failure" --> hr["Human-review queue"]
+    route -- "unsure / service failure /<br/>flagged image or attachment" --> hr["Human-review queue"]
     route -- "routine" --> wo["Work order"]
     route -- "priority ≥ 4" --> appr["Work order<br/>pending approval"]
     route -- "meets escalation criteria" --> t2
@@ -184,9 +195,12 @@ flowchart TB
 
 ## 4. Tier 1: intake workflow
 
-Implemented in [`workflow.py`](../backend/app/domain/workflow.py). The order of steps is a safety property:
-the emergency screen runs first, on raw text and with no network calls, so neither an Azure outage nor a prompt
-injection can delay an emergency.
+Implemented in [`workflow.py`](../backend/app/domain/workflow.py) and [`media.py`](../backend/app/domain/media.py).
+The order of steps is a safety property: the emergency screen runs first, on raw text and with no network calls, so
+neither an Azure outage nor a prompt injection can delay an emergency. Uploaded files are checked by their bytes
+(never trusting the declared type) before any service sees them; text from a photo or scan is then screened for
+emergencies in full, and passed to Prompt Shields as a *document*, so an instruction hidden in a scan is caught as an
+indirect attack rather than mistaken for the tenant's own words.
 
 ```mermaid
 sequenceDiagram
@@ -196,6 +210,7 @@ sequenceDiagram
     participant R as Repository
     participant C as IntakeCoordinator
     participant E as Emergency screen
+    participant X as Vision / Document<br/>Intelligence / Speech
     participant L as AI Language
     participant S as Content Safety
     participant A as Classifier agent
@@ -213,9 +228,18 @@ sequenceDiagram
         C->>R: on-call handoff + audit
         C-->>T: emergency_handoff
     else no signal
-        C->>L: redact
+        opt photo, document or voice
+            C->>C: file checks (signature, size, pages, encryption)
+            par extract text
+                C->>X: caption + OCR / read pages / transcribe
+            and check the picture (images only)
+                C->>S: analyze image
+            end
+            C->>E: detect_emergency(all extracted text)
+        end
+        C->>L: redact user text + attachment (one mapping)
         L-->>C: redacted text + encrypted mapping
-        C->>S: analyze text + shield prompt
+        C->>S: analyze text + shield prompt (attachment as document)
         C->>A: classify(redacted text)
         A-->>C: Classification (schema-validated)
         opt confidence 0.70-0.80 (borderline)
@@ -226,13 +250,15 @@ sequenceDiagram
         C->>R: work order or review case + audit
         C-->>T: status, category, priority
     end
-    Note over C,A: Any exception at L, S or A sends the request to human review (fail closed)
+    Note over C,A: Any exception at X, L, S or A, a failed file check or a flagged image sends<br/>the request to human review (fail closed). An emergency always wins over a flagged image.
 ```
 
 ## 5. Tier 2: Magentic incident team
 
-*Phase 2.* Built with `MagenticBuilder` from `agent-framework-orchestrations` (not installed yet). The manager is a
-`StandardMagenticManager` on a larger model; specialists run on smaller models.
+*Phase 2.* Built with `MagenticBuilder` from `agent_framework.orchestrations` (package
+`agent-framework-orchestrations`, not installed yet). The manager is a `StandardMagenticManager` on a larger model.
+Specialists are **harness agents** (`create_harness_agent`) on smaller models, configured by one FacilityOps
+harness profile (§5.4). Runs happen in an **incident worker**, triggered by events, never inside an RPC (§5.5).
 
 ### 5.1 Team and tools
 
@@ -250,11 +276,13 @@ flowchart LR
 
     mgr --> diag & hist & safe & proc & sched & comm
 
-    diag -- "search_manuals" --> ais[("AI Search<br/>synthetic manuals")]
+    diag -- "search_manuals" --> shield["Prompt Shields<br/>document check"]
+    safe -- "get_safety_procedure" --> shield
+    shield --> ais[("Foundry IQ knowledge base<br/>AI Search · synthetic manuals,<br/>procedures, contracts")]
     hist -- "get_asset<br/>get_maintenance_history" --> pg[("PostgreSQL")]
     proc -- "find_parts<br/>get_vendor_terms" --> pg
     sched -- "find_available_technicians" --> pg
-    safe -- "get_safety_procedure<br/>check_permit_requirements" --> pol[("Policy library")]
+    safe -- "check_permit_requirements" --> pg
 
     mgr ==> out["Incident plan<br/>claims + citations"]
 ```
@@ -317,6 +345,89 @@ stateDiagram-v2
 ```
 
 Runs are checkpointed (`checkpoint_storage`), so a run waiting on a person survives a restart.
+
+### 5.4 Inside a specialist: the harness profile
+
+Each specialist is a harness agent with most of the harness switched off. What stays on makes a small agent
+reliable; what goes off would let it plan on its own, remember, browse or act. Full table in
+[spec §5.3](specification.md#53-agent-runtime-the-harness-profile).
+
+```mermaid
+flowchart LR
+    instr["Instruction<br/>from the manager"] --> loop
+
+    subgraph harness["create_harness_agent · FacilityOps profile"]
+        direction TB
+        loop["Tool-calling loop<br/>loop_max_iterations = 5"]
+        comp["Compaction<br/>context window per model"]
+        hist["History provider<br/>PostgreSQL, run-scoped"]
+        skills["Skills<br/>loaded on demand"]
+        mw["Middleware<br/>monitoring · token budget"]
+        loop --- comp & hist & skills & mw
+    end
+
+    subgraph off["Switched off"]
+        direction TB
+        o1["todo · plan modes<br/><i>manager plans</i>"]
+        o2["file memory<br/><i>no state outside the run</i>"]
+        o3["web search<br/><i>synthetic sources only</i>"]
+        o4["tool auto-approval<br/><i>approvals are app code</i>"]
+        o5["shell · file access ·<br/>background agents"]
+    end
+
+    loop -- "read-only tools" --> tools["Tools + knowledge"]
+    loop --> finding["Finding<br/>claims · citations · confidence"]
+    harness ~~~ off
+```
+
+The three ways a specialist gets what it needs are kept apart. **Knowledge** is documents (manuals, procedures,
+contracts) in a knowledge base on Azure AI Search, reached only through tools, so every retrieval is budgeted,
+screened by Prompt Shields for injected instructions and cited. **Tools** are read-only functions over FacilityOps
+data. **Skills** are procedures (how to cite, how to judge a repeat failure) loaded only when relevant.
+
+### 5.5 Events and topics
+
+Agents *inside* a run talk through Magentic's workflow edges. Agent Framework has no topics. **Topics connect the
+application to runs**: a decision is committed with its event (transactional outbox), and a worker subscribed to the
+topic starts or resumes the run. A run that waits hours for a manager holds no request open and no process.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant API as RPC handler
+    participant DB as PostgreSQL<br/>state + outbox_events
+    participant D as Dispatcher
+    participant T as Topic<br/>facilityops-events
+    participant W as Incident worker
+    participant MG as Magentic run
+    actor FM as Facility manager
+
+    API->>DB: escalate request + outbox: intake.escalated (one transaction)
+    D->>DB: claim unsent events (SKIP LOCKED)
+    D->>T: publish (ids only)
+    T->>W: intake.escalated
+    W->>W: already handled? skip (idempotent)
+    W->>MG: run with budgets
+    MG-->>W: plan, or stop on budget / error
+    W->>DB: incident plan + outbox: incident.plan_ready
+    FM->>API: DecideIncidentPlan(approve / revise / reject)
+    API->>DB: decision + outbox: incident.plan_decided
+    T->>W: incident.plan_decided
+    alt revise
+        W->>MG: resume from checkpoint with feedback
+    else approve
+        W->>W: application executes actions (not an agent)
+    end
+    Note over T,W: 3 failed deliveries → dead letter → human review
+```
+
+| | Local and tests | Azure (Phase 3) |
+|---|---|---|
+| Bus | PostgreSQL outbox, polled with `SKIP LOCKED` | Azure Service Bus topic `facilityops-events`, one subscription per consumer, filtered by event type |
+| Worker | `python -m backend.app.worker`, or a Compose service | Container App scaled on subscription length |
+| Auth | Database connection | Managed identity, no connection strings |
+
+Both transports implement one `EventBus` port, so the domain code and the scenario tests don't know which is used.
 
 ## 6. Human oversight
 
@@ -382,6 +493,8 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
     raw["Raw request<br/>may contain PII"] --> screen["Emergency screen<br/>local, in process"]
+    media["Photo · scan · voice<br/>in memory, never stored"] --> extract["Vision · Document Intelligence ·<br/>Speech · image safety"]
+    extract --> raw
     raw --> lang["AI Language<br/>service logs disabled"]
     lang --> red["Redacted text"]
     lang --> map["PII mapping<br/>Fernet-encrypted"]
@@ -528,6 +641,25 @@ flowchart LR
 The same middleware applies unchanged to the Phase 2 specialists, which gives per-specialist cost and latency
 without new code.
 
+**Phase 2: incident evaluation harness.** A Magentic run can't be judged by one label, so incidents are replayed as
+scenarios against a fixture world (synthetic assets, history, parts, technicians, manual passages). Tools are fakes
+that serve the fixtures, record each call and inject faults. Details and targets:
+[spec §10.1](specification.md#101-phase-2-incident-evaluation-harness).
+
+```mermaid
+flowchart LR
+    sc[("evals/incidents/<br/>scenarios + fixture world")] --> h["Scenario harness"]
+    h --> mode{"Mode"}
+    mode -- "scripted chat client<br/>every PR, free" --> run1["Incident run<br/>fake tools · fault injection"]
+    mode -- "real models<br/>manual / nightly" --> run2["Incident run<br/>fake tools · fault injection"]
+    run1 --> g1["Hard gates<br/>no side effects before approval<br/>budgets respected<br/>no emergency in team"]
+    run2 --> g2["Foundry evaluators + custom<br/>groundedness · tool-call accuracy<br/>safety-block recall · cost"]
+    g2 --> er[("evaluation_runs")]
+```
+
+Scripted mode tests the machinery (budgets, events, gates, checkpoint resume) deterministically; live mode tests
+model quality.
+
 **OpenTelemetry** complements these tables: tables answer aggregate questions for the admin console, while traces
 in Application Insights debug a single request end to end. `configure_telemetry` turns on the Azure Monitor
 distro (RPC spans, Azure service calls), one span per intake step (`intake.pii_redaction`,
@@ -614,10 +746,16 @@ being routed to on-call.
 | Fail closed to human review | Degraded service never means less protection | More manual work during outages |
 | Magentic only for escalated incidents | Dynamic planning is costly; most requests don't need it | Two orchestration styles to maintain |
 | Read-only specialists; the application executes | Agent output is never authorization | Extra approval step before action |
-| Modular monolith | One team, transactional consistency, simple ops | Scale the whole app together; Tier 2 can move to a worker later |
+| Modular monolith | One team, transactional consistency, simple ops | Scale the whole app together; the incident worker is a second process from the same codebase |
+| Check uploads by their bytes; attachment text is a Prompt Shields *document* | The declared type is client-chosen; text inside a scan is third-party content, the classic route for indirect injection | A legitimate file in an odd container lands in human review |
+| Flagged image goes to a person, never dismissed | A burst pipe or an injury photo can score high on "violence"; dropping it could hide a real problem | Reviewers see the redacted text and reason, not the picture (media is never stored) |
 | Encrypted PII mapping beside redacted text | Operational details recoverable without exposing PII to models or analytics | Key management; reveal endpoint must be audited |
 | Entra ID everywhere, no keys | No secrets to leak or rotate in code | Local dev needs `az login` |
 | Entra authenticates, the database authorizes | Admins manage roles in-app with an audit trail; fine-grained permissions | App owns role data; first admin needs a CLI bootstrap |
 | Connect RPC over protobuf instead of REST | One typed contract generates server stubs and browser clients; gRPC-Web without a proxy; `buf breaking` protects clients | Not browsable like Swagger (use `buf curl`); Python Connect library is still Beta; native gRPC needs an HTTP/2 server |
 | Confirm borderline classifications by agreement | Model confidence clusters on a few values; a single threshold flipped identical requests between automation and review. Agreement automates more (89% vs 74%) at the same accuracy | About 1.7 classifier calls per request instead of 1 |
 | Agent monitoring as framework middleware in PostgreSQL | One hook covers every agent; reports join with eval runs and intake | Not a replacement for distributed tracing |
+| Specialists on Agent Framework's harness, most features off | Reuse a maintained tool loop, compaction and history instead of writing them; switching off memory, web search, planning and auto-approval keeps least privilege | Profile must be re-checked when the harness adds default-on features |
+| Foundry IQ knowledge base, only through our tools | Managed agentic retrieval with citations, on the existing serverless search service; our wrapper gives retrieval the same budget, injection screening and audit as any tool call | Agents don't use the knowledge base's MCP endpoint directly; serverless tier may still be in preview |
+| Events with a transactional outbox; topics only between runs | Long runs and human waits leave the request path; no lost or phantom events; same code on PostgreSQL locally and Service Bus in Azure | At-least-once delivery means every consumer must be idempotent |
+| Scenario harness with a scripted model in CI | Orchestration guarantees are tested on every PR, deterministically and at no model cost | Scripted runs say nothing about model quality; live runs still needed |

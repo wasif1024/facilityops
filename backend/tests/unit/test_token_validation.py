@@ -23,6 +23,7 @@ KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 SETTINGS = Settings(
+    _env_file=None,
     app_env="test",
     entra_tenant_id=STAFF_TENANT,
     entra_api_audience=STAFF_API,
@@ -146,7 +147,10 @@ def test_discovery_documents_are_cached():
 
 
 def test_only_configured_directories_are_trusted():
-    staff_only = Settings(app_env="test", entra_tenant_id=STAFF_TENANT, entra_api_audience=STAFF_API)
+    # _env_file=None: the developer's .env must not add directories to these tests.
+    staff_only = Settings(
+        _env_file=None, app_env="test", entra_tenant_id=STAFF_TENANT, entra_api_audience=STAFF_API
+    )
 
     assert [d.provider for d in trusted_directories(staff_only)] == [IdentityProvider.ENTRA]
-    assert trusted_directories(Settings(app_env="test")) == []
+    assert trusted_directories(Settings(_env_file=None, app_env="test")) == []

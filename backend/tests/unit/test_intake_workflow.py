@@ -16,23 +16,48 @@ class FakePiiRedactor:
     def __init__(self, redacted_text: str = "[PERSON] reported a leaking sink") -> None:
         self.redacted_text = redacted_text
         self.calls: list[str] = []
+        self.attachments: list[str] = []
 
-    async def redact(self, text: str, language: str = "en") -> PiiRedaction:
+    async def redact(self, text: str, language: str = "en", *, attachment: str = "") -> PiiRedaction:
         self.calls.append(text)
+        self.attachments.append(attachment)
+        if not attachment:
+            return PiiRedaction(
+                redacted_text=self.redacted_text,
+                encrypted_mapping=b"encrypted-synthetic-mapping",
+            )
         return PiiRedaction(
-            redacted_text=self.redacted_text,
+            redacted_text="\n".join(part for part in (text, attachment) if part),
             encrypted_mapping=b"encrypted-synthetic-mapping",
+            redacted_user_text=text,
+            redacted_attachment=attachment,
         )
 
 
 class FakeSafetyInspector:
-    def __init__(self, reason: str | None = None) -> None:
+    def __init__(
+        self,
+        reason: str | None = None,
+        image_reason: str | None = None,
+        image_error: Exception | None = None,
+    ) -> None:
         self.reason = reason
+        self.image_reason = image_reason
+        self.image_error = image_error
         self.calls: list[str] = []
+        self.documents: list[list[str]] = []
+        self.images: list[bytes] = []
 
-    async def assess(self, redacted_text: str) -> str | None:
+    async def assess(self, redacted_text: str, *, documents=()) -> str | None:
         self.calls.append(redacted_text)
+        self.documents.append(list(documents))
         return self.reason
+
+    async def assess_image(self, image: bytes) -> str | None:
+        self.images.append(image)
+        if self.image_error:
+            raise self.image_error
+        return self.image_reason
 
 
 class FakeClassifier:

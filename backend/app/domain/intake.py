@@ -11,6 +11,8 @@ class RequestSource(StrEnum):
     TEXT = "text"
     PHOTO = "photo"
     VOICE = "voice"
+    # A scanned letter, form or notice: PDF, multi-page TIFF, or a phone scan (JPEG/PNG).
+    DOCUMENT = "document"
 
 
 class IntakeStatus(StrEnum):
@@ -36,6 +38,16 @@ MAX_MEDIA_BYTES = 8 * 1024 * 1024
 PHOTO_MEDIA_TYPES = frozenset(
     {"image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff"}
 )
+DOCUMENT_MEDIA_TYPES = frozenset({"application/pdf", "image/tiff", "image/jpeg", "image/png"})
+# Only the first pages of a document are read; maintenance requests are short.
+MAX_DOCUMENT_PAGES = 5
+# Text taken from a photo or document is capped before redaction (Azure AI Language reads
+# up to 5,120 characters per document). The emergency screen sees the full text first.
+MAX_ATTACHMENT_CHARS = 5_000
+# Stored redacted text (intake_requests.redacted_description is varchar(10000)). Placeholders
+# such as [PII_0001] can be longer than the value they replace, hence the headroom.
+MAX_STORED_TEXT_CHARS = 10_000
+ATTACHMENT_HEADROOM_CHARS = 500
 VOICE_MEDIA_TYPES = frozenset(
     {
         "audio/wav",
@@ -50,8 +62,15 @@ VOICE_MEDIA_TYPES = frozenset(
 )
 
 
+MEDIA_TYPES_BY_SOURCE = {
+    RequestSource.PHOTO: PHOTO_MEDIA_TYPES,
+    RequestSource.VOICE: VOICE_MEDIA_TYPES,
+    RequestSource.DOCUMENT: DOCUMENT_MEDIA_TYPES,
+}
+
+
 class IntakeCommand(BaseModel):
-    """A request as submitted. For photo and voice, ``text`` is an optional caption.
+    """A request as submitted. For photo, voice and document, ``text`` is an optional caption.
 
     Raw media is held only in memory for transcription and is never stored.
     """
@@ -74,7 +93,7 @@ class IntakeCommand(BaseModel):
             if not self.text.strip():
                 raise ValueError("text is required")
             return self
-        allowed = PHOTO_MEDIA_TYPES if self.source is RequestSource.PHOTO else VOICE_MEDIA_TYPES
+        allowed = MEDIA_TYPES_BY_SOURCE[self.source]
         if not self.media:
             raise ValueError(f"{self.source.value} requests need media")
         if self.media_type not in allowed:
@@ -93,8 +112,13 @@ class Classification(BaseModel):
 
 
 class PiiRedaction(BaseModel):
-    redacted_text: str = Field(min_length=1, max_length=10_000)
+    # What is stored and classified: the tenant's words, then any attachment text.
+    redacted_text: str = Field(min_length=1, max_length=MAX_STORED_TEXT_CHARS)
     encrypted_mapping: bytes
+    # The same two parts separately, set when an attachment was redacted. Prompt Shields
+    # checks the tenant's words as a user prompt and attachment text as a document.
+    redacted_user_text: str = ""
+    redacted_attachment: str = ""
 
 
 class IntakeResult(BaseModel):

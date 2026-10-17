@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 from cryptography.fernet import Fernet
 
 from backend.app.core.config import Settings
-from backend.app.domain.intake import Classification, PiiRedaction, RequestSource
+from backend.app.domain.intake import (
+    MAX_DOCUMENT_PAGES,
+    Classification,
+    PiiRedaction,
+    RequestSource,
+)
 from backend.app.services.agent_monitoring import (
     AgentMonitoringMiddleware,
     AgentRunRecorder,
@@ -19,7 +26,9 @@ class AzureLanguagePiiRedactor:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def redact(self, text: str, language: str = "en") -> PiiRedaction:
+    async def redact(
+        self, text: str, language: str = "en", *, attachment: str = ""
+    ) -> PiiRedaction:
         if not self._settings.azure_language_endpoint:
             raise RuntimeError("AZURE_LANGUAGE_ENDPOINT is not configured")
         if not self._settings.pii_mapping_encryption_key:
@@ -28,59 +37,79 @@ class AzureLanguagePiiRedactor:
         from azure.ai.textanalytics.aio import TextAnalyticsClient
         from azure.identity.aio import DefaultAzureCredential
 
+        # The tenant's words and the attachment text are separate documents in one call, so
+        # each can be checked on its own later, under one placeholder numbering.
+        parts = [part for part in (text, attachment) if part]
+        if not parts:
+            raise ValueError("Nothing to redact")
         async with DefaultAzureCredential() as credential:
             async with TextAnalyticsClient(
                 endpoint=self._settings.azure_language_endpoint,
                 credential=credential,
             ) as client:
                 results = await client.recognize_pii_entities(
-                    [text],
+                    parts,
                     language=language,
                     disable_service_logs=True,
                 )
 
-        if not results or getattr(results[0], "is_error", False):
+        if len(results) != len(parts) or any(getattr(r, "is_error", False) for r in results):
             raise RuntimeError("Azure AI Language could not redact the request")
 
-        entities = sorted(results[0].entities, key=lambda entity: entity.offset)
-        redacted_text = text
         mapping: dict[str, str] = {}
-        last_start = len(text)
-        for index, entity in reversed(list(enumerate(entities, start=1))):
-            start = entity.offset
-            end = start + entity.length
-            if end > last_start or start < 0 or end > len(text):
-                raise RuntimeError(
-                    "Azure AI Language returned overlapping or invalid PII offsets"
-                )
-            placeholder = f"[PII_{index:04d}]"
-            redacted_text = redacted_text[:start] + placeholder + redacted_text[end:]
-            mapping[placeholder] = entity.text
-            last_start = start
+        redacted_parts = [
+            _replace_entities(part, result.entities, mapping)
+            for part, result in zip(parts, results, strict=True)
+        ]
+        redacted_user = redacted_parts[0] if text else ""
+        redacted_attachment = redacted_parts[-1] if attachment else ""
 
         fernet = Fernet(self._settings.pii_mapping_encryption_key.encode("ascii"))
         encrypted_mapping = fernet.encrypt(
             json.dumps(mapping, ensure_ascii=True).encode("utf-8")
         )
         return PiiRedaction(
-            redacted_text=redacted_text,
+            redacted_text="\n".join(redacted_parts),
             encrypted_mapping=encrypted_mapping,
+            redacted_user_text=redacted_user,
+            redacted_attachment=redacted_attachment,
         )
+
+
+def _replace_entities(text: str, entities: Any, mapping: dict[str, str]) -> str:
+    """Replace each entity with the next [PII_nnnn] placeholder, numbering on from ``mapping``."""
+    ordered = sorted(entities, key=lambda entity: entity.offset)
+    first = len(mapping) + 1
+    redacted = text
+    last_start = len(text)
+    for index, entity in reversed(list(enumerate(ordered, start=first))):
+        start = entity.offset
+        end = start + entity.length
+        if end > last_start or start < 0 or end > len(text):
+            raise RuntimeError("Azure AI Language returned overlapping or invalid PII offsets")
+        placeholder = f"[PII_{index:04d}]"
+        redacted = redacted[:start] + placeholder + redacted[end:]
+        mapping[placeholder] = entity.text
+        last_start = start
+    return redacted
 
 
 _COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
 
 
 class AzureMediaTranscriber:
-    """Turns photos and voice notes into text with Azure AI Vision and Speech.
+    """Turns photos, documents and voice notes into text with Azure AI services.
 
-    Photos: Image Analysis 4.0 caption (gender-neutral) plus OCR. Voice: Speech fast
+    Photos: Vision Image Analysis 4.0 caption (gender-neutral) plus OCR. Documents:
+    Document Intelligence ``prebuilt-read`` on the first pages. Voice: Speech fast
     transcription. Media goes only to these services, never to a language model, and
     is not stored; the resulting text then goes through PII redaction like typed text.
     """
 
     _VISION_API_VERSION = "2024-02-01"
     _SPEECH_API_VERSION = "2024-11-15"
+    _DOCUMENT_API_VERSION = "2024-11-30"
+    _DOCUMENT_TIMEOUT_SECONDS = 60
     _MIN_CAPTION_CONFIDENCE = 0.5
     _LOCALES = {"en": "en-US", "es": "es-ES", "fr": "fr-FR"}
 
@@ -99,6 +128,8 @@ class AzureMediaTranscriber:
             return await self._describe_photo(media)
         if source is RequestSource.VOICE:
             return await self._transcribe_voice(media, media_type, language)
+        if source is RequestSource.DOCUMENT:
+            return await self._read_document(media, media_type, language)
         raise ValueError(f"No transcription for source {source}")
 
     async def _token(self) -> str:
@@ -142,6 +173,42 @@ class AzureMediaTranscriber:
             parts.append("Text in photo: " + " ".join(lines))
         return " ".join(parts)
 
+    async def _read_document(self, media: bytes, media_type: str, language: str | None) -> str:
+        """Document Intelligence read model: submit, then poll the operation until it ends."""
+        if not self._settings.document_intelligence_endpoint:
+            raise RuntimeError("DOCUMENT_INTELLIGENCE_ENDPOINT is not configured")
+        import asyncio
+        import time
+
+        import httpx
+
+        params = {"api-version": self._DOCUMENT_API_VERSION, "pages": f"1-{MAX_DOCUMENT_PAGES}"}
+        if language:
+            params["locale"] = language
+        headers = {"Authorization": f"Bearer {await self._token()}"}
+        deadline = time.monotonic() + self._DOCUMENT_TIMEOUT_SECONDS
+        async with httpx.AsyncClient(timeout=30) as client:
+            submitted = await client.post(
+                f"{self._settings.document_intelligence_endpoint.rstrip('/')}"
+                "/documentintelligence/documentModels/prebuilt-read:analyze",
+                params=params,
+                headers={**headers, "Content-Type": media_type},
+                content=media,
+            )
+            submitted.raise_for_status()
+            operation = submitted.headers["Operation-Location"]
+            while True:
+                await asyncio.sleep(_retry_after(submitted, default=1.0))
+                submitted = await client.get(operation, headers=headers)
+                submitted.raise_for_status()
+                result = submitted.json()
+                if result.get("status") == "succeeded":
+                    return (result.get("analyzeResult") or {}).get("content", "")
+                if result.get("status") == "failed":
+                    raise RuntimeError("Document Intelligence could not read the document")
+                if time.monotonic() > deadline:
+                    raise TimeoutError("Document Intelligence did not finish in time")
+
     async def _transcribe_voice(self, media: bytes, media_type: str, language: str | None) -> str:
         if not self._settings.speech_endpoint:
             raise RuntimeError("SPEECH_ENDPOINT is not configured")
@@ -165,49 +232,57 @@ class AzureMediaTranscriber:
 
 
 class AzureContentSafetyInspector:
-    """Azure AI Content Safety: harm categories plus Prompt Shields (jailbreak detection).
+    """Azure AI Content Safety: harm categories for text and images, plus Prompt Shields.
 
-    The 1.0 SDK has no Prompt Shields method, so that call goes through the SDK's
-    authenticated ``send_request`` to the GA REST API.
+    Prompt Shields checks the tenant's words as a user prompt (jailbreaks) and text taken
+    from photos and documents as documents (instructions hidden in an attachment). The 1.0
+    SDK has no Prompt Shields method, so that call goes through the SDK's authenticated
+    ``send_request`` to the GA REST API.
     """
 
     _SHIELD_API_VERSION = "2024-09-01"
     _BLOCKING_SEVERITY = 4
+    # Image analysis limits: 4 MB and 7,200 pixels per side. Larger images are downscaled
+    # for the check only; supported formats are sent as they are.
+    _IMAGE_MAX_BYTES = 4 * 1024 * 1024
+    _IMAGE_MAX_SIDE = 7_200
+    _IMAGE_FORMATS = {"JPEG", "PNG", "GIF", "BMP", "TIFF", "WEBP"}
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def assess(self, redacted_text: str) -> str | None:
+    async def assess(self, redacted_text: str, *, documents: Sequence[str] = ()) -> str | None:
         """Return None when the text is safe, otherwise a reason code."""
-        if not self._settings.content_safety_endpoint:
-            raise RuntimeError("CONTENT_SAFETY_ENDPOINT is not configured")
-
-        from azure.ai.contentsafety.aio import ContentSafetyClient
         from azure.ai.contentsafety.models import AnalyzeTextOptions
         from azure.core.rest import HttpRequest
-        from azure.identity.aio import DefaultAzureCredential
 
-        async with DefaultAzureCredential() as credential:
-            async with ContentSafetyClient(
-                self._settings.content_safety_endpoint, credential
-            ) as client:
-                text_result = await client.analyze_text(AnalyzeTextOptions(text=redacted_text))
-                shield_response = await client.send_request(
-                    HttpRequest(
-                        "POST",
-                        "/text:shieldPrompt",
-                        params={"api-version": self._SHIELD_API_VERSION},
-                        json={"userPrompt": redacted_text, "documents": []},
-                    )
+        documents = [document for document in documents if document]
+        async with self._client() as client:
+            text_result = await client.analyze_text(
+                AnalyzeTextOptions(text="\n".join([redacted_text, *documents]).strip())
+            )
+            shield_response = await client.send_request(
+                HttpRequest(
+                    "POST",
+                    "/text:shieldPrompt",
+                    params={"api-version": self._SHIELD_API_VERSION},
+                    json={"userPrompt": redacted_text, "documents": documents},
                 )
-                shield_response.raise_for_status()
-                shield: dict[str, Any] = shield_response.json()
+            )
+            shield_response.raise_for_status()
+            shield: dict[str, Any] = shield_response.json()
 
-        attack = (shield.get("userPromptAnalysis") or {}).get("attackDetected")
-        if attack is None:
-            raise RuntimeError("Prompt Shields result is missing attack status")
-        if attack:
-            return "prompt_attack_detected"
+        if redacted_text:
+            attack = (shield.get("userPromptAnalysis") or {}).get("attackDetected")
+            if attack is None:
+                raise RuntimeError("Prompt Shields result is missing attack status")
+            if attack:
+                return "prompt_attack_detected"
+        document_results = shield.get("documentsAnalysis") or []
+        if len(document_results) != len(documents):
+            raise RuntimeError("Prompt Shields result is missing document analysis")
+        if any(result.get("attackDetected") for result in document_results):
+            return "document_attack_detected"
 
         if text_result is None:
             raise RuntimeError("Azure AI Content Safety returned an empty result")
@@ -215,6 +290,56 @@ class AzureContentSafetyInspector:
             if (category.severity or 0) >= self._BLOCKING_SEVERITY:
                 return f"harmful_content_{str(category.category).lower()}"[:64]
         return None
+
+    async def assess_image(self, image: bytes) -> str | None:
+        """Return None when the image is safe, otherwise "harmful_image_<category>"."""
+        from azure.ai.contentsafety.models import AnalyzeImageOptions, ImageData
+
+        async with self._client() as client:
+            result = await client.analyze_image(
+                AnalyzeImageOptions(image=ImageData(content=self._fit_image(image)))
+            )
+        if result is None or not result.categories_analysis:
+            raise RuntimeError("Azure AI Content Safety returned an empty image result")
+        for category in result.categories_analysis:
+            if (category.severity or 0) >= self._BLOCKING_SEVERITY:
+                return f"harmful_image_{str(category.category).lower()}"[:64]
+        return None
+
+    @asynccontextmanager
+    async def _client(self) -> AsyncIterator[Any]:
+        if not self._settings.content_safety_endpoint:
+            raise RuntimeError("CONTENT_SAFETY_ENDPOINT is not configured")
+        from azure.ai.contentsafety.aio import ContentSafetyClient
+        from azure.identity.aio import DefaultAzureCredential
+
+        async with DefaultAzureCredential() as credential:
+            async with ContentSafetyClient(
+                self._settings.content_safety_endpoint, credential
+            ) as client:
+                yield client
+
+    @classmethod
+    def _fit_image(cls, image: bytes) -> bytes:
+        """The image as the service accepts it: within its size limits, first frame only."""
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image)) as picture:
+            fits = (
+                len(image) <= cls._IMAGE_MAX_BYTES
+                and max(picture.size) <= cls._IMAGE_MAX_SIDE
+                and picture.format in cls._IMAGE_FORMATS
+            )
+            if fits:
+                return image
+            picture.seek(0)
+            frame = picture.convert("RGB")
+        frame.thumbnail((2048, 2048))
+        output = io.BytesIO()
+        frame.save(output, "JPEG", quality=85)
+        return output.getvalue()
 
 
 class FoundryMaintenanceClassifier:
@@ -280,3 +405,12 @@ class FoundryMaintenanceClassifier:
                 ),
             )
         return self._cached_agent
+
+
+def _retry_after(response: Any, default: float) -> float:
+    """Seconds to wait before polling again, from Retry-After, bounded to 0.5-5 s."""
+    try:
+        seconds = float(response.headers.get("Retry-After", default))
+    except ValueError:
+        seconds = default
+    return min(max(seconds, 0.5), 5.0)

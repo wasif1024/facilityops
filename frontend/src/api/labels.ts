@@ -40,6 +40,7 @@ export const sourceLabels: Record<RequestSource, string> = {
   [RequestSource.TEXT]: "Text",
   [RequestSource.PHOTO]: "Photo",
   [RequestSource.VOICE]: "Voice note",
+  [RequestSource.DOCUMENT]: "Document",
 }
 
 /** Intake status, worded differently for the tenant who reported it and for staff. */
@@ -115,8 +116,16 @@ const reasonCodeLabels: Record<string, string> = {
   pii_redaction_empty_result: "Nothing left after redaction",
   content_safety_unavailable: "Content Safety unavailable",
   prompt_attack_detected: "Blocked by Prompt Shields",
-  media_transcription_unavailable: "Photo or voice couldn't be processed",
-  media_unreadable: "Nothing readable in the photo or recording",
+  document_attack_detected: "Hidden instructions found in the attachment",
+  image_safety_unavailable: "Image safety check unavailable",
+  media_transcription_unavailable: "Photo, document or voice couldn't be processed",
+  media_unreadable: "Nothing readable in the attachment",
+  media_type_mismatch: "File isn't the type it claims to be",
+  media_corrupt: "File is damaged",
+  image_too_small: "Image too small to see anything",
+  image_too_large: "Image too large",
+  document_encrypted: "Document is password-protected",
+  document_too_many_pages: "Document has too many pages",
   work_order_creation_failed: "Work order couldn't be created",
   emergency_gas: "Emergency: gas",
   emergency_carbon_monoxide: "Emergency: carbon monoxide",
@@ -127,6 +136,7 @@ const reasonCodeLabels: Record<string, string> = {
 
 export function reasonLabel(code: string): string {
   if (code.startsWith("harmful_content_")) return `Blocked by Content Safety (${humanize(code.slice(16))})`
+  if (code.startsWith("harmful_image_")) return `Image flagged by Content Safety (${humanize(code.slice(14))})`
   return reasonCodeLabels[code] ?? humanize(code)
 }
 

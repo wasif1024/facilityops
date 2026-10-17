@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Database migration helper for FacilityOps AI. Wraps Alembic with safe defaults.
 #
-# Usage: scripts/db.sh <command> [args]     (run from anywhere)
+# Usage: scripts/db.sh [command] [args]     (run from anywhere)
 #
+#   (no command)        Set up or update: create the database if needed, then apply all migrations
 #   create              Create the database in DATABASE_URL if it does not exist
 #   up [target]         Apply migrations (default: all, "head")
 #   down [steps|rev]    Roll back (default: 1 step; "base" removes everything, asks first)
@@ -12,6 +13,7 @@
 #   check               Fail if the models and migrations disagree
 #   reset               Roll back everything and re-apply (DESTROYS ALL DATA, asks first)
 #   sql [range]         Print the SQL instead of running it (default: "base:head")
+#   help                Show this summary
 #
 # DATABASE_URL comes from the environment or .env. Destructive commands refuse to run
 # when APP_ENV=production. Pass --yes to skip confirmation prompts (for scripts and CI).
@@ -180,10 +182,11 @@ cmd_sql() {
   "$ALEMBIC" upgrade "${1:-base:head}" --sql
 }
 
-command="${1:-help}"
+command="${1:-}"
 [ $# -gt 0 ] && shift
 
 case "$command" in
+  "") cmd_create && cmd_up ;;
   create) cmd_create ;;
   up) cmd_up "$@" ;;
   down) cmd_down "$@" ;;

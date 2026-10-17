@@ -3,7 +3,7 @@ import { createConnectQueryKey } from "@connectrpc/connect-query"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Link } from "react-router"
-import { Camera, CheckCircle2, Clock, FileText, Loader2, Mic, Siren, Trash2, UserRoundCheck } from "lucide-react"
+import { Camera, CheckCircle2, Clock, FileText, Loader2, Mic, ScanText, Siren, Trash2, UserRoundCheck } from "lucide-react"
 
 import { describeError } from "@/api/errors"
 import { categoryLabels } from "@/api/labels"
@@ -24,10 +24,24 @@ import {
   IntakeStatus,
   RequestSource,
 } from "@/gen/facilityops/v1/intake_pb"
-import { MAX_MEDIA_BYTES, type PreparedMedia, formatBytes, preparePhoto } from "@/lib/media"
+import {
+  DOCUMENT_TYPES,
+  MAX_DOCUMENT_PAGES,
+  MAX_MEDIA_BYTES,
+  type PreparedMedia,
+  formatBytes,
+  prepareDocument,
+  preparePhoto,
+} from "@/lib/media"
 
 const MAX_TEXT = 10_000
-type Mode = "text" | "photo" | "voice"
+type Mode = "text" | "photo" | "voice" | "document"
+const SOURCES: Record<Mode, RequestSource> = {
+  text: RequestSource.TEXT,
+  photo: RequestSource.PHOTO,
+  voice: RequestSource.VOICE,
+  document: RequestSource.DOCUMENT,
+}
 const LANGUAGES = [
   { value: "en", label: "English" },
   { value: "es", label: "Español" },
@@ -40,7 +54,7 @@ function browserLanguage(): string {
 }
 
 /**
- * Report a problem by text, photo or voice (frontend spec 6.1).
+ * Report a problem by text, photo, voice or scanned document (frontend spec 6.1).
  *
  * The requestId is created when the form opens and reused on retry, so a double submit
  * or a flaky network never creates two requests: the backend is idempotent per id.
@@ -51,7 +65,7 @@ export function ReportPage() {
   const [text, setText] = useState("")
   const [language, setLanguage] = useState(browserLanguage)
   const [media, setMedia] = useState<PreparedMedia | null>(null)
-  const [photoError, setPhotoError] = useState<string | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [requestId, setRequestId] = useState(() => crypto.randomUUID())
   const [result, setResult] = useState<IntakeResult | null>(null)
 
@@ -70,25 +84,41 @@ export function ReportPage() {
     if (!next) return
     setMode(next as Mode)
     setMedia(null)
-    setPhotoError(null)
+    setFileError(null)
   }
 
   const choosePhoto = async (file: File | undefined) => {
-    setPhotoError(null)
+    setFileError(null)
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      setPhotoError("Please choose a photo (JPEG, PNG or WebP).")
+      setFileError("Please choose a photo (JPEG, PNG or WebP).")
       return
     }
     try {
       const prepared = await preparePhoto(file)
       if (prepared.bytes.byteLength > MAX_MEDIA_BYTES) {
-        setPhotoError("That photo is too large even after resizing. Please try another.")
+        setFileError("That photo is too large even after resizing. Please try another.")
         return
       }
       setMedia(prepared)
     } catch {
-      setPhotoError("We couldn't read that photo. Please try another one.")
+      setFileError("We couldn't read that photo. Please try another one.")
+    }
+  }
+
+  const chooseDocument = async (file: File | undefined) => {
+    setFileError(null)
+    if (!file) return
+    try {
+      const prepared = await prepareDocument(file)
+      if (prepared.bytes.byteLength > MAX_MEDIA_BYTES) throw new Error("too-large")
+      setMedia(prepared)
+    } catch (error) {
+      setFileError(
+        error instanceof Error && error.message === "too-large"
+          ? `That file is larger than ${formatBytes(MAX_MEDIA_BYTES)}. Please scan fewer pages or a smaller size.`
+          : "Please choose a PDF, a TIFF, or a photo of the page (JPEG or PNG).",
+      )
     }
   }
 
@@ -106,7 +136,7 @@ export function ReportPage() {
   const send = () => {
     submit.mutate({
       requestId,
-      source: mode === "photo" ? RequestSource.PHOTO : mode === "voice" ? RequestSource.VOICE : RequestSource.TEXT,
+      source: SOURCES[mode],
       text: text.trim(),
       language,
       ...(media ? { media: media.bytes, mediaType: media.mediaType } : {}),
@@ -121,7 +151,7 @@ export function ReportPage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader
         title="Report a problem"
-        description="Tell us what's wrong. Describe it, add a photo or record a voice note in English, Spanish or French."
+        description="Tell us what's wrong. Describe it, add a photo, record a voice note or scan a letter or form, in English, Spanish or French."
       />
       <Card>
         <CardContent className="space-y-6">
@@ -130,7 +160,7 @@ export function ReportPage() {
             value={mode}
             onValueChange={changeMode}
             variant="outline"
-            className="w-full"
+            className="grid w-full grid-cols-2 sm:grid-cols-4"
             aria-label="How do you want to report it?"
           >
             <ToggleGroupItem value="text" className="flex-1">
@@ -141,6 +171,9 @@ export function ReportPage() {
             </ToggleGroupItem>
             <ToggleGroupItem value="voice" className="flex-1">
               <Mic aria-hidden /> Voice note
+            </ToggleGroupItem>
+            <ToggleGroupItem value="document" className="flex-1">
+              <ScanText aria-hidden /> Scan a document
             </ToggleGroupItem>
           </ToggleGroup>
 
@@ -167,9 +200,44 @@ export function ReportPage() {
                   onChange={(event) => void choosePhoto(event.target.files?.[0])}
                 />
               )}
-              {photoError && <p className="text-destructive text-sm">{photoError}</p>}
             </div>
           )}
+
+          {mode === "document" && (
+            <div className="space-y-2">
+              <Label htmlFor="document">Document</Label>
+              {media ? (
+                <div className="space-y-2">
+                  {media.fileName ? (
+                    <p className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                      <FileText aria-hidden className="size-4 shrink-0" />
+                      <span className="truncate">{media.fileName}</span>
+                    </p>
+                  ) : (
+                    <img src={media.previewUrl} alt="Your scan" className="max-h-72 rounded-lg border object-contain" />
+                  )}
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground text-sm">{formatBytes(media.bytes.byteLength)}</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setMedia(null)}>
+                      <Trash2 aria-hidden /> Choose another
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Input
+                  id="document"
+                  type="file"
+                  accept={[...DOCUMENT_TYPES, ".pdf", ".tif", ".tiff"].join(",")}
+                  onChange={(event) => void chooseDocument(event.target.files?.[0])}
+                />
+              )}
+              <p className="text-muted-foreground text-xs">
+                A letter, form or notice: PDF, TIFF or a photo of the page. We read the first {MAX_DOCUMENT_PAGES} pages.
+              </p>
+            </div>
+          )}
+
+          {fileError && <p className="text-destructive text-sm">{fileError}</p>}
 
           {mode === "voice" && (
             <div className="space-y-2">

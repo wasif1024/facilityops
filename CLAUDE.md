@@ -9,7 +9,9 @@ Phase 1 complete (2026-10-17; results in docs/specification.md §10). Done: Conn
 PII redaction adapter, Foundry classifier, Postgres/Alembic, golden set + eval runner + CI gate,
 user management + DB-backed RBAC (Entra authenticates, DB authorizes), security audit log,
 agent-run monitoring middleware, stored eval runs, admin report API. See docs/ for spec and architecture.
-photo/voice intake (Vision caption+OCR, Speech), review queue, work-order lifecycle, audited PII reveal,
+photo/voice/document intake (Vision caption+OCR, Speech, Document Intelligence prebuilt-read), upload checks by
+file bytes (backend/app/domain/media.py), image Content Safety, Prompt Shields with attachment text as documents,
+review queue, work-order lifecycle, audited PII reveal,
 OpenTelemetry to App Insights (no content). Next: Phase 2 (Magentic incident team).
 Identity: residents = Entra External ID (provider `entra_external`, default role tenant), staff = workforce
 Entra ID (no default role); backend/app/api/token_validation.py; setup in docs/identity-setup.md and
@@ -17,16 +19,18 @@ scripts/setup_entra_external.sh. Frontend talks gRPC-Web (createGrpcWebTransport
 Frontend: `frontend/` (React 19 + TS + Vite + Tailwind 4 + shadcn/ui, Node 24 via .nvmrc), spec in
 docs/frontend-specification.md. UI shows actions by permission from GetMe; revealed PII only in component
 state; after a .proto change run `npm run generate` in frontend/ too.
-Run the server with `uvicorn backend.app.main:create_app --factory` (no module-level app), or the whole
+Run locally with `scripts/dev.sh` (both; `backend` / `frontend` alone; `--entra`); it wraps
+`uvicorn backend.app.main:create_app --factory` (no module-level app). Or the whole
 stack with `docker compose up --build -d` (Dockerfile = runtime deps only; Postgres on host port 5433;
 optional Azure settings in gitignored `.env.docker`).
 Before writing agent code, check the current Microsoft Agent Framework and Foundry SDK APIs
 (they change quickly); don't rely on memory.
 
-Migrations: `scripts/db.sh up|down|status|new "msg"|check|reset|sql` (wraps Alembic; new files are named
+Migrations: `scripts/db.sh` (no args = create DB if needed + apply all), `up|down|status|new "msg"|check|reset|sql`
+(wraps Alembic; user-facing docs show only db.sh commands; new files are named
 `NNNN_slug.py`). Commands (run from repo root): `python -m pytest -q backend/tests/unit`,
 `python -m pytest -q backend/tests/integration` (needs local PostgreSQL),
-`python -m evals.run_eval [--mode live] [--store]`, `python -m backend.app.cli grant-role ...`.
+`python -m evals.run_eval [--mode live] [--store]`, `python -m evals.run_media_eval` (live), `python -m backend.app.cli grant-role ...`.
 API changes: edit `proto/facilityops/v1/*.proto`, run `buf lint && buf generate` (venv active), implement in
 `backend/app/api/rpc/`, and add the RPC to `backend/app/api/policy.py` (permissions, never role names; RPCs
 without a policy are denied). Never edit `backend/app/gen/`. No REST endpoints except `/health/live`.
@@ -38,7 +42,7 @@ Roles/permissions change only through a new Alembic migration; keep `SYSTEM_ROLE
 - Auth: Entra ID via `DefaultAzureCredential` (the user is signed in with `az login`). No API keys.
 
 ## Architecture
-**Workflow (deterministic intake pipeline)**, run for every request (text, photo, voice):
+**Workflow (deterministic intake pipeline)**, run for every request (text, photo, voice, scanned document):
 1. Content Safety + Prompt Shields
 2. PII detection/redaction (Azure AI Language)
 3. Classify category (HVAC, plumbing, electrical, security...) and priority
@@ -54,6 +58,19 @@ Roles/permissions change only through a new Alembic migration; keep `SYSTEM_ROLE
 - Scheduler: technician availability and skills
 - Communicator: multilingual tenant notices
 Cap the rounds and tokens per run. Use smaller models for specialists to control cost.
+- **Harness:** specialists are `create_harness_agent` agents with the FacilityOps profile (spec §5.3): tool loop
+  limit, compaction, run-scoped history, skills, middleware on; todo/modes, file memory, web search, tool
+  auto-approval off; never shell, file access or background agents.
+- **Knowledge vs tools vs skills:** documents in a Foundry IQ knowledge base on AI Search, reached only through
+  read-only tools (Prompt Shields on retrieved text, citations); data through read-only function tools; procedures
+  as harness skills.
+- **Events/topics:** the team never runs inside an RPC. Transactional outbox → topic → incident worker; ids only in
+  events; idempotent consumers; dead letters to human review. PostgreSQL bus locally, Service Bus topic in Azure
+  (spec §6.2). Agent Framework has no topics; they sit between runs.
+- **Eval harness:** `evals/incidents/` scenarios with fake tools and fault injection; scripted mode gates every PR,
+  live mode measures groundedness and tool-call accuracy (spec §10.1).
+- Knowledge uses the existing serverless AI Search service (endpoint in `.env` as `AZURE_SEARCH_ENDPOINT`), Entra
+  auth. New Azure resources (Service Bus for Phase 3) need the owner's approval first.
 
 ## Cross-cutting requirements
 - **Enterprise:** managed identity, RBAC roles (tenant / technician / facility manager),

@@ -2,8 +2,8 @@
 
 Every command needed to set up, run, test and evaluate FacilityOps AI locally.
 
-> **Run every command from the project root**: the folder that contains `alembic.ini`, `requirements.txt`
-> and `README.md`. Alembic, the app settings (`.env`) and the Python imports (`backend.app...`) all expect it.
+> **Run every command from the project root**: the folder that contains `requirements.txt` and `README.md`. The
+> app settings (`.env`) and the Python imports (`backend.app...`) expect it. (`scripts/db.sh` works from anywhere.)
 
 Contents: [First-time setup](#1-first-time-setup) · [Daily start](#2-daily-start) ·
 [Database and migrations](#3-database-and-migrations) · [Run the backend](#4-run-the-backend) ·
@@ -45,7 +45,7 @@ curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
 | `docker compose down -v` | Stop and delete the database |
 
 What runs (`compose.yaml`): `postgres` (PostgreSQL 18, on host port **5433** so it doesn't clash with a local
-PostgreSQL on 5432), `migrate` (runs `alembic upgrade head` once, then exits; the API waits for it to succeed) and
+PostgreSQL on 5432), `migrate` (applies the migrations once, then exits; the API waits for it to succeed) and
 `api` (the [`Dockerfile`](../Dockerfile) image, non-root, with a health check). Ports bind to `127.0.0.1` only.
 Override them with `API_PORT`, `POSTGRES_PORT` or `PGADMIN_PORT`, for example `API_PORT=8080 docker compose up -d`.
 
@@ -57,7 +57,8 @@ work orders, admin reports and offline evals. Non-emergency requests go to human
 
 ### 1.2 Native setup
 
-Prerequisites: Python 3.13+, PostgreSQL 16+ (Homebrew or Postgres.app), Azure CLI.
+Prerequisites: Python 3.13+, PostgreSQL 16+ (Homebrew or Postgres.app), Azure CLI. Install commands for macOS,
+Windows and Linux: [README, What to install first](../README.md#what-to-install-first).
 
 ```bash
 # 1. Python environment and dependencies
@@ -80,6 +81,7 @@ Set at least these in `.env`:
 | `CONTENT_SAFETY_ENDPOINT` | your Azure AI Content Safety endpoint | Content Safety, Prompt Shields |
 | `VISION_ENDPOINT` | your Azure AI Vision endpoint | Photo intake (caption + OCR) |
 | `SPEECH_ENDPOINT` | your Azure AI Speech endpoint | Voice intake (transcription) |
+| `DOCUMENT_INTELLIGENCE_ENDPOINT` | your Azure AI Document Intelligence endpoint (an AI Services resource works) | Scanned-document intake (read model) |
 | `PII_MAPPING_ENCRYPTION_KEY` | see below | Storing and revealing the PII mapping |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | from your Application Insights resource | OpenTelemetry export (optional) |
 
@@ -110,24 +112,39 @@ purpose (fail closed).
 
 ## 2. Daily start
 
+`scripts/dev.sh` starts the project. It applies any new migrations first, installs frontend packages on the first run,
+creates `frontend/.env.local` if it's missing, and stops with a clear message if a port is already in use.
+
 ```bash
-cd /path/to/facilityops-ai
-source .venv/bin/activate
 brew services start postgresql@18      # if PostgreSQL is not already running
-scripts/db.sh up                       # picks up any new migrations after a git pull
-uvicorn backend.app.main:create_app --factory --reload
+
+scripts/dev.sh                         # backend + frontend in one terminal (Ctrl+C stops both)
+scripts/dev.sh backend                 # backend only:  http://localhost:8000
+scripts/dev.sh frontend                # frontend only: http://localhost:5173 (start the backend first)
+
+scripts/dev.sh --entra                 # both, with Microsoft Entra sign-in (docs/identity-setup.md)
+scripts/dev.sh backend --entra         # either side alone, with Entra sign-in
+API_PORT=8001 WEB_PORT=5174 scripts/dev.sh   # other ports
+scripts/dev.sh help                    # summary
 ```
+
+In the combined mode every line is labelled `[api]` or `[web]`; if either side stops, the other is stopped too.
+Run the two sides in separate terminals when you want their logs apart. The script works from any folder and
+needs no activated virtual environment.
 
 ## 3. Database and migrations
 
-The schema lives in `backend/app/db/models.py` and is versioned by Alembic in `backend/migrations/versions/`.
-Alembic reads `DATABASE_URL` from the environment first, then from `.env`.
+The schema lives in `backend/app/db/models.py` and is versioned in `backend/migrations/versions/`. Every database
+task goes through `scripts/db.sh`, which reads `DATABASE_URL` from the environment first, then from `.env`.
 
 ### 3.1 Migration script: `scripts/db.sh`
 
-Wraps Alembic with safe defaults and works from any folder. Run `scripts/db.sh help` for the built-in summary.
+Safe defaults, works from any folder. Run `scripts/db.sh help` for the built-in summary.
 
 ```bash
+# Setup or update (the usual command): create the database if needed, then apply all migrations
+scripts/db.sh
+
 # Setup
 scripts/db.sh create                          # create the database in DATABASE_URL if it does not exist
 
@@ -165,16 +182,13 @@ Safety: `down` and `reset` ask you to type the database name, refuse to run when
 **New machine or fresh clone**
 
 ```bash
-scripts/db.sh create
-scripts/db.sh up
-scripts/db.sh status                          # expect "up to date"
+scripts/db.sh                                 # creates the database, applies everything, ends with "up to date"
 ```
 
 **After `git pull`** (someone added migrations)
 
 ```bash
-scripts/db.sh status                          # "migrations pending"?
-scripts/db.sh up
+scripts/db.sh                                 # applies only what is new
 ```
 
 **Changing the schema**
@@ -205,21 +219,6 @@ scripts/db.sh reset                           # all data in the local database i
 python -m backend.app.cli grant-role --provider development --external-id local-developer --role admin
 ```
 
-### 3.3 Alembic directly
-
-`scripts/db.sh` calls these; use them when you need an option the script does not expose.
-
-| Task | Command |
-|---|---|
-| Apply all pending migrations | `alembic upgrade head` |
-| Show the database's current migration | `alembic current` |
-| List all migrations | `alembic history` |
-| Check the models and migrations agree | `alembic check` |
-| Undo the latest migration | `alembic downgrade -1` |
-| Undo everything (empties the schema) | `alembic downgrade base` |
-| New migration from model changes | `alembic revision --autogenerate --rev-id 0004_add_vendor_table -m "add vendor table"` |
-| Target another database once | `DATABASE_URL=postgresql+psycopg://<user>@localhost:5432/<db> alembic upgrade head` |
-
 Roles and permissions are seed data. Change them only in a new migration, and keep
 `SYSTEM_ROLE_PERMISSIONS` in `backend/app/domain/rbac.py` in sync (an integration test checks this).
 
@@ -236,9 +235,12 @@ psql -h localhost -d facilityops       # open a SQL shell
 ## 4. Run the backend
 
 ```bash
-uvicorn backend.app.main:create_app --factory --reload             # http://localhost:8000
-uvicorn backend.app.main:create_app --factory --reload --port 8001  # another port
+scripts/dev.sh backend                 # migrations, then http://localhost:8000 with auto-reload
+API_PORT=8001 scripts/dev.sh backend   # another port
 ```
+
+Under the hood this runs `uvicorn backend.app.main:create_app --factory --reload`; the app is built by a factory,
+so there is no module-level `app` to point uvicorn at.
 
 The API is **Connect RPC**: every call is a `POST` to `/<package>.<Service>/<Method>`, for example
 `/facilityops.v1.IntakeService/SubmitIntake`. The same endpoint accepts the Connect protocol (JSON or binary
@@ -268,6 +270,10 @@ curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
 curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
   -H 'content-type: application/json' -H 'X-Dev-User: alice' \
   -d "{\"source\": \"REQUEST_SOURCE_VOICE\", \"mediaType\": \"audio/wav\", \"language\": \"es\", \"media\": \"$(base64 -i note.wav)\"}"
+# A scanned document: PDF or TIFF (first 5 pages are read), or a photo of a page as JPEG/PNG
+curl -s localhost:8000/facilityops.v1.IntakeService/SubmitIntake \
+  -H 'content-type: application/json' -H 'X-Dev-User: alice' \
+  -d "{\"source\": \"REQUEST_SOURCE_DOCUMENT\", \"mediaType\": \"application/pdf\", \"media\": \"$(base64 -i notice.pdf)\"}"
 
 # My requests and their work-order status
 curl -s localhost:8000/facilityops.v1.IntakeService/ListMyRequests \
@@ -309,12 +315,12 @@ The web app lives in [`frontend/`](../frontend) (React, TypeScript, Vite, Tailwi
 **Node 24**. With the backend running on port 8000:
 
 ```bash
-cd frontend
-nvm install 24 && nvm use        # once; .nvmrc pins Node 24
-npm install
-cp .env.example .env.local       # defaults work locally
-npm run dev                      # http://localhost:5173
+nvm install 24                   # once; frontend/.nvmrc pins Node 24
+scripts/dev.sh frontend          # http://localhost:5173
 ```
+
+The script selects Node 24, runs `npm install` on the first run, creates `frontend/.env.local` from
+`.env.example` if it's missing (the defaults work locally) and starts the Vite dev server.
 
 Pick who you are with the identity switcher in the header. Useful local identities (grant once):
 
@@ -421,6 +427,10 @@ python -m evals.run_eval --mode live --samples 5 --concurrency 8 --store \
 
 # Write the full JSON report to a file (gitignored folder)
 python -m evals.run_eval --mode live --report evals/reports/live.json
+
+# Photo and scanned-document intake: synthetic files drawn in code, sent through the real services
+# (Vision, Document Intelligence, Content Safety image + Prompt Shields, Language, classifier). ~1 min.
+python -m evals.run_media_eval --report evals/reports/media.json
 ```
 
 With `--samples N` the first sample feeds the usual metrics (so runs stay comparable), and four more are added:
@@ -436,11 +446,10 @@ threshold), which is what fails CI. An admin can also start a run with the
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `No 'script_location' key found in configuration` | Alembic run outside the project root | `cd` to the folder with `alembic.ini` |
 | `ModuleNotFoundError: No module named 'backend'` | Run outside the project root, or with `pytest` instead of `python -m pytest` | Run from the root with `python -m ...` |
 | `connection refused` on port 5432 | PostgreSQL not running | `brew services start postgresql@18` |
-| `database "facilityops" does not exist` | Database not created yet | `createdb facilityops` then `alembic upgrade head` |
-| `unavailable: User directory is unavailable` | Migrations not applied, so the users tables are missing | `alembic upgrade head` |
+| `database "facilityops" does not exist` | Database not created yet | `scripts/db.sh` |
+| `unavailable: User directory is unavailable` | Migrations not applied, so the users tables are missing | `scripts/db.sh` |
 | `permission_denied` on `SubmitIntake` | You are `local-developer` (an admin); admins cannot submit requests | Add `-H 'X-Dev-User: alice'` |
 | `permission_denied` on an admin RPC | Your identity lacks the permission | `python -m backend.app.cli grant-role ... --role admin` |
 | `404` on an RPC | Wrong path; it is case-sensitive and includes the package | `buf curl --schema proto --list-methods` |
