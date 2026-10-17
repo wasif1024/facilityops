@@ -196,7 +196,7 @@ flowchart TB
 | Control flow | Fixed, in `IntakeCoordinator` | Chosen by the manager agent at run time |
 | Agents | 1 classifier, no tools | Manager + 6 specialists with read-only tools |
 | Side effects | Work order / review case via repository | None. The application executes the approved plan |
-| Typical cost | 1 model call | Bounded: ≤ 10 rounds, ≤ 60k tokens, ≤ 120 s |
+| Typical cost | 1 model call | Bounded by `TeamBudgets` ([spec §6.1](specification.md#61-budgets)): ≤ 10 rounds, ≤ 250k tokens, ≤ 240 s |
 | Failure mode | Human-review queue | Partial plan to human review |
 
 ## 4. Tier 1: intake workflow
@@ -711,7 +711,7 @@ flowchart LR
     g2 --> er[("evaluation_runs")]
 ```
 
-Scripted mode tests the machinery (budgets, events, gates, checkpoint resume) deterministically; live mode tests
+Scripted mode tests the machinery (budgets, events, gates, revisions) deterministically; live mode tests
 model quality.
 
 **OpenTelemetry** complements these tables: tables answer aggregate questions for the admin console, while traces
