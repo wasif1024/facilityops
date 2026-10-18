@@ -1,0 +1,48 @@
+# Environment configuration and secrets
+.env
+.env.*
+# azd environments: generated secrets and your resource names (infra/hooks/preprovision.sh)
+.azure/
+!.env.example
+!.env.docker.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# React / Node
+node_modules/
+.vite/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Local database and pgAdmin state
+postgres-data/
+pgdata/
+pgadmin-data/
+
+# Local tooling and OS files
+.DS_Store
+.idea/
+*.log
+# Evaluation output
+evals/reports/
