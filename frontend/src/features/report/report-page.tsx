@@ -313,9 +313,9 @@ export function ReportPage() {
           )}
 
           <Button
-            className="w-full"
+            // Solid red, not the soft destructive tint: this is the one button that must not look optional.
+            className={danger ? "w-full bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700" : "w-full"}
             size="lg"
-            variant={danger ? "destructive" : "default"}
             disabled={!canSubmit}
             onClick={send}
           >
