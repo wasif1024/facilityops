@@ -87,6 +87,33 @@ flowchart LR
 Details of the incident team (escalation, the event-driven worker, the seven agents, their read-only tools and
 knowledge base, plans and the approval gate): [architecture and agent orchestration](docs/architecture.md).
 
+### Where the agents run: Microsoft Agent Framework and Foundry
+
+Two Microsoft products are involved, and they do different jobs:
+
+- **[Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/overview/)** is the open-source framework
+  the agents are written with: the agents themselves, their tools and middleware, and the Magentic orchestration in
+  which the Incident Manager plans and hands work to the specialists ([`agents/team.py`](backend/app/agents/team.py)).
+- **[Microsoft Foundry](https://learn.microsoft.com/azure/foundry/what-is-foundry)** hosts the models the agents
+  call (gpt-5.2 for the manager, gpt-5.4-mini for the specialists), the Foundry IQ knowledge base and the evaluators.
+
+[Foundry Agent Service](https://learn.microsoft.com/azure/foundry/agents/overview) offers several ways to run agents:
+prompt agents defined in the portal, hosted agents (your own code, including Agent Framework code, run by Foundry as
+a container), or your own process calling the Responses API on the Foundry project endpoint, which Microsoft calls
+an ephemeral agent. This project uses the last one: the agents run in the incident worker and call Foundry for every
+model request, signed in with Entra ID. That choice keeps four things in the application:
+
+| Kept in the application | Why it matters here |
+|---|---|
+| Every model call passes our middleware | Token, tool and time budgets are enforced in code, and each call is written to the decision trail |
+| Tools read our database directly | Each facility tool runs in a `READ ONLY` PostgreSQL transaction, with no extra API to expose |
+| No conversation stored by the service | Agents run with `store: false`, and they only ever see redacted text |
+| One place to run and test | The same worker code runs locally, in the scripted test harness, and in Container Apps once deployed |
+
+The trade-off: there's no agent to manage in the Foundry portal, and scaling the worker is ours to do. Because the
+team is plain Agent Framework code, it could later be packaged as a Foundry hosted agent without rewriting the
+orchestration; the database tools would then need a network path from Foundry's sandbox to PostgreSQL.
+
 ## Tech stack
 
 | Layer | Technology |
@@ -210,6 +237,15 @@ Azure resources, so they are left to whoever deploys the project:
   and the previous plan.
 
 Known limitations are listed in the [transparency note](RESPONSIBLE_AI.md#known-limitations).
+
+## How this was built
+
+FacilityOps AI was designed and built in October 2026 by [wasif1024](https://github.com/wasif1024), with an AI coding
+assistant (Claude Code) as a pair programmer. The author set the goals and requirements, made the design and
+trade-off decisions, and reviewed the work; the assistant wrote most of the code, tests and documentation under
+that direction. The results in this README come from tests and measured runs, and the limits are stated as
+plainly as the results ([transparency note](RESPONSIBLE_AI.md)). Building a system like this with an AI assistant,
+while keeping it tested, honest about its gaps and safe by design, is part of what the project demonstrates.
 
 ## Contributing
 
