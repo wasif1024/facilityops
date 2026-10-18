@@ -18,7 +18,10 @@ This skill is for the Phase 2 complex-incident team. Do not add multi-agent orch
 5. Require grounded findings with source references. Mark missing or conflicting evidence clearly; do not invent equipment facts, contract terms, regulations, availability, or costs.
 6. Make safety/compliance findings and cost estimates inputs to a human approval decision, not permission to act. No specialist may independently place orders, dispatch technicians, or send consequential notices without the configured authorization.
 7. Keep cross-agent messages structured and minimal. Pass redacted request context; do not circulate protected PII mappings. Reveal operational details only at the authorized work-order boundary.
-8. Add synthetic scenario tests for successful coordination, disagreement, unavailable tools, budget exhaustion, unsafe recommendations, prompt injection in retrieved content, and human rejection.
+8. Build specialists with `create_harness_agent` and the FacilityOps harness profile (docs/specification.md §5.3): tool loop limit, compaction, run-scoped history, skills and monitoring middleware on; todo/plan modes, file memory, web search and tool auto-approval off; never background agents, file access or shell. After an Agent Framework upgrade, check whether the harness gained new default-on features and switch off any that break least privilege.
+9. Reach knowledge (manuals, procedures, contracts) only through read-only tools that screen retrieved passages with Prompt Shields and return citations.
+10. Never run the team inside an RPC. Commit the state change and its event in one transaction (outbox), let the incident worker consume it, keep consumers idempotent by event id, and carry ids only in events (docs/specification.md §6.2).
+11. Add synthetic scenario tests for successful coordination, disagreement, unavailable tools, budget exhaustion, unsafe recommendations, prompt injection in retrieved content, and human rejection.
 
 ## Verification
 
@@ -26,3 +29,4 @@ This skill is for the Phase 2 complex-incident team. Do not add multi-agent orch
 - Round, token, tool, and time limits terminate predictably.
 - Specialist outputs are grounded, bounded by least privilege, and cannot perform unapproved side effects.
 - Failure and approval paths are exercised using synthetic data.
+- The scenario harness (`evals/incidents/`) passes in scripted mode; a redelivered event changes nothing.
