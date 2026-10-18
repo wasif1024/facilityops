@@ -1,0 +1,22 @@
+# Files never sent to the Docker build: secrets, local state and things the image doesn't need.
+.env
+.env.*
+.git
+.github
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.DS_Store
+.idea
+.vscode
+.agents
+evals/reports
+backend/tests
+docs
+proto
+**/node_modules
+frontend
+infra
+*.log
