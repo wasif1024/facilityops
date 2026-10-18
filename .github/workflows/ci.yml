@@ -1,0 +1,191 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      live_eval:
+        description: "Run the live classifier eval against Foundry"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-contract:
+    name: Protobuf API contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # breaking-change check compares with main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install buf-bin protoc-gen-py protoc-gen-connectrpc
+      - name: Lint
+        run: buf lint
+      - name: Generated code is up to date
+        run: buf generate && git diff --exit-code -- backend/app/gen
+      - name: No breaking changes against main
+        if: github.event_name == 'pull_request'
+        run: |
+          if git cat-file -e origin/main:proto 2>/dev/null; then
+            buf breaking --against ".git#branch=origin/main"
+          else
+            echo "main has no protobuf contracts yet; skipping"
+          fi
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Generated client is up to date
+        run: npm run generate && git diff --exit-code -- src/gen
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image used by compose.yaml
+        run: docker build --tag facilityops-api:ci .
+      - name: Compose file is valid
+        run: docker compose config --quiet
+      - name: Build the web image deployed to Azure
+        run: docker build --tag facilityops-web:ci --build-arg VITE_API_BASE_URL=https://api.example.invalid frontend
+
+  infra:
+    name: Infrastructure templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Compiles and lints infra/ (bicepconfig.json fails on secrets in outputs or parameters and
+      # warns on outdated API versions). Nothing is deployed: there are no Azure credentials here.
+      - name: Bicep build and lint
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          az bicep lint --file infra/main.bicep
+      - name: Hook scripts are valid shell
+        run: for f in infra/hooks/*.sh; do sh -n "$f"; done
+
+  test:
+    name: Tests and emergency-recall gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Unit tests
+        run: python -m pytest -q backend/tests/unit
+      - name: Emergency-recall gate (offline, hard fail)
+        run: python -m evals.run_eval --mode offline --report evals/reports/offline.json
+      - name: Emergency screen coverage by language and type (report)
+        run: python -m evals.run_emergency_eval | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-offline
+          path: evals/reports/offline.json
+          if-no-files-found: ignore
+
+  migrations:
+    name: Migrations and integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: facilityops
+          POSTGRES_USER: facilityops
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U facilityops -d facilityops"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://facilityops:ci-only@localhost:5432/facilityops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Apply migrations to an empty database
+        run: alembic upgrade head
+      - name: Models and migrations agree
+        run: alembic check
+      - name: Downgrade and upgrade round trip
+        run: alembic downgrade base && alembic upgrade head
+      - name: Integration tests (users, RBAC, reports, events, incident scenarios)
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://facilityops:ci-only@localhost:5432/facilityops_test
+        run: python -m pytest -q backend/tests/integration
+
+  live-eval:
+    # Needs an Entra app with a federated credential for this repo and the
+    # "Azure AI User" role on the Foundry project. See README > Evaluation.
+    name: Live classifier eval
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.live_eval
+    runs-on: ubuntu-latest
+    environment: foundry-eval
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FOUNDRY_ENDPOINT: ${{ secrets.FOUNDRY_ENDPOINT }}
+      FOUNDRY_MODEL: ${{ vars.FOUNDRY_MODEL || 'gpt-5.2' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Live eval
+        run: >
+          python -m evals.run_eval --mode live
+          --samples 5 --concurrency 8
+          --min-category-accuracy 0.85
+          --min-route-fairness 1.0
+          --report evals/reports/live.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-live
+          path: evals/reports/live.json
+          if-no-files-found: ignore
